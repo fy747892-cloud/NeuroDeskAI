@@ -18,10 +18,11 @@ Bu repo su an urun ve teknik tasarim dokumanlarini icerir. Uygulama kodu henuz u
 10. [Cilt 10 - DevOps & Deployment](./CILT_10_DEVOPS_DEPLOYMENT_NeuroDesk_AI.md)
 11. [Cilt 11 - Sprint Plani ve Agile Delivery](./CILT_11_SPRINT_PLANI_AGILE_DELIVERY_NeuroDesk_AI.md)
 12. [Cilt 12 - Test ve Quality Assurance](./CILT_12_TEST_QA_DOCUMENTATION_NeuroDesk_AI.md)
+13. [Cilt 13 - Deployment ve Production Release](./CILT_13_DEPLOYMENT_PRODUCTION_RELEASE_NeuroDesk_AI.md)
 
 ## Okuma Sirasi
 
-Urunu anlamak icin once Cilt 1, teknik mimariyi anlamak icin Cilt 2, veri modelini anlamak icin Cilt 3, backend uygulama planini anlamak icin Cilt 4, AI katmanini anlamak icin Cilt 5, web frontend'i anlamak icin Cilt 6, mobil (Flutter) mimarisini anlamak icin Cilt 7, altyapi/operasyonu anlamak icin Cilt 8, guvenlik/gizlilik/uyumluluk mimarisini anlamak icin Cilt 9, DevOps/deployment uygulama sureclerini anlamak icin Cilt 10, sprint bazli uygulama yol haritasini anlamak icin Cilt 11, test ve kalite guvence stratejisini anlamak icin Cilt 12 okunmalidir.
+Urunu anlamak icin once Cilt 1, teknik mimariyi anlamak icin Cilt 2, veri modelini anlamak icin Cilt 3, backend uygulama planini anlamak icin Cilt 4, AI katmanini anlamak icin Cilt 5, web frontend'i anlamak icin Cilt 6, mobil (Flutter) mimarisini anlamak icin Cilt 7, altyapi/operasyonu anlamak icin Cilt 8, guvenlik/gizlilik/uyumluluk mimarisini anlamak icin Cilt 9, DevOps/deployment uygulama sureclerini anlamak icin Cilt 10, sprint bazli uygulama yol haritasini anlamak icin Cilt 11, test ve kalite guvence stratejisini anlamak icin Cilt 12, production release ve canliya alma surecini anlamak icin Cilt 13 okunmalidir.
 
 ## Durum
 
@@ -37,8 +38,9 @@ Urunu anlamak icin once Cilt 1, teknik mimariyi anlamak icin Cilt 2, veri modeli
 - DevOps/Deployment operasyon dokumani hazir.
 - Sprint Plani ve Agile Delivery dokumani hazir.
 - Test ve Quality Assurance dokumani hazir.
+- Deployment ve Production Release dokumani hazir.
 - Uygulama implementasyonu sonraki fazdir.
 
 ## Not
 
-Orijinal 15 cilt planinda sira Cilt 6 = Mobile, Cilt 7 = Web idi. Sira degistirilip Web Application (Next.js) Cilt 6, Mobile (Flutter) Cilt 7, DevOps (orijinal Cilt 10) Cilt 8 olarak islendi. Orijinal plandaki Cilt 8 (100 ekranlik UI/UX katalogu) buyuk olcude Cilt 6 Sayfa Katalogu ve Cilt 7 Modul Katalogu tarafindan karsilandi. Orijinal Cilt 9 Security & Compliance kapsami Cilt 9 olarak tamamlandi. Cilt 10, Cilt 8'deki altyapi mimarisini deployment el kitabi ve operasyon surecleri seviyesinde derinlestirir. Orijinal Cilt 11 Sprint Plani kapsami Cilt 11 olarak tamamlandi. Cilt 12 Test ve Quality Assurance kapsamini tamamlar. Orijinal Cilt 13 (Deployment), Cilt 8 ve Cilt 10 tarafindan buyuk olcude karsilanmis olsa da, Cilt 12 sonrasi ilk canliya alma odakli ayri bir Production Release dokumani olarak ele alinabilir.
+Orijinal 15 cilt planinda sira Cilt 6 = Mobile, Cilt 7 = Web idi. Sira degistirilip Web Application (Next.js) Cilt 6, Mobile (Flutter) Cilt 7, DevOps (orijinal Cilt 10) Cilt 8 olarak islendi. Orijinal plandaki Cilt 8 (100 ekranlik UI/UX katalogu) buyuk olcude Cilt 6 Sayfa Katalogu ve Cilt 7 Modul Katalogu tarafindan karsilandi. Orijinal Cilt 9 Security & Compliance kapsami Cilt 9 olarak tamamlandi. Cilt 10, Cilt 8'deki altyapi mimarisini deployment el kitabi ve operasyon surecleri seviyesinde derinlestirir. Orijinal Cilt 11 Sprint Plani kapsami Cilt 11 olarak tamamlandi. Cilt 12 Test ve Quality Assurance kapsamini tamamlar. Cilt 13 ilk canliya alma, production readiness, rollback ve release operasyonlarini tamamlar. Sonraki net dokuman konusu Enterprise, Integrations & Platform dokumani olarak Cilt 14'tur.
