@@ -1,0 +1,34 @@
+[core]
+	repositoryformatversion = 0
+	filemode = false
+	bare = false
+	logallrefupdates = true
+	symlinks = false
+	ignorecase = true
+[remote "origin"]
+	url = https://github.com/bahatrk/NeuroDeskAI-Backend
+	fetch = +refs/heads/*:refs/remotes/origin/*
+[branch "main"]
+	remote = origin
+	merge = refs/heads/main
+	vscode-merge-base = origin/main
+[branch "sprint-02-org-rbac-audit"]
+	vscode-merge-base = origin/main
+	remote = origin
+	merge = refs/heads/sprint-02-org-rbac-audit
+[branch "sprint-03-conversation-call"]
+	vscode-merge-base = origin/sprint-02-org-rbac-audit
+	remote = origin
+	merge = refs/heads/sprint-03-conversation-call
+[branch "sprint-04-ai-analysis-mvp"]
+	vscode-merge-base = origin/sprint-03-conversation-call
+	remote = origin
+	merge = refs/heads/sprint-04-ai-analysis-mvp
+[branch "sprint-05-ai-action-approval"]
+	vscode-merge-base = origin/sprint-04-ai-analysis-mvp
+	remote = origin
+	merge = refs/heads/sprint-05-ai-action-approval
+[branch "sprint-06-task-module"]
+	vscode-merge-base = origin/sprint-05-ai-action-approval
+	remote = origin
+	merge = refs/heads/sprint-06-task-module
