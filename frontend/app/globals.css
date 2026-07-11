@@ -509,6 +509,10 @@ h3 {
   color: var(--green);
 }
 
+.statusPill.danger {
+  color: var(--coral);
+}
+
 .rowActions {
   align-items: end;
   display: grid;
