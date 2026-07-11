@@ -25,6 +25,13 @@ class Settings(BaseSettings):
     minio_secret_key: str = ""
     minio_bucket_name: str = "neurodesk-files"
 
+    llm_provider: str = "mock"
+    llm_api_key: str = ""
+    llm_base_url: str = "https://api.openai.com/v1"
+    llm_analysis_model: str = "gpt-4o-mini"
+    llm_chat_model: str = "gpt-4o-mini"
+    llm_timeout_seconds: float = 30.0
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
