@@ -125,6 +125,14 @@ nav a:hover {
   margin-bottom: 24px;
 }
 
+.topbarActions {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .eyebrow {
   color: var(--muted);
   font-size: 13px;
@@ -318,36 +326,33 @@ h3 {
   white-space: nowrap;
 }
 
-.accessPanel {
-  grid-column: 2;
-  min-height: 0;
-}
-
-.authSurface {
+.authPage {
+  align-items: center;
   display: grid;
-  gap: 16px;
+  min-height: 100vh;
+  padding: 28px;
 }
 
-.segmented {
-  background: var(--surface-strong);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  padding: 3px;
-}
-
-.segmented button {
-  background: transparent;
-  border: 0;
-  min-height: 30px;
-  padding: 0 10px;
-}
-
-.segmented button.selected {
+.authCard {
   background: var(--surface);
   border: 1px solid var(--line);
-  box-shadow: 0 4px 12px rgba(24, 38, 29, 0.08);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  margin: 0 auto;
+  max-width: 440px;
+  padding: 28px;
+  width: 100%;
+}
+
+.authCard h1 {
+  font-size: 30px;
+  margin-bottom: 10px;
+}
+
+.authLead {
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 22px;
 }
 
 .authForm {
@@ -374,10 +379,22 @@ h3 {
 }
 
 .authForm > button,
-.sessionBox button {
+.userMenu button {
   background: var(--green);
   border-color: var(--green);
   color: white;
+  font-weight: 700;
+}
+
+.authSwitch {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.authSwitch a {
+  color: var(--green);
   font-weight: 700;
 }
 
@@ -388,21 +405,30 @@ h3 {
   margin: 0;
 }
 
-.sessionBox {
+.userMenu {
+  align-items: center;
   background: #fbfcfa;
   border: 1px solid var(--line);
-  border-radius: 8px;
-  display: grid;
+  border-radius: 6px;
+  display: flex;
   gap: 8px;
-  padding: 14px;
+  min-height: 42px;
+  padding: 6px;
 }
 
-.sessionBox span {
+.userMenu div {
+  display: grid;
+  min-width: 160px;
+  padding: 0 8px;
+}
+
+.userMenu span {
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
 }
 
-.sessionBox strong {
+.userMenu strong {
+  font-size: 13px;
   overflow-wrap: anywhere;
 }
 
@@ -429,9 +455,6 @@ h3 {
     grid-column: 1 / -1;
   }
 
-  .accessPanel {
-    grid-column: auto;
-  }
 }
 
 @media (max-width: 640px) {
@@ -443,6 +466,17 @@ h3 {
   .topbar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .topbarActions,
+  .userMenu {
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .status,
+  .userMenu {
+    justify-content: space-between;
   }
 
   h1 {

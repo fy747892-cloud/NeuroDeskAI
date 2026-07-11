@@ -11,6 +11,77 @@ export type TokenResponse = {
   token_type: string;
 };
 
+export type UserProfile = {
+  full_name: string;
+  title: string | null;
+  avatar_url: string | null;
+};
+
+export type CurrentUser = {
+  id: string;
+  email: string;
+  tenant_id: string;
+  organization_id: string | null;
+  status: string;
+  is_email_verified: boolean;
+  created_at: string;
+  profile: UserProfile | null;
+};
+
+export type DashboardSummary = {
+  open_tasks_count: number;
+  overdue_tasks_count: number;
+  upcoming_appointments_count: number;
+  pending_ai_approvals_count: number;
+};
+
+export type DashboardTask = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  due_at: string | null;
+  created_at: string;
+};
+
+export type DashboardAppointment = {
+  id: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  start_at: string;
+  end_at: string;
+  status: string;
+  created_at: string;
+};
+
+export type DashboardConversation = {
+  id: string;
+  title: string;
+  status: string;
+  created_at: string;
+};
+
+export type DashboardApproval = {
+  id: string;
+  action_type: string;
+  source_type: string;
+  status: string;
+  confidence_score: number | null;
+  created_at: string;
+};
+
+export type DashboardData = {
+  summary: DashboardSummary;
+  open_tasks: DashboardTask[];
+  overdue_tasks: DashboardTask[];
+  upcoming_appointments: DashboardAppointment[];
+  recent_conversations: DashboardConversation[];
+  pending_ai_approvals: DashboardApproval[];
+  generated_at: string;
+};
+
 export type AuthPayload = {
   email: string;
   password: string;
@@ -71,6 +142,33 @@ export async function authenticate(mode: AuthMode, payload: AuthPayload): Promis
   return request<TokenResponse>(path, {
     method: "POST",
     body: JSON.stringify(body),
+  });
+}
+
+export async function getCurrentUser(accessToken: string): Promise<CurrentUser> {
+  return request<CurrentUser>("/api/v1/users/me", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getDashboard(accessToken: string): Promise<DashboardData> {
+  return request<DashboardData>("/api/v1/dashboard", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function logout(refreshToken: string): Promise<void> {
+  await fetch(`${API_BASE_URL}/api/v1/auth/logout`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ refresh_token: refreshToken }),
   });
 }
 
