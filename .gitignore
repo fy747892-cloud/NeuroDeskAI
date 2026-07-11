@@ -20,6 +20,7 @@ htmlcov/
 # Node
 node_modules/
 .next/
+*.tsbuildinfo
 out/
 dist/
 build/
@@ -39,6 +40,7 @@ Thumbs.db
 # Logs
 *.log
 logs/
+frontend/next-dev.*.log
 
 # Local repository/history backups
 .backend_git_history_backup/

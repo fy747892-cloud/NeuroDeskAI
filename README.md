@@ -22,6 +22,9 @@ NeuroDeskAI/
 │   ├── .env.example
 │   └── README.md
 ├── frontend/
+│   ├── app/
+│   ├── lib/
+│   ├── package.json
 │   └── README.md
 ├── .gitignore
 └── README.md
@@ -65,4 +68,11 @@ The backend uses deterministic mock AI by default. Set `LLM_PROVIDER=openai` and
 
 ## Frontend
 
-The frontend application is not prepared yet. The `frontend/` directory is reserved for a future Next.js application.
+The frontend is a Next.js App Router application in `frontend/`.
+
+```powershell
+cd frontend
+npm install
+Copy-Item .env.example .env.local
+npm run dev
+```
