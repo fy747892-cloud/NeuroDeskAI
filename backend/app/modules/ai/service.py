@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ValidationAppError
 from app.modules.ai.models import AIActionApproval, AIAnalysisJob
-from app.modules.ai.provider import MockAIProvider
+from app.modules.ai.provider import get_ai_provider
 from app.modules.ai.repository import AIRepository
 from app.modules.analytics.repository import AICostLogRepository
 from app.modules.billing.service import BillingService
@@ -20,7 +20,7 @@ class AIAnalysisService:
         self._conversations = ConversationRepository(db)
         self._cost_logs = AICostLogRepository(db)
         self._billing = BillingService(db)
-        self._provider = MockAIProvider()
+        self._provider = get_ai_provider()
 
     async def request_conversation_analysis(
         self,
@@ -95,7 +95,7 @@ class AIAnalysisService:
 
             prompt = await self._ai.get_or_create_prompt_version(
                 name="conversation_analysis",
-                version="mock-v1",
+                version=f"{self._provider.provider_name}-{self._provider.model_name}",
             )
             start_time = time.monotonic()
             output = await self._provider.analyze_conversation(

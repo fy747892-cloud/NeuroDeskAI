@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError
 from app.modules.ai_chat.models import ChatMessage, ChatSession
-from app.modules.ai_chat.provider import MockChatProvider
+from app.modules.ai_chat.provider import get_chat_provider
 from app.modules.ai_chat.repository import ChatRepository
 from app.modules.ai_chat.retrieval import retrieve_context
 from app.modules.analytics.repository import AICostLogRepository
@@ -20,7 +20,7 @@ class ChatService:
         self._chats = ChatRepository(db)
         self._cost_logs = AICostLogRepository(db)
         self._billing = BillingService(db)
-        self._provider = MockChatProvider()
+        self._provider = get_chat_provider()
 
     async def send_message(
         self,
@@ -55,7 +55,7 @@ class ChatService:
             db=self._db, tenant_id=tenant_id, organization_id=organization_id, query=message
         )
         start_time = time.monotonic()
-        answer = self._provider.generate_answer(question=message, context_items=context_items)
+        answer = await self._provider.generate_answer(question=message, context_items=context_items)
         latency_ms = int((time.monotonic() - start_time) * 1000)
         await self._cost_logs.record(
             tenant_id=tenant_id,
