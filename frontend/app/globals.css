@@ -405,6 +405,56 @@ h3 {
   margin: 0;
 }
 
+.notice {
+  background: #fff8ee;
+  border: 1px solid #ead5af;
+  border-radius: 8px;
+  color: var(--amber);
+  line-height: 1.5;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+}
+
+.moduleSurface {
+  display: grid;
+  gap: 18px;
+}
+
+.moduleLead {
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 0;
+  max-width: 760px;
+}
+
+.moduleGrid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.moduleCard {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  min-height: 118px;
+  padding: 18px;
+}
+
+.moduleCard span {
+  color: var(--muted);
+  display: block;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.moduleCard strong {
+  display: block;
+  font-size: 24px;
+  overflow-wrap: anywhere;
+}
+
 .userMenu {
   align-items: center;
   background: #fbfcfa;
@@ -454,7 +504,6 @@ h3 {
   .queuePanel {
     grid-column: 1 / -1;
   }
-
 }
 
 @media (max-width: 640px) {
@@ -485,7 +534,8 @@ h3 {
 
   nav,
   .metrics,
-  .contentGrid {
+  .contentGrid,
+  .moduleGrid {
     grid-template-columns: 1fr;
   }
 

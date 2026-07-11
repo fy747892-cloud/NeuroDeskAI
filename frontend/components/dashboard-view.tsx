@@ -1,22 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { DashboardData, getDashboard, HealthStatus } from "@/lib/api";
+import { DashboardData, getDashboard } from "@/lib/api";
 import { useSession } from "@/lib/session";
-import { UserMenu } from "@/components/user-menu";
-
-const navItems = [
-  "Dashboard",
-  "AI Chat",
-  "Gorusmeler",
-  "Gorevler",
-  "Takvim",
-  "Kisiler",
-  "Mailler",
-  "Onay Merkezi",
-  "Analitik",
-  "Ayarlar",
-];
 
 const fallbackQueue = [
   {
@@ -45,11 +31,7 @@ const aiSignals = [
   { name: "Tenant kapsamli retrieval", state: "Context gated", value: "Aktif" },
 ];
 
-type DashboardViewProps = {
-  health: HealthStatus;
-};
-
-export function DashboardView({ health }: DashboardViewProps) {
+export function DashboardView() {
   const { tokens } = useSession();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -138,94 +120,60 @@ export function DashboardView({ health }: DashboardViewProps) {
   }, [dashboard]);
 
   return (
-    <main className="shell">
-      <aside className="sidebar" aria-label="Primary navigation">
-        <div className="brand">
-          <div className="brandMark">N</div>
-          <div>
-            <strong>NeuroDeskAI</strong>
-            <span>Operations</span>
+    <>
+      {error ? <p className="notice">{error}</p> : null}
+
+      <section className="metrics" aria-label="Key metrics">
+        {metrics.map((metric) => (
+          <article className="metric" key={metric.label}>
+            <span>{metric.label}</span>
+            <strong>{metric.value}</strong>
+            <small>{metric.trend}</small>
+          </article>
+        ))}
+      </section>
+
+      <section className="contentGrid">
+        <div className="panel queuePanel">
+          <div className="panelHeader">
+            <h2>Priority Queue</h2>
+            <button disabled={isLoading} onClick={() => window.location.reload()} type="button">
+              {isLoading ? "Loading" : "Refresh"}
+            </button>
+          </div>
+          <div className="queueList">
+            {queueItems.map((item) => (
+              <article className="queueItem" key={`${item.title}-${item.time}`}>
+                <time>{item.time}</time>
+                <div>
+                  <h3>{item.title}</h3>
+                  <p>{item.detail}</p>
+                </div>
+                <span>{item.status}</span>
+              </article>
+            ))}
           </div>
         </div>
 
-        <nav>
-          {navItems.map((item) => (
-            <a href="#" className={item === "Dashboard" ? "active" : ""} key={item}>
-              {item}
-            </a>
-          ))}
-        </nav>
-      </aside>
-
-      <section className="workspace">
-        <header className="topbar">
-          <div>
-            <p className="eyebrow">Workspace overview</p>
-            <h1>Dashboard</h1>
+        <div className="panel aiPanel">
+          <div className="panelHeader">
+            <h2>AI Layer</h2>
+            <span className="tag">LLM ready</span>
           </div>
-          <div className="topbarActions">
-            <div className={`status ${health.ok ? "online" : "offline"}`}>
-              <span aria-hidden="true" />
-              {health.label}
-            </div>
-            <UserMenu />
-          </div>
-        </header>
-
-        {error ? <p className="notice">{error}</p> : null}
-
-        <section className="metrics" aria-label="Key metrics">
-          {metrics.map((metric) => (
-            <article className="metric" key={metric.label}>
-              <span>{metric.label}</span>
-              <strong>{metric.value}</strong>
-              <small>{metric.trend}</small>
-            </article>
-          ))}
-        </section>
-
-        <section className="contentGrid">
-          <div className="panel queuePanel">
-            <div className="panelHeader">
-              <h2>Priority Queue</h2>
-              <button disabled={isLoading} onClick={() => window.location.reload()} type="button">
-                {isLoading ? "Loading" : "Refresh"}
-              </button>
-            </div>
-            <div className="queueList">
-              {queueItems.map((item) => (
-                <article className="queueItem" key={`${item.title}-${item.time}`}>
-                  <time>{item.time}</time>
-                  <div>
-                    <h3>{item.title}</h3>
-                    <p>{item.detail}</p>
-                  </div>
-                  <span>{item.status}</span>
-                </article>
-              ))}
-            </div>
-          </div>
-
-          <div className="panel aiPanel">
-            <div className="panelHeader">
-              <h2>AI Layer</h2>
-              <span className="tag">LLM ready</span>
-            </div>
-            <div className="signalList">
-              {aiSignals.map((signal) => (
-                <div className="signal" key={signal.name}>
-                  <div>
-                    <strong>{signal.name}</strong>
-                    <span>{signal.state}</span>
-                  </div>
-                  <b>{signal.value}</b>
+          <div className="signalList">
+            {aiSignals.map((signal) => (
+              <div className="signal" key={signal.name}>
+                <div>
+                  <strong>{signal.name}</strong>
+                  <span>{signal.state}</span>
                 </div>
-              ))}
-            </div>
+                <b>{signal.value}</b>
+              </div>
+            ))}
           </div>
-        </section>
+        </div>
       </section>
-    </main>
+    </>
   );
 }
 
