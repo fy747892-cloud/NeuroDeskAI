@@ -1,4 +1,5 @@
 import { getHealthStatus } from "@/lib/api";
+import { AuthPanel } from "@/components/auth-panel";
 
 const navItems = ["Dashboard", "Tasks", "Appointments", "AI Chat", "Contacts", "Files"];
 
@@ -123,6 +124,10 @@ export default async function Home() {
                 </div>
               ))}
             </div>
+          </div>
+
+          <div className="panel accessPanel">
+            <AuthPanel />
           </div>
         </section>
       </section>
