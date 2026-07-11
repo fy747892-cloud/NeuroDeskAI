@@ -1,0 +1,16 @@
+0000000000000000000000000000000000000000 e07cdbfab66daa910747cc1035061c0917ab5563 fy747892-cloud <fy747892@gmail.com> 1783713169 +0300	clone: from https://github.com/bahatrk/NeuroDeskAI-Backend
+e07cdbfab66daa910747cc1035061c0917ab5563 e07cdbfab66daa910747cc1035061c0917ab5563 fy747892-cloud <fy747892@gmail.com> 1783713455 +0300	checkout: moving from main to sprint-02-org-rbac-audit
+e07cdbfab66daa910747cc1035061c0917ab5563 df23127ccbf44e4b8f30bf423efa62002b408ba5 fy747892-cloud <fy747892@gmail.com> 1783714722 +0300	commit: Complete sprint 2 org rbac audit
+df23127ccbf44e4b8f30bf423efa62002b408ba5 df23127ccbf44e4b8f30bf423efa62002b408ba5 fy747892-cloud <fy747892@gmail.com> 1783714755 +0300	checkout: moving from sprint-02-org-rbac-audit to sprint-03-conversation-call
+df23127ccbf44e4b8f30bf423efa62002b408ba5 a62a244e64d3919cbb5a63f64f24b632bd03013d fy747892-cloud <fy747892@gmail.com> 1783715382 +0300	commit: Complete sprint 3 conversation call
+a62a244e64d3919cbb5a63f64f24b632bd03013d a62a244e64d3919cbb5a63f64f24b632bd03013d fy747892-cloud <fy747892@gmail.com> 1783715935 +0300	checkout: moving from sprint-03-conversation-call to sprint-04-ai-analysis-mvp
+a62a244e64d3919cbb5a63f64f24b632bd03013d 90f9b81422f85dd51bab266e1a516ab28a9233ef fy747892-cloud <fy747892@gmail.com> 1783716350 +0300	commit: Complete sprint 4 ai analysis mvp
+90f9b81422f85dd51bab266e1a516ab28a9233ef 90f9b81422f85dd51bab266e1a516ab28a9233ef fy747892-cloud <fy747892@gmail.com> 1783716865 +0300	checkout: moving from sprint-04-ai-analysis-mvp to sprint-05-ai-action-approval
+90f9b81422f85dd51bab266e1a516ab28a9233ef 8374598b6e837745d906b0acd098de4fc14633b3 fy747892-cloud <fy747892@gmail.com> 1783717170 +0300	commit: Implement sprint 5 AI action approvals
+8374598b6e837745d906b0acd098de4fc14633b3 a9f5aade40ae8dd127a58272bcf7324f664854ee fy747892-cloud <fy747892@gmail.com> 1783718154 +0300	commit: beklenen hata kodu düzeltmesi
+a9f5aade40ae8dd127a58272bcf7324f664854ee a9f5aade40ae8dd127a58272bcf7324f664854ee fy747892-cloud <fy747892@gmail.com> 1783718559 +0300	checkout: moving from sprint-05-ai-action-approval to sprint-06-task-module
+a9f5aade40ae8dd127a58272bcf7324f664854ee 4aa8d29a1c809f9715ceed35a93245cdd2073bf3 fy747892-cloud <fy747892@gmail.com> 1783718854 +0300	commit: Implement sprint 6 task module
+4aa8d29a1c809f9715ceed35a93245cdd2073bf3 e07cdbfab66daa910747cc1035061c0917ab5563 fy747892-cloud <fy747892@gmail.com> 1783791344 +0300	checkout: moving from sprint-06-task-module to main
+e07cdbfab66daa910747cc1035061c0917ab5563 da1da3b4be3ec2f5859d83612e1b7a2a75171b71 fy747892-cloud <fy747892@gmail.com> 1783791354 +0300	pull --ff-only: Fast-forward
+da1da3b4be3ec2f5859d83612e1b7a2a75171b71 f98e78cce737859b7a18b5a95297447d6579c5a4 fy747892-cloud <fy747892@gmail.com> 1783794995 +0300	pull --tags origin main: Fast-forward
+f98e78cce737859b7a18b5a95297447d6579c5a4 2554fe00b85a76776c12c8328c4ebc25f72ea3e1 fy747892-cloud <fy747892@gmail.com> 1783799909 +0300	pull --tags origin main: Fast-forward
