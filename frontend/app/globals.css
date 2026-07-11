@@ -46,6 +46,11 @@ button {
   border-radius: 6px;
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .shell {
   display: grid;
   grid-template-columns: 264px minmax(0, 1fr);
@@ -313,6 +318,94 @@ h3 {
   white-space: nowrap;
 }
 
+.accessPanel {
+  grid-column: 2;
+  min-height: 0;
+}
+
+.authSurface {
+  display: grid;
+  gap: 16px;
+}
+
+.segmented {
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  padding: 3px;
+}
+
+.segmented button {
+  background: transparent;
+  border: 0;
+  min-height: 30px;
+  padding: 0 10px;
+}
+
+.segmented button.selected {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 4px 12px rgba(24, 38, 29, 0.08);
+}
+
+.authForm {
+  display: grid;
+  gap: 12px;
+}
+
+.authForm label {
+  color: var(--muted);
+  display: grid;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.authForm input {
+  background: #fbfcfa;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  min-height: 40px;
+  padding: 0 12px;
+}
+
+.authForm > button,
+.sessionBox button {
+  background: var(--green);
+  border-color: var(--green);
+  color: white;
+  font-weight: 700;
+}
+
+.formMessage {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.sessionBox {
+  background: #fbfcfa;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+}
+
+.sessionBox span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.sessionBox strong {
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 980px) {
   .shell {
     grid-template-columns: 1fr;
@@ -334,6 +427,10 @@ h3 {
 
   .queuePanel {
     grid-column: 1 / -1;
+  }
+
+  .accessPanel {
+    grid-column: auto;
   }
 }
 
