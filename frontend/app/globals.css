@@ -455,6 +455,78 @@ h3 {
   overflow-wrap: anywhere;
 }
 
+.moduleCard.compact {
+  min-height: 96px;
+}
+
+.dataList {
+  display: grid;
+}
+
+.dataRow {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 108px;
+  padding: 16px 0;
+}
+
+.dataRow:last-child {
+  border-bottom: 0;
+}
+
+.dataRow p {
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 6px;
+}
+
+.dataRow small {
+  color: var(--amber);
+  font-weight: 700;
+}
+
+.rowTitle {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rowTitle span,
+.statusPill {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--teal);
+  font-size: 13px;
+  padding: 5px 9px;
+  white-space: nowrap;
+}
+
+.statusPill.done {
+  color: var(--green);
+}
+
+.statusPill.danger {
+  color: var(--coral);
+}
+
+.rowActions {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+}
+
+.emptyState {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 0;
+  padding: 18px 0 0;
+}
+
 .userMenu {
   align-items: center;
   background: #fbfcfa;
@@ -541,6 +613,15 @@ h3 {
 
   .queueItem {
     grid-template-columns: 1fr;
+  }
+
+  .dataRow {
+    grid-template-columns: 1fr;
+  }
+
+  .rowActions {
+    align-items: start;
+    justify-items: start;
   }
 
   .queueItem > span {

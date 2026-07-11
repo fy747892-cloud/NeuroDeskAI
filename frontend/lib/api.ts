@@ -45,6 +45,16 @@ export type DashboardTask = {
   created_at: string;
 };
 
+export type Task = DashboardTask & {
+  tenant_id: string;
+  organization_id: string;
+  user_id: string;
+  contact_id: string | null;
+  source_type: string;
+  source_id: string | null;
+  ai_action_approval_id: string | null;
+};
+
 export type DashboardAppointment = {
   id: string;
   title: string;
@@ -54,6 +64,17 @@ export type DashboardAppointment = {
   end_at: string;
   status: string;
   created_at: string;
+};
+
+export type Appointment = DashboardAppointment & {
+  tenant_id: string;
+  organization_id: string;
+  user_id: string;
+  contact_id: string | null;
+  timezone: string | null;
+  source_type: string;
+  source_id: string | null;
+  ai_action_approval_id: string | null;
 };
 
 export type DashboardConversation = {
@@ -156,6 +177,70 @@ export async function getCurrentUser(accessToken: string): Promise<CurrentUser> 
 export async function getDashboard(accessToken: string): Promise<DashboardData> {
   return request<DashboardData>("/api/v1/dashboard", {
     cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function listTasks(accessToken: string, status?: string): Promise<Task[]> {
+  const search = status ? `?status_filter=${encodeURIComponent(status)}` : "";
+  return request<Task[]>(`/api/v1/tasks${search}`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function listOverdueTasks(accessToken: string): Promise<Task[]> {
+  return request<Task[]>("/api/v1/tasks/overdue", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function completeTask(accessToken: string, taskId: string): Promise<Task> {
+  return request<Task>(`/api/v1/tasks/${taskId}/complete`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function listAppointments(
+  accessToken: string,
+  params: { startDate?: string; endDate?: string; status?: string } = {},
+): Promise<Appointment[]> {
+  const searchParams = new URLSearchParams();
+  if (params.status) {
+    searchParams.set("status_filter", params.status);
+  }
+  if (params.startDate) {
+    searchParams.set("start_date", params.startDate);
+  }
+  if (params.endDate) {
+    searchParams.set("end_date", params.endDate);
+  }
+
+  const search = searchParams.size > 0 ? `?${searchParams.toString()}` : "";
+  return request<Appointment[]>(`/api/v1/appointments${search}`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function cancelAppointment(
+  accessToken: string,
+  appointmentId: string,
+): Promise<Appointment> {
+  return request<Appointment>(`/api/v1/appointments/${appointmentId}/cancel`, {
+    method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
