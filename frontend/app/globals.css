@@ -519,6 +519,22 @@ h3 {
   color: var(--coral);
 }
 
+.scorePill {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--teal);
+  font-size: 18px;
+  font-weight: 800;
+  min-width: 48px;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+.scorePill.hot {
+  border-color: #efc0b4;
+  color: var(--coral);
+}
+
 .rowActions {
   align-items: end;
   display: grid;

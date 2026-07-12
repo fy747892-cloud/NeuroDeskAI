@@ -254,6 +254,57 @@ export type UsageSummary = {
   remaining: number;
 };
 
+export type Notification = {
+  id: string;
+  tenant_id: string;
+  organization_id: string;
+  user_id: string;
+  title: string;
+  body: string;
+  notification_type: string;
+  channel: string;
+  source_type: string | null;
+  source_id: string | null;
+  status: string;
+  scheduled_at: string;
+  sent_at: string | null;
+  read_at: string | null;
+  attempts: number;
+  max_attempts: number;
+  error_message: string | null;
+  created_at: string;
+};
+
+export type ProcessDueSummary = {
+  processed: number;
+  sent: number;
+  failed: number;
+  dead_lettered: number;
+};
+
+export type PriorityFactor = {
+  key: string;
+  label: string;
+  weight: number;
+};
+
+export type PriorityItem = {
+  item_type: string;
+  item_id: string;
+  title: string;
+  status: string;
+  score: number;
+  priority: string;
+  due_at: string | null;
+  contact_id: string | null;
+  factors: PriorityFactor[];
+};
+
+export type PriorityQueue = {
+  generated_at: string;
+  items: PriorityItem[];
+};
+
 export type DashboardData = {
   summary: DashboardSummary;
   open_tasks: DashboardTask[];
@@ -620,6 +671,49 @@ export async function getSubscription(accessToken: string): Promise<Subscription
 
 export async function getUsageSummary(accessToken: string): Promise<UsageSummary> {
   return request<UsageSummary>("/api/v1/billing/usage", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function listNotifications(
+  accessToken: string,
+  status?: string,
+): Promise<Notification[]> {
+  const search = status ? `?status_filter=${encodeURIComponent(status)}` : "";
+  return request<Notification[]>(`/api/v1/notifications${search}`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function markNotificationRead(
+  accessToken: string,
+  notificationId: string,
+): Promise<Notification> {
+  return request<Notification>(`/api/v1/notifications/${notificationId}/read`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function processDueNotifications(accessToken: string): Promise<ProcessDueSummary> {
+  return request<ProcessDueSummary>("/api/v1/notifications/process-due", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getPriorityQueue(accessToken: string, limit = 25): Promise<PriorityQueue> {
+  return request<PriorityQueue>(`/api/v1/priority/queue?limit=${limit}`, {
     cache: "no-store",
     headers: {
       Authorization: `Bearer ${accessToken}`,
