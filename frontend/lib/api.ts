@@ -167,6 +167,51 @@ export type SearchResult = {
   score: number;
 };
 
+export type AnalyticsOverview = {
+  date_from: string;
+  date_to: string;
+  tasks_created: number;
+  tasks_completed: number;
+  tasks_overdue: number;
+  calls_total: number;
+  calls_analyzed: number;
+  appointments_completed: number;
+  appointments_upcoming: number;
+  ai_requests: number;
+  ai_cost_amount: number;
+};
+
+export type EmailAccount = {
+  id: string;
+  tenant_id: string;
+  organization_id: string;
+  user_id: string;
+  provider: string;
+  email_address: string | null;
+  status: string;
+  consent_granted_at: string | null;
+  consent_scope: string | null;
+  last_synced_at: string | null;
+  created_at: string;
+};
+
+export type EmailMessage = {
+  id: string;
+  email_account_id: string;
+  provider_message_id: string;
+  thread_id: string | null;
+  subject: string | null;
+  from_address: string | null;
+  snippet: string | null;
+  received_at: string | null;
+};
+
+export type EmailSyncSummary = {
+  fetched: number;
+  created: number;
+  skipped: number;
+};
+
 export type DashboardData = {
   summary: DashboardSummary;
   open_tasks: DashboardTask[];
@@ -434,6 +479,48 @@ export async function semanticSearch(
   return request<SearchResult[]>("/api/v1/search/semantic", {
     method: "POST",
     body: JSON.stringify({ query, limit }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getAnalyticsOverview(accessToken: string): Promise<AnalyticsOverview> {
+  return request<AnalyticsOverview>("/api/v1/analytics/overview", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function listEmailAccounts(accessToken: string): Promise<EmailAccount[]> {
+  return request<EmailAccount[]>("/api/v1/email/accounts", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function listEmailMessages(
+  accessToken: string,
+  accountId: string,
+): Promise<EmailMessage[]> {
+  return request<EmailMessage[]>(`/api/v1/email/accounts/${accountId}/messages`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function syncEmailAccount(
+  accessToken: string,
+  accountId: string,
+): Promise<EmailSyncSummary> {
+  return request<EmailSyncSummary>(`/api/v1/email/accounts/${accountId}/sync`, {
+    method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },

@@ -686,6 +686,41 @@ h3 {
   padding: 18px 0 0;
 }
 
+.metricList {
+  display: grid;
+  gap: 12px;
+  padding-top: 16px;
+}
+
+.metricLine {
+  align-items: center;
+  background: #fbfcfa;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  min-height: 52px;
+  padding: 12px;
+}
+
+.metricLine span {
+  color: var(--muted);
+}
+
+.costBlock {
+  display: grid;
+  gap: 10px;
+  padding-top: 18px;
+}
+
+.costBlock strong {
+  font-size: 36px;
+}
+
+.costBlock span {
+  color: var(--muted);
+}
+
 .userMenu {
   align-items: center;
   background: #fbfcfa;
