@@ -520,6 +520,30 @@ h3 {
   justify-items: end;
 }
 
+.rowActions.horizontal {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.inlineSearch {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.inlineSearch input {
+  background: #fbfcfa;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  min-height: 36px;
+  min-width: 180px;
+  padding: 0 10px;
+}
+
 .emptyState {
   color: var(--muted);
   line-height: 1.5;
@@ -622,6 +646,18 @@ h3 {
   .rowActions {
     align-items: start;
     justify-items: start;
+  }
+
+  .rowActions.horizontal,
+  .inlineSearch {
+    align-items: stretch;
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .inlineSearch input {
+    min-width: 0;
+    width: 100%;
   }
 
   .queueItem > span {

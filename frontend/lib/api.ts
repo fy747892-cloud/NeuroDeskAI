@@ -93,6 +93,41 @@ export type DashboardApproval = {
   created_at: string;
 };
 
+export type Conversation = DashboardConversation & {
+  tenant_id: string;
+  organization_id: string;
+  user_id: string;
+  source_type: string;
+};
+
+export type Contact = {
+  id: string;
+  tenant_id: string;
+  organization_id: string;
+  owner_user_id: string;
+  full_name: string;
+  email: string | null;
+  phone: string | null;
+  company: string | null;
+  title: string | null;
+  tags: string[];
+  status: string;
+  created_at: string;
+};
+
+export type AIActionApproval = DashboardApproval & {
+  tenant_id: string;
+  organization_id: string;
+  requested_by: string;
+  decided_by: string | null;
+  analysis_result_id: string;
+  source_id: string;
+  suggested_payload: Record<string, unknown>;
+  approved_payload: Record<string, unknown> | null;
+  expires_at: string | null;
+  decided_at: string | null;
+};
+
 export type DashboardData = {
   summary: DashboardSummary;
   open_tasks: DashboardTask[];
@@ -240,6 +275,74 @@ export async function cancelAppointment(
   appointmentId: string,
 ): Promise<Appointment> {
   return request<Appointment>(`/api/v1/appointments/${appointmentId}/cancel`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function listConversations(accessToken: string): Promise<Conversation[]> {
+  return request<Conversation[]>("/api/v1/conversations", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function listContacts(
+  accessToken: string,
+  params: { search?: string; status?: string } = {},
+): Promise<Contact[]> {
+  const searchParams = new URLSearchParams();
+  if (params.search) {
+    searchParams.set("search", params.search);
+  }
+  if (params.status) {
+    searchParams.set("status_filter", params.status);
+  }
+
+  const search = searchParams.size > 0 ? `?${searchParams.toString()}` : "";
+  return request<Contact[]>(`/api/v1/contacts${search}`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function listApprovals(
+  accessToken: string,
+  status?: string,
+): Promise<AIActionApproval[]> {
+  const search = status ? `?status_filter=${encodeURIComponent(status)}` : "";
+  return request<AIActionApproval[]>(`/api/v1/ai/approvals${search}`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function approveAction(
+  accessToken: string,
+  approvalId: string,
+): Promise<AIActionApproval> {
+  return request<AIActionApproval>(`/api/v1/ai/approvals/${approvalId}/approve`, {
+    method: "POST",
+    body: JSON.stringify({ approved_payload: null }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function rejectAction(
+  accessToken: string,
+  approvalId: string,
+): Promise<AIActionApproval> {
+  return request<AIActionApproval>(`/api/v1/ai/approvals/${approvalId}/reject`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
