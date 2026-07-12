@@ -32,7 +32,7 @@ const aiSignals = [
 ];
 
 export function DashboardView() {
-  const { tokens } = useSession();
+  const { tokens, user } = useSession();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
@@ -106,14 +106,30 @@ export function DashboardView() {
     return nextItems.length > 0 ? nextItems : fallbackQueue;
   }, [dashboard]);
 
+  const userName =
+    user?.profile?.full_name?.trim() || user?.email?.split("@")[0] || "NeuroDesk";
+  const todayLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat("tr-TR", {
+        day: "2-digit",
+        month: "long",
+        weekday: "long",
+        year: "numeric",
+      }).format(new Date()),
+    [],
+  );
+
   return (
     <>
       {error ? <p className="notice">{error}</p> : null}
 
       <section className="dashboardHero">
         <div>
-          <p className="eyebrow">Bugünün özeti</p>
-          <h2>Günaydın, NeuroDesk hazır</h2>
+          <div className="heroMeta">
+            <p className="eyebrow">Bugünün özeti</p>
+            <span>{todayLabel}</span>
+          </div>
+          <h2>Günaydın, {userName}</h2>
           <p>
             Bugünün görevleri, randevuları ve AI onayları tek ekranda toplandı.
           </p>
