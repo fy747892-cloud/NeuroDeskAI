@@ -566,6 +566,37 @@ h3 {
   padding: 0 10px;
 }
 
+.createForm {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+  padding-top: 16px;
+}
+
+.createForm label {
+  color: var(--muted);
+  display: grid;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.createForm input,
+.createForm select {
+  background: #fbfcfa;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  min-height: 40px;
+  min-width: 0;
+  padding: 0 10px;
+}
+
+.createForm button {
+  align-self: end;
+}
+
 .chatWorkspace {
   display: grid;
   gap: 18px;
@@ -854,6 +885,10 @@ h3 {
   }
 
   .chatComposer {
+    grid-template-columns: 1fr;
+  }
+
+  .createForm {
     grid-template-columns: 1fr;
   }
 

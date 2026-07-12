@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { Contact, listContacts } from "@/lib/api";
+import { Contact, createContact, listContacts } from "@/lib/api";
 import { useSession } from "@/lib/session";
 
 export function ContactsView() {
@@ -9,7 +9,16 @@ export function ContactsView() {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
+  const [isCreating, setCreating] = useState(false);
+  const [newContact, setNewContact] = useState({
+    company: "",
+    email: "",
+    fullName: "",
+    phone: "",
+    title: "",
+  });
 
   async function loadContacts(nextSearch = search) {
     if (!tokens?.accessToken) {
@@ -45,15 +54,106 @@ export function ContactsView() {
     loadContacts(search);
   }
 
+  async function handleCreateContact(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tokens?.accessToken || !newContact.fullName.trim()) {
+      return;
+    }
+
+    setCreating(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const createdContact = await createContact(tokens.accessToken, {
+        full_name: newContact.fullName.trim(),
+        email: newContact.email.trim() || null,
+        phone: newContact.phone.trim() || null,
+        company: newContact.company.trim() || null,
+        title: newContact.title.trim() || null,
+      });
+      setContacts((currentContacts) => [createdContact, ...currentContacts]);
+      setNewContact({ company: "", email: "", fullName: "", phone: "", title: "" });
+      setNotice("Kisi olusturuldu.");
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : "Kisi olusturulamadi.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <section className="moduleSurface">
       {error ? <p className="notice">{error}</p> : null}
+      {notice ? <p className="notice success">{notice}</p> : null}
 
       <div className="moduleGrid">
         <SummaryCard label="Toplam" value={summary.total} />
         <SummaryCard label="Aktif" value={summary.active} />
         <SummaryCard label="Sirket" value={summary.companies} />
         <SummaryCard label="Etiketli" value={summary.tagged} />
+      </div>
+
+      <div className="panel">
+        <div className="panelHeader">
+          <h2>Yeni kisi</h2>
+          <span className="tag">CRM</span>
+        </div>
+        <form className="createForm" onSubmit={handleCreateContact}>
+          <label>
+            Ad soyad
+            <input
+              onChange={(event) =>
+                setNewContact((contact) => ({ ...contact, fullName: event.target.value }))
+              }
+              placeholder="Ayse Demir"
+              value={newContact.fullName}
+            />
+          </label>
+          <label>
+            Email
+            <input
+              onChange={(event) =>
+                setNewContact((contact) => ({ ...contact, email: event.target.value }))
+              }
+              placeholder="ayse@example.com"
+              type="email"
+              value={newContact.email}
+            />
+          </label>
+          <label>
+            Telefon
+            <input
+              onChange={(event) =>
+                setNewContact((contact) => ({ ...contact, phone: event.target.value }))
+              }
+              placeholder="+90..."
+              value={newContact.phone}
+            />
+          </label>
+          <label>
+            Sirket
+            <input
+              onChange={(event) =>
+                setNewContact((contact) => ({ ...contact, company: event.target.value }))
+              }
+              placeholder="Kurum"
+              value={newContact.company}
+            />
+          </label>
+          <label>
+            Unvan
+            <input
+              onChange={(event) =>
+                setNewContact((contact) => ({ ...contact, title: event.target.value }))
+              }
+              placeholder="Doktor"
+              value={newContact.title}
+            />
+          </label>
+          <button disabled={isCreating || !newContact.fullName.trim()} type="submit">
+            {isCreating ? "Olusturuluyor" : "Olustur"}
+          </button>
+        </form>
       </div>
 
       <div className="panel">

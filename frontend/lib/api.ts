@@ -55,6 +55,13 @@ export type Task = DashboardTask & {
   ai_action_approval_id: string | null;
 };
 
+export type TaskCreatePayload = {
+  title: string;
+  description?: string | null;
+  priority?: string;
+  due_at?: string | null;
+};
+
 export type DashboardAppointment = {
   id: string;
   title: string;
@@ -113,6 +120,15 @@ export type Contact = {
   tags: string[];
   status: string;
   created_at: string;
+};
+
+export type ContactCreatePayload = {
+  full_name: string;
+  email?: string | null;
+  phone?: string | null;
+  company?: string | null;
+  title?: string | null;
+  tags?: string[];
 };
 
 export type AIActionApproval = DashboardApproval & {
@@ -506,6 +522,24 @@ export async function completeTask(accessToken: string, taskId: string): Promise
   });
 }
 
+export async function createTask(
+  accessToken: string,
+  payload: TaskCreatePayload,
+): Promise<Task> {
+  return request<Task>("/api/v1/tasks", {
+    method: "POST",
+    body: JSON.stringify({
+      title: payload.title,
+      description: payload.description ?? null,
+      priority: payload.priority ?? "medium",
+      due_at: payload.due_at ?? null,
+    }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
 export async function listAppointments(
   accessToken: string,
   params: { startDate?: string; endDate?: string; status?: string } = {},
@@ -566,6 +600,26 @@ export async function listContacts(
   const search = searchParams.size > 0 ? `?${searchParams.toString()}` : "";
   return request<Contact[]>(`/api/v1/contacts${search}`, {
     cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function createContact(
+  accessToken: string,
+  payload: ContactCreatePayload,
+): Promise<Contact> {
+  return request<Contact>("/api/v1/contacts", {
+    method: "POST",
+    body: JSON.stringify({
+      full_name: payload.full_name,
+      email: payload.email ?? null,
+      phone: payload.phone ?? null,
+      company: payload.company ?? null,
+      title: payload.title ?? null,
+      tags: payload.tags ?? [],
+    }),
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },

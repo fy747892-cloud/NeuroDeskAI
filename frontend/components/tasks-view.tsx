@@ -1,15 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { completeTask, listTasks, Task } from "@/lib/api";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { completeTask, createTask, listTasks, Task } from "@/lib/api";
 import { useSession } from "@/lib/session";
 
 export function TasksView() {
   const { tokens } = useSession();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
+  const [isCreating, setCreating] = useState(false);
   const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [newTask, setNewTask] = useState({
+    description: "",
+    dueAt: "",
+    priority: "medium",
+    title: "",
+  });
 
   async function loadTasks() {
     if (!tokens?.accessToken) {
@@ -59,15 +67,91 @@ export function TasksView() {
     }
   }
 
+  async function handleCreateTask(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tokens?.accessToken || !newTask.title.trim()) {
+      return;
+    }
+
+    setCreating(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const createdTask = await createTask(tokens.accessToken, {
+        title: newTask.title.trim(),
+        description: newTask.description.trim() || null,
+        priority: newTask.priority,
+        due_at: newTask.dueAt ? new Date(newTask.dueAt).toISOString() : null,
+      });
+      setTasks((currentTasks) => [createdTask, ...currentTasks]);
+      setNewTask({ description: "", dueAt: "", priority: "medium", title: "" });
+      setNotice("Gorev olusturuldu.");
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : "Gorev olusturulamadi.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <section className="moduleSurface">
       {error ? <p className="notice">{error}</p> : null}
+      {notice ? <p className="notice success">{notice}</p> : null}
 
       <div className="moduleGrid">
         <SummaryCard label="Acik" value={summary.open} />
         <SummaryCard label="Gecikmis" value={summary.overdue} />
         <SummaryCard label="Yuksek oncelik" value={summary.high} />
         <SummaryCard label="Tamamlanan" value={summary.completed} />
+      </div>
+
+      <div className="panel">
+        <div className="panelHeader">
+          <h2>Yeni gorev</h2>
+          <span className="tag">Manual</span>
+        </div>
+        <form className="createForm" onSubmit={handleCreateTask}>
+          <label>
+            Baslik
+            <input
+              onChange={(event) => setNewTask((task) => ({ ...task, title: event.target.value }))}
+              placeholder="Hastayi geri ara"
+              value={newTask.title}
+            />
+          </label>
+          <label>
+            Aciklama
+            <input
+              onChange={(event) =>
+                setNewTask((task) => ({ ...task, description: event.target.value }))
+              }
+              placeholder="Kisa not"
+              value={newTask.description}
+            />
+          </label>
+          <label>
+            Oncelik
+            <select
+              onChange={(event) => setNewTask((task) => ({ ...task, priority: event.target.value }))}
+              value={newTask.priority}
+            >
+              <option value="low">low</option>
+              <option value="medium">medium</option>
+              <option value="high">high</option>
+            </select>
+          </label>
+          <label>
+            Son tarih
+            <input
+              onChange={(event) => setNewTask((task) => ({ ...task, dueAt: event.target.value }))}
+              type="datetime-local"
+              value={newTask.dueAt}
+            />
+          </label>
+          <button disabled={isCreating || !newTask.title.trim()} type="submit">
+            {isCreating ? "Olusturuluyor" : "Olustur"}
+          </button>
+        </form>
       </div>
 
       <div className="panel">
