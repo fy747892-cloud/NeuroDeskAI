@@ -1,97 +1,84 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { DashboardData, getDashboard } from "@/lib/api";
 import { useSession } from "@/lib/session";
 
 const fallbackQueue = [
   {
-    title: "AI takip gorevini onayla",
-    detail: "Gorusme analizi hasta karsilama kontrol listesi onerdi.",
-    status: "AI onayi",
+    title: "AI takip görevini onayla",
+    detail: "Görüşme analizi hasta karşılama kontrol listesi önerdi.",
+    status: "AI onayı",
     time: "09:20",
   },
   {
-    title: "Randevu cakismasini incele",
-    detail: "Ayni organizasyon kisisi icin iki geri arama cakisiyor.",
+    title: "Randevu çakışmasını incele",
+    detail: "Aynı organizasyon kişisi için iki geri arama çakışıyor.",
     status: "Takvim",
     time: "10:05",
   },
   {
-    title: "Email hesabini senkronize et",
-    detail: "Gmail saglayicisi siradaki mesaj alma calismasi icin hazir.",
-    status: "Email",
+    title: "E-posta hesabını senkronize et",
+    detail: "Gmail sağlayıcısı sıradaki mesaj alma çalışması için hazır.",
+    status: "E-posta",
     time: "11:10",
   },
 ];
 
 const aiSignals = [
-  { name: "Gorusme analizi", state: "Varsayilan mock", value: "Hazir" },
-  { name: "OpenAI uyumlu LLM", state: "Env kontrollu", value: "Opsiyonel" },
-  { name: "Tenant kapsamli retrieval", state: "Context gated", value: "Aktif" },
+  { name: "Görüşme analizi", state: "Varsayılan mock", value: "Hazır" },
+  { name: "OpenAI uyumlu LLM", state: "Env kontrollü", value: "Opsiyonel" },
+  { name: "Tenant kapsamlı retrieval", state: "Context gated", value: "Aktif" },
 ];
 
 export function DashboardView() {
-  const { tokens } = useSession();
+  const { tokens, user } = useSession();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let isActive = true;
-
-    async function loadDashboard() {
-      if (!tokens?.accessToken) {
-        return;
-      }
-
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await getDashboard(tokens.accessToken);
-        if (isActive) {
-          setDashboard(data);
-        }
-      } catch (loadError) {
-        if (isActive) {
-          setError(loadError instanceof Error ? loadError.message : "Dashboard verisi alinamadi.");
-        }
-      } finally {
-        if (isActive) {
-          setLoading(false);
-        }
-      }
+  const loadDashboard = useCallback(async () => {
+    if (!tokens?.accessToken) {
+      return;
     }
 
-    loadDashboard();
-
-    return () => {
-      isActive = false;
-    };
+    setLoading(true);
+    setError(null);
+    try {
+      setDashboard(await getDashboard(tokens.accessToken));
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Dashboard verisi alınamadı.");
+    } finally {
+      setLoading(false);
+    }
   }, [tokens?.accessToken]);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
 
   const metrics = useMemo(() => {
     const summary = dashboard?.summary;
     return [
       {
-        label: "Acik gorevler",
+        label: "Açık görevler",
         value: String(summary?.open_tasks_count ?? 0),
-        trend: `${summary?.overdue_tasks_count ?? 0} gecikmis`,
+        trend: `${summary?.overdue_tasks_count ?? 0} gecikmiş`,
       },
       {
-        label: "AI onaylari",
+        label: "AI onayları",
         value: String(summary?.pending_ai_approvals_count ?? 0),
-        trend: "Insan onayi bekliyor",
+        trend: "İnsan onayı bekliyor",
       },
       {
-        label: "Yaklasan randevular",
+        label: "Yaklaşan randevular",
         value: String(summary?.upcoming_appointments_count ?? 0),
-        trend: "7 gunluk pencere",
+        trend: "7 günlük pencere",
       },
       {
-        label: "Son guncelleme",
+        label: "Son güncelleme",
         value: dashboard ? formatTime(dashboard.generated_at) : "--",
-        trend: isLoading ? "Yukleniyor" : "Canli endpoint",
+        trend: isLoading ? "Yükleniyor" : "Canlı endpoint",
       },
     ];
   }, [dashboard, isLoading]);
@@ -103,14 +90,14 @@ export function DashboardView() {
 
     const taskItems = [...dashboard.overdue_tasks, ...dashboard.open_tasks].slice(0, 4).map((task) => ({
       title: task.title,
-      detail: task.description ?? `${task.priority} oncelikli ${task.status} gorev`,
+      detail: task.description ?? `${task.priority} öncelikli ${task.status} görev`,
       status: task.priority,
       time: task.due_at ? formatTime(task.due_at) : formatTime(task.created_at),
     }));
 
     const approvalItems = dashboard.pending_ai_approvals.slice(0, 3).map((approval) => ({
-      title: `${approval.action_type} onayi`,
-      detail: `${approval.source_type} kaynagindan uretilen AI aksiyonu.`,
+      title: `${approval.action_type} onayı`,
+      detail: `${approval.source_type} kaynağından üretilen AI aksiyonu.`,
       status: approval.status,
       time: formatTime(approval.created_at),
     }));
@@ -119,9 +106,38 @@ export function DashboardView() {
     return nextItems.length > 0 ? nextItems : fallbackQueue;
   }, [dashboard]);
 
+  const userName =
+    user?.profile?.full_name?.trim() || user?.email?.split("@")[0] || "NeuroDesk";
+  const todayLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat("tr-TR", {
+        day: "2-digit",
+        month: "long",
+        weekday: "long",
+        year: "numeric",
+      }).format(new Date()),
+    [],
+  );
+
   return (
     <>
       {error ? <p className="notice">{error}</p> : null}
+
+      <section className="dashboardHero">
+        <div>
+          <div className="heroMeta">
+            <p className="eyebrow">Bugünün özeti</p>
+            <span>{todayLabel}</span>
+          </div>
+          <h2>Günaydın, {userName}</h2>
+          <p>
+            Bugünün görevleri, randevuları ve AI onayları tek ekranda toplandı.
+          </p>
+        </div>
+        <button disabled={isLoading} onClick={loadDashboard} type="button">
+          {isLoading ? "Yükleniyor" : "Özeti yenile"}
+        </button>
+      </section>
 
       <section className="metrics" aria-label="Key metrics">
         {metrics.map((metric) => (
@@ -136,9 +152,9 @@ export function DashboardView() {
       <section className="contentGrid">
         <div className="panel queuePanel">
           <div className="panelHeader">
-            <h2>Priority Queue</h2>
-            <button disabled={isLoading} onClick={() => window.location.reload()} type="button">
-              {isLoading ? "Loading" : "Refresh"}
+            <h2>Akıllı Asistan Özeti</h2>
+            <button disabled={isLoading} onClick={loadDashboard} type="button">
+              {isLoading ? "Yükleniyor" : "Yenile"}
             </button>
           </div>
           <div className="queueList">
@@ -157,8 +173,8 @@ export function DashboardView() {
 
         <div className="panel aiPanel">
           <div className="panelHeader">
-            <h2>AI Layer</h2>
-            <span className="tag">LLM ready</span>
+            <h2>AI Katmanı</h2>
+            <span className="tag">LLM hazır</span>
           </div>
           <div className="signalList">
             {aiSignals.map((signal) => (

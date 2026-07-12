@@ -1,15 +1,33 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Appointment, cancelAppointment, listAppointments } from "@/lib/api";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  Appointment,
+  CalendarAccount,
+  cancelAppointment,
+  connectGoogleCalendar,
+  createAppointment,
+  listAppointments,
+  listCalendarAccounts,
+} from "@/lib/api";
 import { useSession } from "@/lib/session";
 
 export function AppointmentsView() {
   const { tokens } = useSession();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [calendarAccounts, setCalendarAccounts] = useState<CalendarAccount[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
+  const [isCreating, setCreating] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [newAppointment, setNewAppointment] = useState({
+    description: "",
+    endAt: "",
+    location: "",
+    startAt: "",
+    title: "",
+  });
 
   async function loadAppointments() {
     if (!tokens?.accessToken) {
@@ -23,14 +41,17 @@ export function AppointmentsView() {
     setLoading(true);
     setError(null);
     try {
-      setAppointments(
-        await listAppointments(tokens.accessToken, {
+      const [nextAppointments, nextAccounts] = await Promise.all([
+        listAppointments(tokens.accessToken, {
           startDate: now.toISOString(),
           endDate: end.toISOString(),
         }),
-      );
+        listCalendarAccounts(tokens.accessToken),
+      ]);
+      setAppointments(nextAppointments);
+      setCalendarAccounts(nextAccounts);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Randevular alinamadi.");
+      setError(loadError instanceof Error ? loadError.message : "Randevular alınamadı.");
     } finally {
       setLoading(false);
     }
@@ -45,9 +66,9 @@ export function AppointmentsView() {
       upcoming: appointments.filter((appointment) => appointment.status !== "cancelled").length,
       today: appointments.filter((appointment) => isToday(appointment.start_at)).length,
       cancelled: appointments.filter((appointment) => appointment.status === "cancelled").length,
-      locations: new Set(appointments.map((appointment) => appointment.location).filter(Boolean)).size,
+      calendars: calendarAccounts.length,
     };
-  }, [appointments]);
+  }, [appointments, calendarAccounts.length]);
 
   async function handleCancel(appointmentId: string) {
     if (!tokens?.accessToken) {
@@ -70,22 +91,155 @@ export function AppointmentsView() {
     }
   }
 
+  async function handleConnectCalendar() {
+    if (!tokens?.accessToken) {
+      return;
+    }
+
+    setActiveId("calendar-connect");
+    setError(null);
+    try {
+      const account = await connectGoogleCalendar(tokens.accessToken);
+      setCalendarAccounts((currentAccounts) => [account, ...currentAccounts]);
+    } catch (connectError) {
+      setError(connectError instanceof Error ? connectError.message : "Takvim baglanamadi.");
+    } finally {
+      setActiveId(null);
+    }
+  }
+
+  async function handleCreateAppointment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tokens?.accessToken || !newAppointment.title.trim() || !newAppointment.startAt || !newAppointment.endAt) {
+      return;
+    }
+
+    setCreating(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const appointment = await createAppointment(tokens.accessToken, {
+        title: newAppointment.title.trim(),
+        description: newAppointment.description.trim() || null,
+        location: newAppointment.location.trim() || null,
+        start_at: new Date(newAppointment.startAt).toISOString(),
+        end_at: new Date(newAppointment.endAt).toISOString(),
+      });
+      setAppointments((currentAppointments) => [appointment, ...currentAppointments]);
+      setNewAppointment({ description: "", endAt: "", location: "", startAt: "", title: "" });
+      setNotice("Randevu oluşturuldu.");
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : "Randevu oluşturulamadı.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <section className="moduleSurface">
       {error ? <p className="notice">{error}</p> : null}
+      {notice ? <p className="notice success">{notice}</p> : null}
 
       <div className="moduleGrid">
         <SummaryCard label="Yaklasan" value={summary.upcoming} />
-        <SummaryCard label="Bugun" value={summary.today} />
-        <SummaryCard label="Iptal" value={summary.cancelled} />
-        <SummaryCard label="Lokasyon" value={summary.locations} />
+        <SummaryCard label="Bugün" value={summary.today} />
+        <SummaryCard label="İptal" value={summary.cancelled} />
+        <SummaryCard label="Takvim" value={summary.calendars} />
       </div>
 
       <div className="panel">
         <div className="panelHeader">
-          <h2>14 gunluk takvim</h2>
+          <h2>Yeni randevu</h2>
+          <span className="tag">Manual</span>
+        </div>
+        <form className="createForm" onSubmit={handleCreateAppointment}>
+          <label>
+            Başlık
+            <input
+              onChange={(event) =>
+                setNewAppointment((appointment) => ({ ...appointment, title: event.target.value }))
+              }
+              placeholder="Kontrol görüşmesi"
+              value={newAppointment.title}
+            />
+          </label>
+          <label>
+            Baslangic
+            <input
+              onChange={(event) =>
+                setNewAppointment((appointment) => ({ ...appointment, startAt: event.target.value }))
+              }
+              type="datetime-local"
+              value={newAppointment.startAt}
+            />
+          </label>
+          <label>
+            Bitis
+            <input
+              onChange={(event) =>
+                setNewAppointment((appointment) => ({ ...appointment, endAt: event.target.value }))
+              }
+              type="datetime-local"
+              value={newAppointment.endAt}
+            />
+          </label>
+          <label>
+            Lokasyon
+            <input
+              onChange={(event) =>
+                setNewAppointment((appointment) => ({ ...appointment, location: event.target.value }))
+              }
+              placeholder="Online"
+              value={newAppointment.location}
+            />
+          </label>
+          <button
+            disabled={
+              isCreating ||
+              !newAppointment.title.trim() ||
+              !newAppointment.startAt ||
+              !newAppointment.endAt
+            }
+            type="submit"
+          >
+            {isCreating ? "Oluşturuluyor" : "Oluştur"}
+          </button>
+        </form>
+      </div>
+
+      <div className="panel">
+        <div className="panelHeader">
+          <h2>Takvim hesaplari</h2>
+          <button
+            disabled={activeId === "calendar-connect"}
+            onClick={handleConnectCalendar}
+            type="button"
+          >
+            Google bagla
+          </button>
+        </div>
+        <div className="dataList">
+          {calendarAccounts.length === 0 ? <p className="emptyState">Bagli takvim hesabi yok.</p> : null}
+          {calendarAccounts.map((account) => (
+            <article className="dataRow" key={account.id}>
+              <div>
+                <div className="rowTitle">
+                  <h3>{account.provider}</h3>
+                  <span>{account.status}</span>
+                </div>
+                <p>{account.external_account_id ?? "Harici hesap id yok."}</p>
+                <small>{account.connected_at ? formatDateTime(account.connected_at) : "Baglanti bekliyor"}</small>
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="panelHeader">
+          <h2>14 günlük takvim</h2>
           <button disabled={isLoading} onClick={loadAppointments} type="button">
-            {isLoading ? "Yukleniyor" : "Yenile"}
+            {isLoading ? "Yükleniyor" : "Yenile"}
           </button>
         </div>
 
@@ -115,7 +269,7 @@ export function AppointmentsView() {
                   onClick={() => handleCancel(appointment.id)}
                   type="button"
                 >
-                  {activeId === appointment.id ? "Isleniyor" : "Iptal et"}
+                  {activeId === appointment.id ? "İşleniyor" : "İptal et"}
                 </button>
               </div>
             </article>

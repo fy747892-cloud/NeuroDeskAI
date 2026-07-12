@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { authenticate, AuthMode } from "@/lib/api";
 import { useSession } from "@/lib/session";
 
@@ -9,16 +9,32 @@ type AuthFormProps = {
   mode: AuthMode;
 };
 
+const REMEMBERED_EMAIL_KEY = "neurodesk-remembered-email";
+
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const { setAuthenticatedSession } = useSession();
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [isSubmitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   const isRegister = mode === "register";
+
+  useEffect(() => {
+    if (isRegister || typeof window === "undefined") {
+      return;
+    }
+
+    const rememberedEmail = window.localStorage.getItem(REMEMBERED_EMAIL_KEY);
+    if (rememberedEmail) {
+      setEmail(rememberedEmail);
+      setRememberMe(true);
+    }
+  }, [isRegister]);
+
   const canSubmit = useMemo(() => {
     if (!email.trim() || password.length < 8) {
       return false;
@@ -32,7 +48,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canSubmit) {
-      setMessage("Lutfen gecerli email, sifre ve ad soyad bilgisi girin.");
+      setMessage("Lütfen geçerli e-posta, şifre ve ad soyad bilgisi girin.");
       return;
     }
 
@@ -45,10 +61,17 @@ export function AuthForm({ mode }: AuthFormProps) {
         password,
         displayName: displayName.trim() || email.split("@")[0],
       });
+      if (!isRegister && typeof window !== "undefined") {
+        if (rememberMe) {
+          window.localStorage.setItem(REMEMBERED_EMAIL_KEY, email.trim());
+        } else {
+          window.localStorage.removeItem(REMEMBERED_EMAIL_KEY);
+        }
+      }
       await setAuthenticatedSession(tokens);
       router.push("/");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Kimlik dogrulama basarisiz.");
+      setMessage(error instanceof Error ? error.message : "Kimlik doğrulama başarısız.");
     } finally {
       setSubmitting(false);
     }
@@ -62,25 +85,25 @@ export function AuthForm({ mode }: AuthFormProps) {
           <input
             autoComplete="name"
             onChange={(event) => setDisplayName(event.target.value)}
-            placeholder="Dr. Ayse Demir"
+            placeholder="Dr. Ayşe Demir"
             value={displayName}
           />
         </label>
       ) : null}
 
       <label>
-        Email
+        E-posta
         <input
           autoComplete="email"
           onChange={(event) => setEmail(event.target.value)}
-          placeholder="you@example.com"
+          placeholder="ornek@example.com"
           type="email"
           value={email}
         />
       </label>
 
       <label>
-        Sifre
+        Şifre
         <input
           autoComplete={isRegister ? "new-password" : "current-password"}
           minLength={8}
@@ -91,15 +114,26 @@ export function AuthForm({ mode }: AuthFormProps) {
         />
       </label>
 
+      {!isRegister ? (
+        <label className="checkboxLine">
+          <input
+            checked={rememberMe}
+            onChange={(event) => setRememberMe(event.target.checked)}
+            type="checkbox"
+          />
+          <span>Beni hatırla</span>
+        </label>
+      ) : null}
+
       <button disabled={isSubmitting || !canSubmit} type="submit">
-        {isSubmitting ? "Isleniyor..." : isRegister ? "Hesap olustur" : "Giris yap"}
+        {isSubmitting ? "İşleniyor..." : isRegister ? "Hesap oluştur" : "Giriş yap"}
       </button>
 
       {message ? <p className="formMessage">{message}</p> : null}
 
       <p className="authSwitch">
-        {isRegister ? "Zaten hesabin var mi?" : "Hesabin yok mu?"}{" "}
-        <a href={isRegister ? "/giris" : "/kayit"}>{isRegister ? "Giris yap" : "Kayit ol"}</a>
+        {isRegister ? "Zaten hesabın var mı?" : "Hesabın yok mu?"}{" "}
+        <a href={isRegister ? "/giris" : "/kayit"}>{isRegister ? "Giriş yap" : "Kayıt ol"}</a>
       </p>
     </form>
   );
