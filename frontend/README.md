@@ -35,3 +35,23 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 3. Visit `/kayit` and create a user.
 4. Confirm the dashboard loads and the backend status pill is visible.
 5. Sign out and confirm `/` redirects to `/giris`.
+
+## Implemented App Routes
+
+- `/` dashboard
+- `/ai-chat` AI chat, semantic search, voice command interpretation
+- `/gorusmeler` conversations and calls
+- `/gorevler` tasks
+- `/takvim` appointments and calendar accounts
+- `/oncelik` priority queue
+- `/kisiler` contacts
+- `/dosyalar` files and document analysis actions
+- `/mailler` email accounts, messages, sync
+- `/bildirimler` notifications
+- `/onay-merkezi` AI action approvals
+- `/analitik` analytics overview
+- `/ayarlar` account, subscription, usage
+
+## Current Session Note
+
+The frontend keeps auth tokens in memory for now. A browser refresh intentionally returns the user to `/giris`; this avoids persistent token storage until a cookie/refresh-token session strategy is added.

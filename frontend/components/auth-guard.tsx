@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import type { Route } from "next";
 import { ReactNode, useEffect } from "react";
 import { useSession } from "@/lib/session";
 
@@ -10,7 +11,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      router.replace("/giris" as never);
+      router.replace("/giris" as Route);
     }
   }, [isAuthenticated, router]);
 

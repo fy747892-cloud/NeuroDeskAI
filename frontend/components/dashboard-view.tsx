@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { DashboardData, getDashboard } from "@/lib/api";
 import { useSession } from "@/lib/session";
 
@@ -37,38 +37,25 @@ export function DashboardView() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let isActive = true;
-
-    async function loadDashboard() {
-      if (!tokens?.accessToken) {
-        return;
-      }
-
-      setLoading(true);
-      setError(null);
-      try {
-        const data = await getDashboard(tokens.accessToken);
-        if (isActive) {
-          setDashboard(data);
-        }
-      } catch (loadError) {
-        if (isActive) {
-          setError(loadError instanceof Error ? loadError.message : "Dashboard verisi alinamadi.");
-        }
-      } finally {
-        if (isActive) {
-          setLoading(false);
-        }
-      }
+  const loadDashboard = useCallback(async () => {
+    if (!tokens?.accessToken) {
+      return;
     }
 
-    loadDashboard();
-
-    return () => {
-      isActive = false;
-    };
+    setLoading(true);
+    setError(null);
+    try {
+      setDashboard(await getDashboard(tokens.accessToken));
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Dashboard verisi alinamadi.");
+    } finally {
+      setLoading(false);
+    }
   }, [tokens?.accessToken]);
+
+  useEffect(() => {
+    loadDashboard();
+  }, [loadDashboard]);
 
   const metrics = useMemo(() => {
     const summary = dashboard?.summary;
@@ -137,7 +124,7 @@ export function DashboardView() {
         <div className="panel queuePanel">
           <div className="panelHeader">
             <h2>Priority Queue</h2>
-            <button disabled={isLoading} onClick={() => window.location.reload()} type="button">
+            <button disabled={isLoading} onClick={loadDashboard} type="button">
               {isLoading ? "Loading" : "Refresh"}
             </button>
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import type { Route } from "next";
 import { useState } from "react";
 import { useSession } from "@/lib/session";
 
@@ -14,7 +15,7 @@ export function UserMenu() {
     try {
       await signOut();
     } finally {
-      router.replace("/giris" as never);
+      router.replace("/giris" as Route);
       setSigningOut(false);
     }
   }

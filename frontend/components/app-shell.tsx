@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { Route } from "next";
 import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
 import { HealthStatus } from "@/lib/api";
@@ -20,7 +21,7 @@ const navItems = [
   { label: "Onay Merkezi", href: "/onay-merkezi" },
   { label: "Analitik", href: "/analitik" },
   { label: "Ayarlar", href: "/ayarlar" },
-];
+] satisfies Array<{ label: string; href: Route }>;
 
 type AppShellProps = {
   children: ReactNode;
@@ -48,7 +49,7 @@ export function AppShell({ children, eyebrow = "Workspace overview", health }: A
           {navItems.map((item) => (
             <Link
               className={isActive(pathname, item.href) ? "active" : ""}
-              href={item.href as never}
+              href={item.href}
               key={item.href}
             >
               {item.label}
