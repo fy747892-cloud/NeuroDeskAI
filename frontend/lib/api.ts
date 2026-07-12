@@ -193,6 +193,13 @@ export type SearchResult = {
   score: number;
 };
 
+export type ReindexSummary = {
+  processed: number;
+  created: number;
+  updated: number;
+  skipped: number;
+};
+
 export type AnalyticsOverview = {
   date_from: string;
   date_to: string;
@@ -755,6 +762,15 @@ export async function semanticSearch(
   return request<SearchResult[]>("/api/v1/search/semantic", {
     method: "POST",
     body: JSON.stringify({ query, limit }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function reindexSearch(accessToken: string): Promise<ReindexSummary> {
+  return request<ReindexSummary>("/api/v1/search/reindex", {
+    method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },

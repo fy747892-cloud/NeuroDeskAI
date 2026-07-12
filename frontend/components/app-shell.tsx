@@ -10,6 +10,7 @@ import { UserMenu } from "@/components/user-menu";
 const navItems = [
   { label: "Dashboard", href: "/" },
   { label: "AI Chat", href: "/ai-chat" },
+  { label: "Arama", href: "/arama" },
   { label: "Gorusmeler", href: "/gorusmeler" },
   { label: "Gorevler", href: "/gorevler" },
   { label: "Takvim", href: "/takvim" },

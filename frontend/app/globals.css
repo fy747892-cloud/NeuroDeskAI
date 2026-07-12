@@ -748,6 +748,49 @@ h3 {
   min-height: 0;
 }
 
+.searchForm {
+  align-items: end;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) 120px auto;
+  padding-top: 16px;
+}
+
+.searchForm label {
+  color: var(--muted);
+  display: grid;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.searchForm input,
+.searchForm select {
+  background: #fbfcfa;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  font: inherit;
+  min-height: 40px;
+  min-width: 0;
+  padding: 0 10px;
+}
+
+.indexSummary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 14px;
+}
+
+.indexSummary span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--teal);
+  font-size: 13px;
+  padding: 6px 10px;
+}
+
 .emptyState {
   color: var(--muted);
   line-height: 1.5;
@@ -900,7 +943,8 @@ h3 {
     width: 100%;
   }
 
-  .chatComposer {
+  .chatComposer,
+  .searchForm {
     grid-template-columns: 1fr;
   }
 
