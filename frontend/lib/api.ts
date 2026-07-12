@@ -212,6 +212,48 @@ export type EmailSyncSummary = {
   skipped: number;
 };
 
+export type FileRecord = {
+  id: string;
+  tenant_id: string;
+  organization_id: string;
+  owner_user_id: string;
+  filename: string;
+  mime_type: string;
+  size_bytes: number;
+  status: string;
+  created_at: string;
+};
+
+export type FileAnalysis = {
+  file_id: string;
+  summary: string | null;
+  status: string;
+};
+
+export type BillingPlan = {
+  id: string;
+  code: string;
+  name: string;
+  price: number;
+  billing_period: string;
+  status: string;
+};
+
+export type Subscription = {
+  tenant_id: string;
+  status: string;
+  current_period_end: string;
+  plan: BillingPlan;
+};
+
+export type UsageSummary = {
+  quota_type: string;
+  period: string;
+  limit_value: number;
+  used: number;
+  remaining: number;
+};
+
 export type DashboardData = {
   summary: DashboardSummary;
   open_tasks: DashboardTask[];
@@ -521,6 +563,64 @@ export async function syncEmailAccount(
 ): Promise<EmailSyncSummary> {
   return request<EmailSyncSummary>(`/api/v1/email/accounts/${accountId}/sync`, {
     method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function listFiles(accessToken: string): Promise<FileRecord[]> {
+  return request<FileRecord[]>("/api/v1/files", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function analyzeFile(accessToken: string, fileId: string): Promise<FileAnalysis> {
+  return request<FileAnalysis>(`/api/v1/files/${fileId}/analyze`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function deleteFile(accessToken: string, fileId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/files/${fileId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+}
+
+export async function listBillingPlans(accessToken: string): Promise<BillingPlan[]> {
+  return request<BillingPlan[]>("/api/v1/billing/plans", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getSubscription(accessToken: string): Promise<Subscription> {
+  return request<Subscription>("/api/v1/billing/subscription", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getUsageSummary(accessToken: string): Promise<UsageSummary> {
+  return request<UsageSummary>("/api/v1/billing/usage", {
+    cache: "no-store",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },

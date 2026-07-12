@@ -415,6 +415,12 @@ h3 {
   padding: 12px 14px;
 }
 
+.notice.success {
+  background: #eef8f1;
+  border-color: #cde3d3;
+  color: var(--green);
+}
+
 .moduleSurface {
   display: grid;
   gap: 18px;
@@ -430,7 +436,7 @@ h3 {
 .moduleGrid {
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 .moduleCard {

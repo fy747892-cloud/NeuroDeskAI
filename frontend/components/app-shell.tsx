@@ -13,6 +13,7 @@ const navItems = [
   { label: "Gorevler", href: "/gorevler" },
   { label: "Takvim", href: "/takvim" },
   { label: "Kisiler", href: "/kisiler" },
+  { label: "Dosyalar", href: "/dosyalar" },
   { label: "Mailler", href: "/mailler" },
   { label: "Onay Merkezi", href: "/onay-merkezi" },
   { label: "Analitik", href: "/analitik" },
