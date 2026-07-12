@@ -128,6 +128,45 @@ export type AIActionApproval = DashboardApproval & {
   decided_at: string | null;
 };
 
+export type ChatSource = {
+  source_type: string;
+  source_id: string;
+  title: string;
+  snippet: string;
+};
+
+export type ChatMessage = {
+  id: string;
+  session_id: string;
+  role: string;
+  content: string;
+  confidence: number | null;
+  sources: ChatSource[] | null;
+  created_at: string;
+};
+
+export type ChatSession = {
+  id: string;
+  tenant_id: string;
+  organization_id: string;
+  user_id: string;
+  title: string | null;
+  status: string;
+  created_at: string;
+};
+
+export type ChatSessionDetail = ChatSession & {
+  messages: ChatMessage[];
+};
+
+export type SearchResult = {
+  source_type: string;
+  source_id: string;
+  title: string;
+  snippet: string;
+  score: number;
+};
+
 export type DashboardData = {
   summary: DashboardSummary;
   open_tasks: DashboardTask[];
@@ -344,6 +383,57 @@ export async function rejectAction(
 ): Promise<AIActionApproval> {
   return request<AIActionApproval>(`/api/v1/ai/approvals/${approvalId}/reject`, {
     method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function listChatSessions(accessToken: string): Promise<ChatSession[]> {
+  return request<ChatSession[]>("/api/v1/ai/chat/sessions", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getChatSession(
+  accessToken: string,
+  sessionId: string,
+): Promise<ChatSessionDetail> {
+  return request<ChatSessionDetail>(`/api/v1/ai/chat/sessions/${sessionId}`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function sendChatMessage(
+  accessToken: string,
+  payload: { message: string; sessionId?: string | null },
+): Promise<ChatMessage> {
+  return request<ChatMessage>("/api/v1/ai/chat", {
+    method: "POST",
+    body: JSON.stringify({
+      message: payload.message,
+      session_id: payload.sessionId ?? null,
+    }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function semanticSearch(
+  accessToken: string,
+  query: string,
+  limit = 8,
+): Promise<SearchResult[]> {
+  return request<SearchResult[]>("/api/v1/search/semantic", {
+    method: "POST",
+    body: JSON.stringify({ query, limit }),
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },

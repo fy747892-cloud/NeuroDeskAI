@@ -544,6 +544,141 @@ h3 {
   padding: 0 10px;
 }
 
+.chatWorkspace {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 280px minmax(0, 1fr);
+}
+
+.chatRail {
+  min-height: 0;
+}
+
+.sessionList {
+  display: grid;
+  gap: 8px;
+  padding-top: 14px;
+}
+
+.sessionItem {
+  align-items: start;
+  background: #fbfcfa;
+  display: grid;
+  gap: 4px;
+  height: auto;
+  justify-items: start;
+  min-height: 62px;
+  padding: 10px;
+  text-align: left;
+}
+
+.sessionItem.active,
+.sessionItem:hover {
+  background: var(--surface-strong);
+}
+
+.sessionItem span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.chatMain {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.chatPanel {
+  display: grid;
+  gap: 16px;
+  min-height: 520px;
+}
+
+.messageList {
+  align-content: start;
+  display: grid;
+  gap: 12px;
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.messageBubble {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 8px;
+  max-width: 780px;
+  padding: 14px;
+}
+
+.messageBubble.user {
+  background: var(--surface-strong);
+  justify-self: end;
+}
+
+.messageBubble.assistant {
+  background: #fbfcfa;
+  justify-self: start;
+}
+
+.messageBubble div:first-child {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+}
+
+.messageBubble span {
+  color: var(--teal);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.messageBubble p {
+  line-height: 1.6;
+  margin-bottom: 0;
+}
+
+.sourceList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sourceList span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  padding: 5px 8px;
+}
+
+.chatComposer {
+  align-items: end;
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding-top: 14px;
+}
+
+.chatComposer textarea {
+  background: #fbfcfa;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.5;
+  min-height: 86px;
+  padding: 12px;
+  resize: vertical;
+}
+
+.searchPanel {
+  min-height: 0;
+}
+
 .emptyState {
   color: var(--muted);
   line-height: 1.5;
@@ -631,7 +766,8 @@ h3 {
   nav,
   .metrics,
   .contentGrid,
-  .moduleGrid {
+  .moduleGrid,
+  .chatWorkspace {
     grid-template-columns: 1fr;
   }
 
@@ -658,6 +794,14 @@ h3 {
   .inlineSearch input {
     min-width: 0;
     width: 100%;
+  }
+
+  .chatComposer {
+    grid-template-columns: 1fr;
+  }
+
+  .messageBubble {
+    max-width: 100%;
   }
 
   .queueItem > span {
