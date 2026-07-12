@@ -21,7 +21,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
         <section className="authCard">
           <p className="eyebrow">NeuroDeskAI</p>
           <h1>Oturum kontrol ediliyor</h1>
-          <p className="formMessage">Devam etmek icin giris sayfasina yonlendiriliyorsun.</p>
+          <p className="formMessage">Devam etmek için giriş sayfasına yönlendiriliyorsun.</p>
         </section>
       </main>
     );

@@ -8,21 +8,21 @@ import { HealthStatus } from "@/lib/api";
 import { UserMenu } from "@/components/user-menu";
 
 const navItems = [
-  { label: "Dashboard", href: "/" },
-  { label: "AI Chat", href: "/ai-chat" },
-  { label: "Arama", href: "/arama" },
-  { label: "Gorusmeler", href: "/gorusmeler" },
-  { label: "Gorevler", href: "/gorevler" },
-  { label: "Takvim", href: "/takvim" },
-  { label: "Oncelik", href: "/oncelik" },
-  { label: "Kisiler", href: "/kisiler" },
-  { label: "Dosyalar", href: "/dosyalar" },
-  { label: "Mailler", href: "/mailler" },
-  { label: "Bildirimler", href: "/bildirimler" },
-  { label: "Onay Merkezi", href: "/onay-merkezi" },
-  { label: "Analitik", href: "/analitik" },
-  { label: "Ayarlar", href: "/ayarlar" },
-] satisfies Array<{ label: string; href: Route }>;
+  { icon: "A", label: "Ana Sayfa", href: "/" },
+  { icon: "AI", label: "AI Chat", href: "/ai-chat" },
+  { icon: "AR", label: "Arama", href: "/arama" },
+  { icon: "G", label: "Görüşmeler", href: "/gorusmeler" },
+  { icon: "GV", label: "Görevler", href: "/gorevler" },
+  { icon: "T", label: "Takvim", href: "/takvim" },
+  { icon: "Ö", label: "Öncelik", href: "/oncelik" },
+  { icon: "K", label: "Kişiler", href: "/kisiler" },
+  { icon: "D", label: "Dosyalar", href: "/dosyalar" },
+  { icon: "M", label: "Mailler", href: "/mailler" },
+  { icon: "B", label: "Bildirimler", href: "/bildirimler" },
+  { icon: "O", label: "Onay Merkezi", href: "/onay-merkezi" },
+  { icon: "AN", label: "Analitik", href: "/analitik" },
+  { icon: "AY", label: "Ayarlar", href: "/ayarlar" },
+] satisfies Array<{ icon: string; label: string; href: Route }>;
 
 type AppShellProps = {
   children: ReactNode;
@@ -30,7 +30,7 @@ type AppShellProps = {
   health: HealthStatus;
 };
 
-export function AppShell({ children, eyebrow = "Workspace overview", health }: AppShellProps) {
+export function AppShell({ children, eyebrow = "Çalışma alanı", health }: AppShellProps) {
   const pathname = usePathname();
   const currentItem = navItems.find((item) => isActive(pathname, item.href));
   const title = currentItem?.label ?? "Dashboard";
@@ -41,8 +41,8 @@ export function AppShell({ children, eyebrow = "Workspace overview", health }: A
         <div className="brand">
           <div className="brandMark">N</div>
           <div>
-            <strong>NeuroDeskAI</strong>
-            <span>Operations</span>
+            <strong>NeuroDesk AI</strong>
+            <span>Akıllı operasyon paneli</span>
           </div>
         </div>
 
@@ -54,6 +54,9 @@ export function AppShell({ children, eyebrow = "Workspace overview", health }: A
               href={item.href}
               key={item.href}
             >
+              <span className="navIcon" aria-hidden="true">
+                {item.icon}
+              </span>
               {item.label}
             </Link>
           ))}

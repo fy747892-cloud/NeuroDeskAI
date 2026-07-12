@@ -24,10 +24,10 @@ export function UserMenu() {
     <div className="userMenu">
       <div>
         <span>Aktif oturum</span>
-        <strong>{user?.profile?.full_name ?? user?.email ?? "Kullanici"}</strong>
+        <strong>{user?.profile?.full_name ?? user?.email ?? "Kullanıcı"}</strong>
       </div>
       <button disabled={isSigningOut} onClick={handleSignOut} type="button">
-        {isSigningOut ? "Cikiliyor..." : "Cikis"}
+        {isSigningOut ? "Çıkılıyor..." : "Çıkış"}
       </button>
     </div>
   );

@@ -30,7 +30,7 @@ export function ContactsView() {
     try {
       setContacts(await listContacts(tokens.accessToken, { search: nextSearch.trim() || undefined }));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Kisiler alinamadi.");
+      setError(loadError instanceof Error ? loadError.message : "Kişiler alınamadı.");
     } finally {
       setLoading(false);
     }
@@ -73,9 +73,9 @@ export function ContactsView() {
       });
       setContacts((currentContacts) => [createdContact, ...currentContacts]);
       setNewContact({ company: "", email: "", fullName: "", phone: "", title: "" });
-      setNotice("Kisi olusturuldu.");
+      setNotice("Kişi oluşturuldu.");
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "Kisi olusturulamadi.");
+      setError(createError instanceof Error ? createError.message : "Kişi oluşturulamadı.");
     } finally {
       setCreating(false);
     }
@@ -89,13 +89,13 @@ export function ContactsView() {
       <div className="moduleGrid">
         <SummaryCard label="Toplam" value={summary.total} />
         <SummaryCard label="Aktif" value={summary.active} />
-        <SummaryCard label="Sirket" value={summary.companies} />
+        <SummaryCard label="Şirket" value={summary.companies} />
         <SummaryCard label="Etiketli" value={summary.tagged} />
       </div>
 
       <div className="panel">
         <div className="panelHeader">
-          <h2>Yeni kisi</h2>
+          <h2>Yeni kişi</h2>
           <span className="tag">CRM</span>
         </div>
         <form className="createForm" onSubmit={handleCreateContact}>
@@ -131,7 +131,7 @@ export function ContactsView() {
             />
           </label>
           <label>
-            Sirket
+            Şirket
             <input
               onChange={(event) =>
                 setNewContact((contact) => ({ ...contact, company: event.target.value }))
@@ -141,7 +141,7 @@ export function ContactsView() {
             />
           </label>
           <label>
-            Unvan
+            Ünvan
             <input
               onChange={(event) =>
                 setNewContact((contact) => ({ ...contact, title: event.target.value }))
@@ -151,14 +151,14 @@ export function ContactsView() {
             />
           </label>
           <button disabled={isCreating || !newContact.fullName.trim()} type="submit">
-            {isCreating ? "Olusturuluyor" : "Olustur"}
+            {isCreating ? "Oluşturuluyor" : "Oluştur"}
           </button>
         </form>
       </div>
 
       <div className="panel">
         <div className="panelHeader">
-          <h2>Kisi listesi</h2>
+          <h2>Kişi listesi</h2>
           <form className="inlineSearch" onSubmit={handleSearch}>
             <input
               onChange={(event) => setSearch(event.target.value)}
@@ -166,15 +166,15 @@ export function ContactsView() {
               value={search}
             />
             <button disabled={isLoading} type="submit">
-              {isLoading ? "Araniyor" : "Ara"}
+              {isLoading ? "Aranıyor" : "Ara"}
             </button>
           </form>
         </div>
 
         <div className="dataList">
-          {isLoading ? <p className="emptyState">Kisiler yukleniyor.</p> : null}
+          {isLoading ? <p className="emptyState">Kişiler yükleniyor.</p> : null}
           {!isLoading && contacts.length === 0 ? (
-            <p className="emptyState">Kisi kaydi bulunmuyor.</p>
+            <p className="emptyState">Kişi kaydı bulunmuyor.</p>
           ) : null}
           {contacts.map((contact) => (
             <article className="dataRow" key={contact.id}>
@@ -184,7 +184,7 @@ export function ContactsView() {
                   <span>{contact.status}</span>
                 </div>
                 <p>{[contact.title, contact.company].filter(Boolean).join(" - ") || "Profil detayi yok."}</p>
-                <small>{contact.email ?? contact.phone ?? "Iletisim bilgisi yok"}</small>
+                <small>{contact.email ?? contact.phone ?? "İletişim bilgisi yok"}</small>
               </div>
               <div className="rowActions">
                 <span className="statusPill">{contact.tags[0] ?? "CRM"}</span>

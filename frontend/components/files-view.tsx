@@ -22,7 +22,7 @@ export function FilesView() {
     try {
       setFiles(await listFiles(tokens.accessToken));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Dosyalar alinamadi.");
+      setError(loadError instanceof Error ? loadError.message : "Dosyalar alınamadı.");
     } finally {
       setLoading(false);
     }
@@ -95,7 +95,7 @@ export function FilesView() {
         <div className="panelHeader">
           <h2>Dosya listesi</h2>
           <button disabled={isLoading} onClick={loadFiles} type="button">
-            {isLoading ? "Yukleniyor" : "Yenile"}
+            {isLoading ? "Yükleniyor" : "Yenile"}
           </button>
         </div>
         <div className="dataList">

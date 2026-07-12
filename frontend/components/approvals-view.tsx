@@ -21,7 +21,7 @@ export function ApprovalsView() {
     try {
       setApprovals(await listApprovals(tokens.accessToken));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "AI onaylari alinamadi.");
+      setError(loadError instanceof Error ? loadError.message : "AI onayları alınamadı.");
     } finally {
       setLoading(false);
     }
@@ -79,12 +79,12 @@ export function ApprovalsView() {
         <div className="panelHeader">
           <h2>AI aksiyon kuyrugu</h2>
           <button disabled={isLoading} onClick={loadApprovals} type="button">
-            {isLoading ? "Yukleniyor" : "Yenile"}
+            {isLoading ? "Yükleniyor" : "Yenile"}
           </button>
         </div>
 
         <div className="dataList">
-          {isLoading ? <p className="emptyState">AI onaylari yukleniyor.</p> : null}
+          {isLoading ? <p className="emptyState">AI onayları yükleniyor.</p> : null}
           {!isLoading && approvals.length === 0 ? (
             <p className="emptyState">Bekleyen AI onerisi yok.</p>
           ) : null}
@@ -141,7 +141,7 @@ function summarizePayload(payload: Record<string, unknown>): string {
   if (typeof title === "string" && title.trim()) {
     return title;
   }
-  return "AI tarafindan uretilen aksiyon onay bekliyor.";
+  return "AI tarafından üretilen aksiyon onay bekliyor.";
 }
 
 function formatConfidence(value: number | null): string {

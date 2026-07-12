@@ -20,7 +20,7 @@ export function PriorityView() {
     try {
       setQueue(await getPriorityQueue(tokens.accessToken));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Oncelik kuyrugu alinamadi.");
+      setError(loadError instanceof Error ? loadError.message : "Öncelik kuyruğu alınamadı.");
     } finally {
       setLoading(false);
     }
@@ -53,15 +53,15 @@ export function PriorityView() {
 
       <section className="panel">
         <div className="panelHeader">
-          <h2>Oncelik kuyrugu</h2>
+          <h2>Öncelik kuyruğu</h2>
           <button disabled={isLoading} onClick={loadQueue} type="button">
-            {isLoading ? "Yukleniyor" : "Yenile"}
+            {isLoading ? "Yükleniyor" : "Yenile"}
           </button>
         </div>
         <div className="dataList">
-          {isLoading ? <p className="emptyState">Oncelik kuyrugu yukleniyor.</p> : null}
+          {isLoading ? <p className="emptyState">Öncelik kuyruğu yükleniyor.</p> : null}
           {!isLoading && !queue?.items.length ? (
-            <p className="emptyState">Onceliklendirilecek is yok.</p>
+            <p className="emptyState">Önceliklendirilecek iş yok.</p>
           ) : null}
           {queue?.items.map((item) => (
             <article className="dataRow" key={`${item.item_type}-${item.item_id}`}>

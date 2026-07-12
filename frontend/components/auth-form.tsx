@@ -32,7 +32,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!canSubmit) {
-      setMessage("Lutfen gecerli email, sifre ve ad soyad bilgisi girin.");
+      setMessage("Lütfen geçerli e-posta, şifre ve ad soyad bilgisi girin.");
       return;
     }
 
@@ -48,7 +48,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       await setAuthenticatedSession(tokens);
       router.push("/");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Kimlik dogrulama basarisiz.");
+      setMessage(error instanceof Error ? error.message : "Kimlik doğrulama başarısız.");
     } finally {
       setSubmitting(false);
     }
@@ -62,25 +62,25 @@ export function AuthForm({ mode }: AuthFormProps) {
           <input
             autoComplete="name"
             onChange={(event) => setDisplayName(event.target.value)}
-            placeholder="Dr. Ayse Demir"
+            placeholder="Dr. Ayşe Demir"
             value={displayName}
           />
         </label>
       ) : null}
 
       <label>
-        Email
+        E-posta
         <input
           autoComplete="email"
           onChange={(event) => setEmail(event.target.value)}
-          placeholder="you@example.com"
+          placeholder="ornek@example.com"
           type="email"
           value={email}
         />
       </label>
 
       <label>
-        Sifre
+        Şifre
         <input
           autoComplete={isRegister ? "new-password" : "current-password"}
           minLength={8}
@@ -92,14 +92,14 @@ export function AuthForm({ mode }: AuthFormProps) {
       </label>
 
       <button disabled={isSubmitting || !canSubmit} type="submit">
-        {isSubmitting ? "Isleniyor..." : isRegister ? "Hesap olustur" : "Giris yap"}
+        {isSubmitting ? "İşleniyor..." : isRegister ? "Hesap oluştur" : "Giriş yap"}
       </button>
 
       {message ? <p className="formMessage">{message}</p> : null}
 
       <p className="authSwitch">
-        {isRegister ? "Zaten hesabin var mi?" : "Hesabin yok mu?"}{" "}
-        <a href={isRegister ? "/giris" : "/kayit"}>{isRegister ? "Giris yap" : "Kayit ol"}</a>
+        {isRegister ? "Zaten hesabın var mı?" : "Hesabın yok mu?"}{" "}
+        <a href={isRegister ? "/giris" : "/kayit"}>{isRegister ? "Giriş yap" : "Kayıt ol"}</a>
       </p>
     </form>
   );

@@ -68,7 +68,7 @@ export function SettingsView() {
       setMembers(nextMembers);
       setAuditLogs(nextAuditLogs);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Ayarlar alinamadi.");
+      setError(loadError instanceof Error ? loadError.message : "Ayarlar alınamadı.");
     } finally {
       setLoading(false);
     }
@@ -113,8 +113,8 @@ export function SettingsView() {
       <div className="moduleGrid">
         <SummaryCard label="Plan" value={subscription?.plan.name ?? "--"} />
         <SummaryCard label="Durum" value={subscription?.status ?? "--"} />
-        <SummaryCard label="Kullanim" value={`${usagePercent}%`} />
-        <SummaryCard label="Uye" value={members.length} />
+        <SummaryCard label="Kullanım" value={`${usagePercent}%`} />
+        <SummaryCard label="Üye" value={members.length} />
       </div>
 
       <div className="contentGrid">
@@ -122,7 +122,7 @@ export function SettingsView() {
           <div className="panelHeader">
             <h2>Hesap</h2>
             <button disabled={isLoading} onClick={loadSettings} type="button">
-              {isLoading ? "Yukleniyor" : "Yenile"}
+              {isLoading ? "Yükleniyor" : "Yenile"}
             </button>
           </div>
           <div className="metricList">
@@ -156,19 +156,19 @@ export function SettingsView() {
         <div className="consentGrid">
           <ConsentToggle
             checked={consent.aiProcessing}
-            description="AI chat, ozetleme ve oneriler icin calisma alani verilerinin islenmesine izin verir."
+            description="AI chat, özetleme ve öneriler için çalışma alanı verilerinin işlenmesine izin verir."
             label="AI veri isleme"
             onChange={(value) => updateConsent("aiProcessing", value)}
           />
           <ConsentToggle
             checked={consent.contactMemory}
-            description="Kisi hafizasi, gorusme ve CRM baglaminin arama/chat sonuclarinda kullanilmasina izin verir."
-            label="Kisi hafizasi"
+            description="Kişi hafızası, görüşme ve CRM bağlamının arama/chat sonuçlarında kullanılmasına izin verir."
+            label="Kişi hafızası"
             onChange={(value) => updateConsent("contactMemory", value)}
           />
           <ConsentToggle
             checked={consent.operationalReminders}
-            description="Gorev, randevu ve bildirim hatirlatmalarinin operasyonel akista kullanilmasina izin verir."
+            description="Görev, randevu ve bildirim hatırlatmalarının operasyonel akışta kullanılmasına izin verir."
             label="Operasyonel hatirlatmalar"
             onChange={(value) => updateConsent("operationalReminders", value)}
           />
@@ -204,7 +204,7 @@ export function SettingsView() {
             <span className="tag">{members.length}</span>
           </div>
           <div className="dataList">
-            {members.length === 0 ? <p className="emptyState">Uye bulunmuyor.</p> : null}
+            {members.length === 0 ? <p className="emptyState">Üye bulunmuyor.</p> : null}
             {members.map((member) => (
               <article className="dataRow" key={member.id}>
                 <div>

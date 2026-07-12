@@ -36,7 +36,7 @@ export function EmailView() {
         await loadMessages(nextAccounts[0].id);
       }
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Email hesaplari alinamadi.");
+      setError(loadError instanceof Error ? loadError.message : "E-posta hesapları alınamadı.");
     } finally {
       setLoading(false);
     }
@@ -51,7 +51,7 @@ export function EmailView() {
     try {
       setMessages(await listEmailMessages(tokens.accessToken, accountId));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Email mesajlari alinamadi.");
+      setError(loadError instanceof Error ? loadError.message : "E-posta mesajları alınamadı.");
     }
   }
 
@@ -113,7 +113,7 @@ export function EmailView() {
           <div className="panelHeader">
             <h2>Email hesaplari</h2>
             <button disabled={isLoading} onClick={loadAccounts} type="button">
-              {isLoading ? "Yukleniyor" : "Yenile"}
+              {isLoading ? "Yükleniyor" : "Yenile"}
             </button>
           </div>
           <div className="dataList">
@@ -129,7 +129,7 @@ export function EmailView() {
                   <small>
                     {account.last_synced_at
                       ? `Son sync ${formatDateTime(account.last_synced_at)}`
-                      : "Henuz sync yok"}
+                      : "Henüz senkronizasyon yok"}
                   </small>
                 </div>
                 <div className="rowActions horizontal">

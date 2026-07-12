@@ -20,7 +20,7 @@ export function AnalyticsView() {
     try {
       setOverview(await getAnalyticsOverview(tokens.accessToken));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Analitik verisi alinamadi.");
+      setError(loadError instanceof Error ? loadError.message : "Analitik verisi alınamadı.");
     } finally {
       setLoading(false);
     }
@@ -42,8 +42,8 @@ export function AnalyticsView() {
       {error ? <p className="notice">{error}</p> : null}
 
       <div className="moduleGrid">
-        <SummaryCard label="Olusturulan gorev" value={overview?.tasks_created ?? 0} />
-        <SummaryCard label="Tamamlanan gorev" value={overview?.tasks_completed ?? 0} />
+        <SummaryCard label="Oluşturulan görev" value={overview?.tasks_created ?? 0} />
+        <SummaryCard label="Tamamlanan görev" value={overview?.tasks_completed ?? 0} />
         <SummaryCard label="AI istekleri" value={overview?.ai_requests ?? 0} />
         <SummaryCard label="Tamamlama" value={`${completionRate}%`} />
       </div>
@@ -53,13 +53,13 @@ export function AnalyticsView() {
           <div className="panelHeader">
             <h2>Operasyon ozeti</h2>
             <button disabled={isLoading} onClick={loadAnalytics} type="button">
-              {isLoading ? "Yukleniyor" : "Yenile"}
+              {isLoading ? "Yükleniyor" : "Yenile"}
             </button>
           </div>
           <div className="metricList">
-            <MetricLine label="Gecikmis gorev" value={overview?.tasks_overdue ?? 0} />
-            <MetricLine label="Toplam gorusme" value={overview?.calls_total ?? 0} />
-            <MetricLine label="Analiz edilen gorusme" value={overview?.calls_analyzed ?? 0} />
+            <MetricLine label="Gecikmiş görev" value={overview?.tasks_overdue ?? 0} />
+            <MetricLine label="Toplam görüşme" value={overview?.calls_total ?? 0} />
+            <MetricLine label="Analiz edilen görüşme" value={overview?.calls_analyzed ?? 0} />
             <MetricLine label="Tamamlanan randevu" value={overview?.appointments_completed ?? 0} />
             <MetricLine label="Yaklasan randevu" value={overview?.appointments_upcoming ?? 0} />
           </div>

@@ -53,7 +53,7 @@ export function SearchView() {
     try {
       const nextSummary = await reindexSearch(tokens.accessToken);
       setSummary(nextSummary);
-      setNotice("Arama indeksi guncellendi.");
+      setNotice("Arama indeksi güncellendi.");
     } catch (reindexError) {
       setError(reindexError instanceof Error ? reindexError.message : "Re-index tamamlanamadi.");
     } finally {
@@ -103,7 +103,7 @@ export function SearchView() {
             </select>
           </label>
           <button disabled={isSearching || !query.trim()} type="submit">
-            {isSearching ? "Araniyor" : "Ara"}
+            {isSearching ? "Aranıyor" : "Ara"}
           </button>
         </form>
 

@@ -43,7 +43,7 @@ export function AIChatView() {
     try {
       setSessions(await listChatSessions(tokens.accessToken));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Chat oturumlari alinamadi.");
+      setError(loadError instanceof Error ? loadError.message : "Chat oturumları alınamadı.");
     } finally {
       setLoading(false);
     }
@@ -165,7 +165,7 @@ export function AIChatView() {
           </button>
         </div>
         <div className="sessionList">
-          {sessions.length === 0 ? <p className="emptyState">Kayitli chat oturumu yok.</p> : null}
+          {sessions.length === 0 ? <p className="emptyState">Kayıtlı chat oturumu yok.</p> : null}
           {sessions.map((session) => (
             <button
               className={session.id === activeSessionId ? "sessionItem active" : "sessionItem"}
@@ -191,7 +191,7 @@ export function AIChatView() {
         <section className="panel chatPanel">
           <div className="messageList" aria-live="polite">
             {messages.length === 0 ? (
-              <p className="emptyState">AI Chat hazir. Is akisinla ilgili bir soru sorabilirsin.</p>
+              <p className="emptyState">AI Chat hazır. İş akışınla ilgili bir soru sorabilirsin.</p>
             ) : null}
             {messages.map((message) => (
               <article className={`messageBubble ${message.role}`} key={message.id}>
@@ -216,7 +216,7 @@ export function AIChatView() {
           <form className="chatComposer" onSubmit={handleSend}>
             <textarea
               onChange={(event) => setPrompt(event.target.value)}
-              placeholder="Bugun hangi gorevlere odaklanmaliyim?"
+              placeholder="Bugün hangi görevlere odaklanmalıyım?"
               rows={3}
               value={prompt}
             />
@@ -236,7 +236,7 @@ export function AIChatView() {
                 value={searchQuery}
               />
               <button disabled={isSearching || !searchQuery.trim()} type="submit">
-                {isSearching ? "Araniyor" : "Ara"}
+                {isSearching ? "Aranıyor" : "Ara"}
               </button>
             </form>
           </div>
@@ -265,7 +265,7 @@ export function AIChatView() {
           <form className="chatComposer" onSubmit={handleVoiceCommand}>
             <textarea
               onChange={(event) => setVoiceText(event.target.value)}
-              placeholder="Yarin Ahmet icin takip gorevi olustur"
+              placeholder="Yarın Ahmet için takip görevi oluştur"
               rows={2}
               value={voiceText}
             />

@@ -42,7 +42,7 @@ export function ConversationsView() {
       setConversations(nextConversations);
       setCalls(nextCalls);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Gorusmeler alinamadi.");
+      setError(loadError instanceof Error ? loadError.message : "Görüşmeler alınamadı.");
     } finally {
       setLoading(false);
     }
@@ -73,7 +73,7 @@ export function ConversationsView() {
       await deleteCall(tokens.accessToken, callId);
       setCalls((currentCalls) => currentCalls.filter((call) => call.id !== callId));
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "Cagri silinemedi.");
+      setError(deleteError instanceof Error ? deleteError.message : "Çağrı silinemedi.");
     } finally {
       setActiveId(null);
     }
@@ -101,9 +101,9 @@ export function ConversationsView() {
       setConversations((currentConversations) => [result.conversation, ...currentConversations]);
       setCalls((currentCalls) => [result.call, ...currentCalls]);
       setNewCall({ participants: "", phone: "", title: "", transcript: "" });
-      setNotice("Metin gorusmesi olusturuldu.");
+      setNotice("Metin görüşmesi oluşturuldu.");
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "Gorusme olusturulamadi.");
+      setError(createError instanceof Error ? createError.message : "Görüşme oluşturulamadı.");
     } finally {
       setCreating(false);
     }
@@ -117,21 +117,21 @@ export function ConversationsView() {
       <div className="moduleGrid">
         <SummaryCard label="Toplam" value={summary.total} />
         <SummaryCard label="Aktif" value={summary.active} />
-        <SummaryCard label="Cagri" value={summary.calls} />
+        <SummaryCard label="Çağrı" value={summary.calls} />
         <SummaryCard label="Kapali" value={summary.closed} />
       </div>
 
       <div className="panel">
         <div className="panelHeader">
-          <h2>Yeni metin gorusmesi</h2>
+          <h2>Yeni metin görüşmesi</h2>
           <span className="tag">Call text</span>
         </div>
         <form className="createForm createFormWide" onSubmit={handleCreateCall}>
           <label>
-            Baslik
+            Başlık
             <input
               onChange={(event) => setNewCall((call) => ({ ...call, title: event.target.value }))}
-              placeholder="Hasta gorusmesi"
+              placeholder="Hasta görüşmesi"
               value={newCall.title}
             />
           </label>
@@ -159,29 +159,29 @@ export function ConversationsView() {
               onChange={(event) =>
                 setNewCall((call) => ({ ...call, transcript: event.target.value }))
               }
-              placeholder="Gorusme metnini buraya yapistir"
+              placeholder="Görüşme metnini buraya yapıştır"
               rows={4}
               value={newCall.transcript}
             />
           </label>
           <button disabled={isCreating || !newCall.title.trim() || !newCall.transcript.trim()} type="submit">
-            {isCreating ? "Olusturuluyor" : "Olustur"}
+            {isCreating ? "Oluşturuluyor" : "Oluştur"}
           </button>
         </form>
       </div>
 
       <div className="panel">
         <div className="panelHeader">
-          <h2>Gorusme listesi</h2>
+          <h2>Görüşme listesi</h2>
           <button disabled={isLoading} onClick={loadConversations} type="button">
-            {isLoading ? "Yukleniyor" : "Yenile"}
+            {isLoading ? "Yükleniyor" : "Yenile"}
           </button>
         </div>
 
         <div className="dataList">
-          {isLoading ? <p className="emptyState">Gorusmeler yukleniyor.</p> : null}
+          {isLoading ? <p className="emptyState">Görüşmeler yükleniyor.</p> : null}
           {!isLoading && conversations.length === 0 ? (
-            <p className="emptyState">Henuz gorusme kaydi yok.</p>
+            <p className="emptyState">Henüz görüşme kaydı yok.</p>
           ) : null}
           {conversations.map((conversation) => (
             <article className="dataRow" key={conversation.id}>
@@ -203,16 +203,16 @@ export function ConversationsView() {
 
       <div className="panel">
         <div className="panelHeader">
-          <h2>Cagri listesi</h2>
+          <h2>Çağrı listesi</h2>
           <span className="tag">{calls.length}</span>
         </div>
         <div className="dataList">
-          {calls.length === 0 ? <p className="emptyState">Cagri kaydi yok.</p> : null}
+          {calls.length === 0 ? <p className="emptyState">Çağrı kaydı yok.</p> : null}
           {calls.map((call) => (
             <article className="dataRow" key={call.id}>
               <div>
                 <div className="rowTitle">
-                  <h3>{call.phone_number ?? "Metin gorusmesi"}</h3>
+                  <h3>{call.phone_number ?? "Metin görüşmesi"}</h3>
                   <span>{call.call_direction ?? "manual"}</span>
                 </div>
                 <p>{call.transcriptions[0]?.transcript_text.slice(0, 160) ?? "Transkript yok."}</p>

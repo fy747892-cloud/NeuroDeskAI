@@ -28,7 +28,7 @@ export function NotificationsView() {
     try {
       setNotifications(await listNotifications(tokens.accessToken));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Bildirimler alinamadi.");
+      setError(loadError instanceof Error ? loadError.message : "Bildirimler alınamadı.");
     } finally {
       setLoading(false);
     }
@@ -107,7 +107,7 @@ export function NotificationsView() {
           <h2>Bildirim merkezi</h2>
           <div className="rowActions horizontal">
             <button disabled={isLoading} onClick={loadNotifications} type="button">
-              {isLoading ? "Yukleniyor" : "Yenile"}
+              {isLoading ? "Yükleniyor" : "Yenile"}
             </button>
             <button disabled={activeId === "process-due"} onClick={handleProcessDue} type="button">
               Due isle
