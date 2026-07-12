@@ -1,7 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Call, deleteCall, Conversation, listCalls, listConversations } from "@/lib/api";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import {
+  Call,
+  createCallFromText,
+  deleteCall,
+  Conversation,
+  listCalls,
+  listConversations,
+} from "@/lib/api";
 import { useSession } from "@/lib/session";
 
 export function ConversationsView() {
@@ -9,8 +16,16 @@ export function ConversationsView() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [calls, setCalls] = useState<Call[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
+  const [isCreating, setCreating] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [newCall, setNewCall] = useState({
+    participants: "",
+    phone: "",
+    title: "",
+    transcript: "",
+  });
 
   async function loadConversations() {
     if (!tokens?.accessToken) {
@@ -64,15 +79,95 @@ export function ConversationsView() {
     }
   }
 
+  async function handleCreateCall(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tokens?.accessToken || !newCall.title.trim() || !newCall.transcript.trim()) {
+      return;
+    }
+
+    setCreating(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await createCallFromText(tokens.accessToken, {
+        title: newCall.title.trim(),
+        transcript_text: newCall.transcript.trim(),
+        phone_number: newCall.phone.trim() || null,
+        participant_names: newCall.participants
+          .split(",")
+          .map((participant) => participant.trim())
+          .filter(Boolean),
+      });
+      setConversations((currentConversations) => [result.conversation, ...currentConversations]);
+      setCalls((currentCalls) => [result.call, ...currentCalls]);
+      setNewCall({ participants: "", phone: "", title: "", transcript: "" });
+      setNotice("Metin gorusmesi olusturuldu.");
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : "Gorusme olusturulamadi.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <section className="moduleSurface">
       {error ? <p className="notice">{error}</p> : null}
+      {notice ? <p className="notice success">{notice}</p> : null}
 
       <div className="moduleGrid">
         <SummaryCard label="Toplam" value={summary.total} />
         <SummaryCard label="Aktif" value={summary.active} />
         <SummaryCard label="Cagri" value={summary.calls} />
         <SummaryCard label="Kapali" value={summary.closed} />
+      </div>
+
+      <div className="panel">
+        <div className="panelHeader">
+          <h2>Yeni metin gorusmesi</h2>
+          <span className="tag">Call text</span>
+        </div>
+        <form className="createForm createFormWide" onSubmit={handleCreateCall}>
+          <label>
+            Baslik
+            <input
+              onChange={(event) => setNewCall((call) => ({ ...call, title: event.target.value }))}
+              placeholder="Hasta gorusmesi"
+              value={newCall.title}
+            />
+          </label>
+          <label>
+            Katilimcilar
+            <input
+              onChange={(event) =>
+                setNewCall((call) => ({ ...call, participants: event.target.value }))
+              }
+              placeholder="Ayse, Mehmet"
+              value={newCall.participants}
+            />
+          </label>
+          <label>
+            Telefon
+            <input
+              onChange={(event) => setNewCall((call) => ({ ...call, phone: event.target.value }))}
+              placeholder="+90..."
+              value={newCall.phone}
+            />
+          </label>
+          <label className="wideField">
+            Transkript
+            <textarea
+              onChange={(event) =>
+                setNewCall((call) => ({ ...call, transcript: event.target.value }))
+              }
+              placeholder="Gorusme metnini buraya yapistir"
+              rows={4}
+              value={newCall.transcript}
+            />
+          </label>
+          <button disabled={isCreating || !newCall.title.trim() || !newCall.transcript.trim()} type="submit">
+            {isCreating ? "Olusturuluyor" : "Olustur"}
+          </button>
+        </form>
       </div>
 
       <div className="panel">

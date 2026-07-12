@@ -84,6 +84,16 @@ export type Appointment = DashboardAppointment & {
   ai_action_approval_id: string | null;
 };
 
+export type AppointmentCreatePayload = {
+  title: string;
+  description?: string | null;
+  location?: string | null;
+  start_at: string;
+  end_at: string;
+  timezone?: string | null;
+  force?: boolean;
+};
+
 export type DashboardConversation = {
   id: string;
   title: string;
@@ -342,6 +352,21 @@ export type Call = {
   transcriptions: CallTranscription[];
 };
 
+export type CallTextCreatePayload = {
+  title: string;
+  transcript_text: string;
+  participant_names?: string[];
+  call_direction?: string | null;
+  phone_number?: string | null;
+  language?: string | null;
+};
+
+export type CallTextResult = {
+  conversation: Conversation;
+  call: Call;
+  transcription: CallTranscription;
+};
+
 export type CalendarAccount = {
   id: string;
   tenant_id: string;
@@ -570,6 +595,27 @@ export async function cancelAppointment(
 ): Promise<Appointment> {
   return request<Appointment>(`/api/v1/appointments/${appointmentId}/cancel`, {
     method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function createAppointment(
+  accessToken: string,
+  payload: AppointmentCreatePayload,
+): Promise<Appointment> {
+  return request<Appointment>("/api/v1/appointments", {
+    method: "POST",
+    body: JSON.stringify({
+      title: payload.title,
+      description: payload.description ?? null,
+      location: payload.location ?? null,
+      start_at: payload.start_at,
+      end_at: payload.end_at,
+      timezone: payload.timezone ?? "Europe/Istanbul",
+      force: payload.force ?? false,
+    }),
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -861,6 +907,26 @@ export async function getPriorityQueue(accessToken: string, limit = 25): Promise
 export async function listCalls(accessToken: string): Promise<Call[]> {
   return request<Call[]>("/api/v1/calls", {
     cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function createCallFromText(
+  accessToken: string,
+  payload: CallTextCreatePayload,
+): Promise<CallTextResult> {
+  return request<CallTextResult>("/api/v1/calls/text", {
+    method: "POST",
+    body: JSON.stringify({
+      title: payload.title,
+      transcript_text: payload.transcript_text,
+      participant_names: payload.participant_names ?? [],
+      call_direction: payload.call_direction ?? null,
+      phone_number: payload.phone_number ?? null,
+      language: payload.language ?? "tr",
+    }),
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },

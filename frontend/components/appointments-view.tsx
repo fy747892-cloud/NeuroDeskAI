@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   Appointment,
   CalendarAccount,
   cancelAppointment,
   connectGoogleCalendar,
+  createAppointment,
   listAppointments,
   listCalendarAccounts,
 } from "@/lib/api";
@@ -16,8 +17,17 @@ export function AppointmentsView() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [calendarAccounts, setCalendarAccounts] = useState<CalendarAccount[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
+  const [isCreating, setCreating] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [newAppointment, setNewAppointment] = useState({
+    description: "",
+    endAt: "",
+    location: "",
+    startAt: "",
+    title: "",
+  });
 
   async function loadAppointments() {
     if (!tokens?.accessToken) {
@@ -98,15 +108,103 @@ export function AppointmentsView() {
     }
   }
 
+  async function handleCreateAppointment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tokens?.accessToken || !newAppointment.title.trim() || !newAppointment.startAt || !newAppointment.endAt) {
+      return;
+    }
+
+    setCreating(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const appointment = await createAppointment(tokens.accessToken, {
+        title: newAppointment.title.trim(),
+        description: newAppointment.description.trim() || null,
+        location: newAppointment.location.trim() || null,
+        start_at: new Date(newAppointment.startAt).toISOString(),
+        end_at: new Date(newAppointment.endAt).toISOString(),
+      });
+      setAppointments((currentAppointments) => [appointment, ...currentAppointments]);
+      setNewAppointment({ description: "", endAt: "", location: "", startAt: "", title: "" });
+      setNotice("Randevu olusturuldu.");
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : "Randevu olusturulamadi.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <section className="moduleSurface">
       {error ? <p className="notice">{error}</p> : null}
+      {notice ? <p className="notice success">{notice}</p> : null}
 
       <div className="moduleGrid">
         <SummaryCard label="Yaklasan" value={summary.upcoming} />
         <SummaryCard label="Bugun" value={summary.today} />
         <SummaryCard label="Iptal" value={summary.cancelled} />
         <SummaryCard label="Takvim" value={summary.calendars} />
+      </div>
+
+      <div className="panel">
+        <div className="panelHeader">
+          <h2>Yeni randevu</h2>
+          <span className="tag">Manual</span>
+        </div>
+        <form className="createForm" onSubmit={handleCreateAppointment}>
+          <label>
+            Baslik
+            <input
+              onChange={(event) =>
+                setNewAppointment((appointment) => ({ ...appointment, title: event.target.value }))
+              }
+              placeholder="Kontrol gorusmesi"
+              value={newAppointment.title}
+            />
+          </label>
+          <label>
+            Baslangic
+            <input
+              onChange={(event) =>
+                setNewAppointment((appointment) => ({ ...appointment, startAt: event.target.value }))
+              }
+              type="datetime-local"
+              value={newAppointment.startAt}
+            />
+          </label>
+          <label>
+            Bitis
+            <input
+              onChange={(event) =>
+                setNewAppointment((appointment) => ({ ...appointment, endAt: event.target.value }))
+              }
+              type="datetime-local"
+              value={newAppointment.endAt}
+            />
+          </label>
+          <label>
+            Lokasyon
+            <input
+              onChange={(event) =>
+                setNewAppointment((appointment) => ({ ...appointment, location: event.target.value }))
+              }
+              placeholder="Online"
+              value={newAppointment.location}
+            />
+          </label>
+          <button
+            disabled={
+              isCreating ||
+              !newAppointment.title.trim() ||
+              !newAppointment.startAt ||
+              !newAppointment.endAt
+            }
+            type="submit"
+          >
+            {isCreating ? "Olusturuluyor" : "Olustur"}
+          </button>
+        </form>
       </div>
 
       <div className="panel">

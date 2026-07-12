@@ -582,7 +582,8 @@ h3 {
 }
 
 .createForm input,
-.createForm select {
+.createForm select,
+.createForm textarea {
   background: #fbfcfa;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -591,6 +592,21 @@ h3 {
   min-height: 40px;
   min-width: 0;
   padding: 0 10px;
+}
+
+.createForm textarea {
+  line-height: 1.5;
+  min-height: 104px;
+  padding: 10px;
+  resize: vertical;
+}
+
+.createFormWide {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+}
+
+.createForm .wideField {
+  grid-column: 1 / -1;
 }
 
 .createForm button {
