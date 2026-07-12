@@ -5,6 +5,7 @@ import {
   ChatMessage,
   ChatSession,
   getChatSession,
+  interpretVoiceCommand,
   listChatSessions,
   SearchResult,
   semanticSearch,
@@ -22,12 +23,15 @@ export function AIChatView() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<LocalMessage[]>([]);
   const [prompt, setPrompt] = useState("");
+  const [voiceText, setVoiceText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [voiceResult, setVoiceResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
   const [isSending, setSending] = useState(false);
   const [isSearching, setSearching] = useState(false);
+  const [isInterpreting, setInterpreting] = useState(false);
 
   async function loadSessions() {
     if (!tokens?.accessToken) {
@@ -116,6 +120,27 @@ export function AIChatView() {
       setError(searchError instanceof Error ? searchError.message : "Arama tamamlanamadi.");
     } finally {
       setSearching(false);
+    }
+  }
+
+  async function handleVoiceCommand(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tokens?.accessToken || !voiceText.trim()) {
+      return;
+    }
+
+    setInterpreting(true);
+    setError(null);
+    setVoiceResult(null);
+    try {
+      const result = await interpretVoiceCommand(tokens.accessToken, voiceText.trim());
+      setVoiceResult(
+        `${result.action.intent} -> ${result.action.action_type} (${Math.round(result.action.confidence * 100)}%)`,
+      );
+    } catch (voiceError) {
+      setError(voiceError instanceof Error ? voiceError.message : "Ses komutu yorumlanamadi.");
+    } finally {
+      setInterpreting(false);
     }
   }
 
@@ -230,6 +255,25 @@ export function AIChatView() {
               </article>
             ))}
           </div>
+        </section>
+
+        <section className="panel">
+          <div className="panelHeader">
+            <h2>Voice Command</h2>
+            <span className="tag">tr-TR</span>
+          </div>
+          <form className="chatComposer" onSubmit={handleVoiceCommand}>
+            <textarea
+              onChange={(event) => setVoiceText(event.target.value)}
+              placeholder="Yarin Ahmet icin takip gorevi olustur"
+              rows={2}
+              value={voiceText}
+            />
+            <button disabled={isInterpreting || !voiceText.trim()} type="submit">
+              {isInterpreting ? "Yorumlaniyor" : "Yorumla"}
+            </button>
+          </form>
+          {voiceResult ? <p className="notice success">{voiceResult}</p> : null}
         </section>
       </div>
     </section>

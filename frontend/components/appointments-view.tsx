@@ -1,12 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Appointment, cancelAppointment, listAppointments } from "@/lib/api";
+import {
+  Appointment,
+  CalendarAccount,
+  cancelAppointment,
+  connectGoogleCalendar,
+  listAppointments,
+  listCalendarAccounts,
+} from "@/lib/api";
 import { useSession } from "@/lib/session";
 
 export function AppointmentsView() {
   const { tokens } = useSession();
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [calendarAccounts, setCalendarAccounts] = useState<CalendarAccount[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -23,12 +31,15 @@ export function AppointmentsView() {
     setLoading(true);
     setError(null);
     try {
-      setAppointments(
-        await listAppointments(tokens.accessToken, {
+      const [nextAppointments, nextAccounts] = await Promise.all([
+        listAppointments(tokens.accessToken, {
           startDate: now.toISOString(),
           endDate: end.toISOString(),
         }),
-      );
+        listCalendarAccounts(tokens.accessToken),
+      ]);
+      setAppointments(nextAppointments);
+      setCalendarAccounts(nextAccounts);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Randevular alinamadi.");
     } finally {
@@ -45,9 +56,9 @@ export function AppointmentsView() {
       upcoming: appointments.filter((appointment) => appointment.status !== "cancelled").length,
       today: appointments.filter((appointment) => isToday(appointment.start_at)).length,
       cancelled: appointments.filter((appointment) => appointment.status === "cancelled").length,
-      locations: new Set(appointments.map((appointment) => appointment.location).filter(Boolean)).size,
+      calendars: calendarAccounts.length,
     };
-  }, [appointments]);
+  }, [appointments, calendarAccounts.length]);
 
   async function handleCancel(appointmentId: string) {
     if (!tokens?.accessToken) {
@@ -70,6 +81,23 @@ export function AppointmentsView() {
     }
   }
 
+  async function handleConnectCalendar() {
+    if (!tokens?.accessToken) {
+      return;
+    }
+
+    setActiveId("calendar-connect");
+    setError(null);
+    try {
+      const account = await connectGoogleCalendar(tokens.accessToken);
+      setCalendarAccounts((currentAccounts) => [account, ...currentAccounts]);
+    } catch (connectError) {
+      setError(connectError instanceof Error ? connectError.message : "Takvim baglanamadi.");
+    } finally {
+      setActiveId(null);
+    }
+  }
+
   return (
     <section className="moduleSurface">
       {error ? <p className="notice">{error}</p> : null}
@@ -78,7 +106,35 @@ export function AppointmentsView() {
         <SummaryCard label="Yaklasan" value={summary.upcoming} />
         <SummaryCard label="Bugun" value={summary.today} />
         <SummaryCard label="Iptal" value={summary.cancelled} />
-        <SummaryCard label="Lokasyon" value={summary.locations} />
+        <SummaryCard label="Takvim" value={summary.calendars} />
+      </div>
+
+      <div className="panel">
+        <div className="panelHeader">
+          <h2>Takvim hesaplari</h2>
+          <button
+            disabled={activeId === "calendar-connect"}
+            onClick={handleConnectCalendar}
+            type="button"
+          >
+            Google bagla
+          </button>
+        </div>
+        <div className="dataList">
+          {calendarAccounts.length === 0 ? <p className="emptyState">Bagli takvim hesabi yok.</p> : null}
+          {calendarAccounts.map((account) => (
+            <article className="dataRow" key={account.id}>
+              <div>
+                <div className="rowTitle">
+                  <h3>{account.provider}</h3>
+                  <span>{account.status}</span>
+                </div>
+                <p>{account.external_account_id ?? "Harici hesap id yok."}</p>
+                <small>{account.connected_at ? formatDateTime(account.connected_at) : "Baglanti bekliyor"}</small>
+              </div>
+            </article>
+          ))}
+        </div>
       </div>
 
       <div className="panel">

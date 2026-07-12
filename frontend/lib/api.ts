@@ -305,6 +305,56 @@ export type PriorityQueue = {
   items: PriorityItem[];
 };
 
+export type CallTranscription = {
+  id: string;
+  call_id: string;
+  language: string | null;
+  status: string;
+  transcript_text: string;
+  created_at: string;
+};
+
+export type Call = {
+  id: string;
+  conversation_id: string;
+  call_direction: string | null;
+  phone_number: string | null;
+  started_at: string | null;
+  duration_seconds: number | null;
+  status: string;
+  created_at: string;
+  transcriptions: CallTranscription[];
+};
+
+export type CalendarAccount = {
+  id: string;
+  tenant_id: string;
+  organization_id: string;
+  user_id: string;
+  provider: string;
+  external_account_id: string | null;
+  status: string;
+  connected_at: string | null;
+  created_at: string;
+};
+
+export type VoiceCommandResult = {
+  transcript: {
+    text: string;
+    language: string;
+    provider: string;
+    confidence: number;
+  };
+  action: {
+    intent: string;
+    action_type: string;
+    confidence: number;
+    suggested_payload: Record<string, unknown>;
+    requires_approval: boolean;
+  };
+  spoken_response: string;
+};
+
 export type DashboardData = {
   summary: DashboardSummary;
   open_tasks: DashboardTask[];
@@ -715,6 +765,59 @@ export async function processDueNotifications(accessToken: string): Promise<Proc
 export async function getPriorityQueue(accessToken: string, limit = 25): Promise<PriorityQueue> {
   return request<PriorityQueue>(`/api/v1/priority/queue?limit=${limit}`, {
     cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function listCalls(accessToken: string): Promise<Call[]> {
+  return request<Call[]>("/api/v1/calls", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function deleteCall(accessToken: string, callId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/calls/${callId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+}
+
+export async function listCalendarAccounts(accessToken: string): Promise<CalendarAccount[]> {
+  return request<CalendarAccount[]>("/api/v1/calendar/accounts", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function connectGoogleCalendar(accessToken: string): Promise<CalendarAccount> {
+  return request<CalendarAccount>("/api/v1/calendar/google/connect", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function interpretVoiceCommand(
+  accessToken: string,
+  text: string,
+): Promise<VoiceCommandResult> {
+  return request<VoiceCommandResult>("/api/v1/voice/commands/interpret", {
+    method: "POST",
+    body: JSON.stringify({ text, locale: "tr-TR" }),
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
