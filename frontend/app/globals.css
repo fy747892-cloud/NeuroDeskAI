@@ -46,6 +46,15 @@ button {
   border-radius: 6px;
 }
 
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
 button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
@@ -61,6 +70,10 @@ button:disabled {
   background: #fbfcfa;
   border-right: 1px solid var(--line);
   padding: 24px 18px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: auto;
 }
 
 .brand {
@@ -110,6 +123,10 @@ nav a.active,
 nav a:hover {
   background: var(--surface-strong);
   color: var(--ink);
+}
+
+nav a[aria-current="page"] {
+  font-weight: 700;
 }
 
 .workspace {
@@ -487,11 +504,13 @@ h3 {
   color: var(--muted);
   line-height: 1.5;
   margin-bottom: 6px;
+  overflow-wrap: anywhere;
 }
 
 .dataRow small {
   color: var(--amber);
   font-weight: 700;
+  overflow-wrap: anywhere;
 }
 
 .rowTitle {
@@ -819,6 +838,47 @@ h3 {
   color: var(--muted);
 }
 
+.metricLine strong {
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.consentGrid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding-top: 16px;
+}
+
+.consentToggle {
+  align-items: start;
+  background: #fbfcfa;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: auto minmax(0, 1fr);
+  min-height: 126px;
+  padding: 14px;
+}
+
+.consentToggle input {
+  height: 18px;
+  margin: 2px 0 0;
+  width: 18px;
+}
+
+.consentToggle strong,
+.consentToggle small {
+  display: block;
+}
+
+.consentToggle small {
+  color: var(--muted);
+  line-height: 1.5;
+  margin-top: 6px;
+}
+
 .costBlock {
   display: grid;
   gap: 10px;
@@ -868,6 +928,8 @@ h3 {
   .sidebar {
     border-bottom: 1px solid var(--line);
     border-right: 0;
+    height: auto;
+    position: static;
   }
 
   nav {
@@ -875,7 +937,8 @@ h3 {
   }
 
   .metrics,
-  .contentGrid {
+  .contentGrid,
+  .consentGrid {
     grid-template-columns: 1fr 1fr;
   }
 
@@ -914,7 +977,8 @@ h3 {
   .metrics,
   .contentGrid,
   .moduleGrid,
-  .chatWorkspace {
+  .chatWorkspace,
+  .consentGrid {
     grid-template-columns: 1fr;
   }
 

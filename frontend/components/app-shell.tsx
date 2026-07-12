@@ -49,6 +49,7 @@ export function AppShell({ children, eyebrow = "Workspace overview", health }: A
         <nav>
           {navItems.map((item) => (
             <Link
+              aria-current={isActive(pathname, item.href) ? "page" : undefined}
               className={isActive(pathname, item.href) ? "active" : ""}
               href={item.href}
               key={item.href}

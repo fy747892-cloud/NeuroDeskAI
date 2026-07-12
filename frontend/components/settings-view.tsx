@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  BillingPlan,
   AuditLog,
-  getSubscription,
+  BillingPlan,
   getCurrentOrganization,
+  getSubscription,
   getUsageSummary,
   listAuditLogs,
   listBillingPlans,
@@ -17,6 +17,19 @@ import {
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
 
+type ConsentPreferences = {
+  aiProcessing: boolean;
+  contactMemory: boolean;
+  operationalReminders: boolean;
+};
+
+const CONSENT_STORAGE_KEY = "neurodesk-consent-preferences";
+const DEFAULT_CONSENT: ConsentPreferences = {
+  aiProcessing: true,
+  contactMemory: true,
+  operationalReminders: true,
+};
+
 export function SettingsView() {
   const { user, tokens } = useSession();
   const [plans, setPlans] = useState<BillingPlan[]>([]);
@@ -25,7 +38,9 @@ export function SettingsView() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [usage, setUsage] = useState<UsageSummary | null>(null);
+  const [consent, setConsent] = useState<ConsentPreferences>(DEFAULT_CONSENT);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
 
   async function loadSettings() {
@@ -63,6 +78,19 @@ export function SettingsView() {
     loadSettings();
   }, [tokens?.accessToken]);
 
+  useEffect(() => {
+    const storedConsent = window.localStorage.getItem(CONSENT_STORAGE_KEY);
+    if (!storedConsent) {
+      return;
+    }
+
+    try {
+      setConsent({ ...DEFAULT_CONSENT, ...JSON.parse(storedConsent) });
+    } catch {
+      window.localStorage.removeItem(CONSENT_STORAGE_KEY);
+    }
+  }, []);
+
   const usagePercent = useMemo(() => {
     if (!usage || usage.limit_value === 0) {
       return 0;
@@ -70,9 +98,17 @@ export function SettingsView() {
     return Math.round((usage.used / usage.limit_value) * 100);
   }, [usage]);
 
+  function updateConsent(key: keyof ConsentPreferences, value: boolean) {
+    const nextConsent = { ...consent, [key]: value };
+    setConsent(nextConsent);
+    window.localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(nextConsent));
+    setNotice("Tercih kaydedildi.");
+  }
+
   return (
     <section className="moduleSurface">
       {error ? <p className="notice">{error}</p> : null}
+      {notice ? <p className="notice success">{notice}</p> : null}
 
       <div className="moduleGrid">
         <SummaryCard label="Plan" value={subscription?.plan.name ?? "--"} />
@@ -111,6 +147,33 @@ export function SettingsView() {
           </div>
         </section>
       </div>
+
+      <section className="panel">
+        <div className="panelHeader">
+          <h2>Riza ve tercihler</h2>
+          <span className="tag">Local MVP</span>
+        </div>
+        <div className="consentGrid">
+          <ConsentToggle
+            checked={consent.aiProcessing}
+            description="AI chat, ozetleme ve oneriler icin calisma alani verilerinin islenmesine izin verir."
+            label="AI veri isleme"
+            onChange={(value) => updateConsent("aiProcessing", value)}
+          />
+          <ConsentToggle
+            checked={consent.contactMemory}
+            description="Kisi hafizasi, gorusme ve CRM baglaminin arama/chat sonuclarinda kullanilmasina izin verir."
+            label="Kisi hafizasi"
+            onChange={(value) => updateConsent("contactMemory", value)}
+          />
+          <ConsentToggle
+            checked={consent.operationalReminders}
+            description="Gorev, randevu ve bildirim hatirlatmalarinin operasyonel akista kullanilmasina izin verir."
+            label="Operasyonel hatirlatmalar"
+            onChange={(value) => updateConsent("operationalReminders", value)}
+          />
+        </div>
+      </section>
 
       <section className="panel">
         <div className="panelHeader">
@@ -180,6 +243,32 @@ export function SettingsView() {
         </section>
       </div>
     </section>
+  );
+}
+
+function ConsentToggle({
+  checked,
+  description,
+  label,
+  onChange,
+}: {
+  checked: boolean;
+  description: string;
+  label: string;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <label className="consentToggle">
+      <input
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        type="checkbox"
+      />
+      <span>
+        <strong>{label}</strong>
+        <small>{description}</small>
+      </span>
+    </label>
   );
 }
 
