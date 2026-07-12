@@ -609,6 +609,51 @@ h3 {
   display: grid;
 }
 
+.connectBox {
+  align-items: end;
+  background: #fbfbff;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 240px) auto;
+  padding: 16px 0;
+}
+
+.connectBox strong,
+.connectBox a {
+  display: block;
+}
+
+.connectBox p {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 6px 0;
+}
+
+.connectBox a {
+  color: var(--green);
+  font-weight: 800;
+}
+
+.connectBox label {
+  color: var(--muted);
+  display: grid;
+  font-size: 13px;
+  font-weight: 700;
+  gap: 6px;
+}
+
+.connectBox input {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--ink);
+  font: inherit;
+  min-height: 40px;
+  min-width: 0;
+  padding: 0 10px;
+}
+
 .dataRow {
   align-items: center;
   border-bottom: 1px solid var(--line);
@@ -1128,6 +1173,11 @@ h3 {
     align-items: stretch;
     flex-direction: column;
     width: 100%;
+  }
+
+  .connectBox {
+    align-items: stretch;
+    grid-template-columns: 1fr;
   }
 
   .inlineSearch input {

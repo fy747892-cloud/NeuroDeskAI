@@ -245,6 +245,11 @@ export type EmailSyncSummary = {
   skipped: number;
 };
 
+export type EmailConnectStart = {
+  authorize_url: string;
+  state: string;
+};
+
 export type FileRecord = {
   id: string;
   tenant_id: string;
@@ -789,6 +794,49 @@ export async function getAnalyticsOverview(accessToken: string): Promise<Analyti
 export async function listEmailAccounts(accessToken: string): Promise<EmailAccount[]> {
   return request<EmailAccount[]>("/api/v1/email/accounts", {
     cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function startGmailConnect(accessToken: string): Promise<EmailConnectStart> {
+  return request<EmailConnectStart>("/api/v1/email/gmail/connect", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function completeGmailConnect(
+  state: string,
+  code = "mock-code",
+): Promise<EmailAccount> {
+  const searchParams = new URLSearchParams({ code, state });
+  return request<EmailAccount>(`/api/v1/email/gmail/callback?${searchParams.toString()}`, {
+    cache: "no-store",
+  });
+}
+
+export async function revokeEmailAccount(
+  accessToken: string,
+  accountId: string,
+): Promise<EmailAccount> {
+  return request<EmailAccount>(`/api/v1/email/accounts/${accountId}/revoke`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function refreshEmailAccountToken(
+  accessToken: string,
+  accountId: string,
+): Promise<EmailAccount> {
+  return request<EmailAccount>(`/api/v1/email/accounts/${accountId}/refresh-token`, {
+    method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
