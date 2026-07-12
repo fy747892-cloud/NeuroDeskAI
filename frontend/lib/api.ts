@@ -355,6 +355,39 @@ export type VoiceCommandResult = {
   spoken_response: string;
 };
 
+export type Organization = {
+  id: string;
+  tenant_id: string;
+  name: string;
+  type: string;
+  status: string;
+  created_at: string;
+};
+
+export type OrganizationMember = {
+  id: string;
+  tenant_id: string;
+  organization_id: string;
+  user_id: string;
+  role: string;
+  status: string;
+  created_at: string;
+};
+
+export type AuditLog = {
+  id: string;
+  tenant_id: string;
+  actor_id: string | null;
+  action: string;
+  entity_type: string;
+  entity_id: string | null;
+  request_id: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  audit_metadata: Record<string, unknown> | null;
+  created_at: string;
+};
+
 export type DashboardData = {
   summary: DashboardSummary;
   open_tasks: DashboardTask[];
@@ -818,6 +851,33 @@ export async function interpretVoiceCommand(
   return request<VoiceCommandResult>("/api/v1/voice/commands/interpret", {
     method: "POST",
     body: JSON.stringify({ text, locale: "tr-TR" }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getCurrentOrganization(accessToken: string): Promise<Organization> {
+  return request<Organization>("/api/v1/organizations/current", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function listOrganizationMembers(accessToken: string): Promise<OrganizationMember[]> {
+  return request<OrganizationMember[]>("/api/v1/organizations/members", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function listAuditLogs(accessToken: string, limit = 50): Promise<AuditLog[]> {
+  return request<AuditLog[]>(`/api/v1/audit-logs?limit=${limit}`, {
+    cache: "no-store",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
