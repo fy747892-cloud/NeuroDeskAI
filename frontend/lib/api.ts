@@ -250,6 +250,8 @@ export type EmailConnectStart = {
   state: string;
 };
 
+export type EmailProvider = "gmail" | "outlook";
+
 export type FileRecord = {
   id: string;
   tenant_id: string;
@@ -801,7 +803,18 @@ export async function listEmailAccounts(accessToken: string): Promise<EmailAccou
 }
 
 export async function startGmailConnect(accessToken: string): Promise<EmailConnectStart> {
-  return request<EmailConnectStart>("/api/v1/email/gmail/connect", {
+  return startEmailConnect(accessToken, "gmail");
+}
+
+export async function startOutlookConnect(accessToken: string): Promise<EmailConnectStart> {
+  return startEmailConnect(accessToken, "outlook");
+}
+
+export async function startEmailConnect(
+  accessToken: string,
+  provider: EmailProvider,
+): Promise<EmailConnectStart> {
+  return request<EmailConnectStart>(`/api/v1/email/${provider}/connect`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -813,8 +826,23 @@ export async function completeGmailConnect(
   state: string,
   code = "mock-code",
 ): Promise<EmailAccount> {
+  return completeEmailConnect("gmail", state, code);
+}
+
+export async function completeOutlookConnect(
+  state: string,
+  code = "mock-code",
+): Promise<EmailAccount> {
+  return completeEmailConnect("outlook", state, code);
+}
+
+export async function completeEmailConnect(
+  provider: EmailProvider,
+  state: string,
+  code = "mock-code",
+): Promise<EmailAccount> {
   const searchParams = new URLSearchParams({ code, state });
-  return request<EmailAccount>(`/api/v1/email/gmail/callback?${searchParams.toString()}`, {
+  return request<EmailAccount>(`/api/v1/email/${provider}/callback?${searchParams.toString()}`, {
     cache: "no-store",
   });
 }

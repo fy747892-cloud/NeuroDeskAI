@@ -2,19 +2,34 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
-  completeGmailConnect,
+  completeEmailConnect,
   EmailAccount,
   EmailConnectStart,
   EmailMessage,
+  EmailProvider,
   EmailSyncSummary,
   listEmailAccounts,
   listEmailMessages,
   refreshEmailAccountToken,
   revokeEmailAccount,
-  startGmailConnect,
+  startEmailConnect,
   syncEmailAccount,
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
+
+type PendingConnect = EmailConnectStart & {
+  provider: EmailProvider;
+};
+
+const providerLabels: Record<EmailProvider, string> = {
+  gmail: "Gmail",
+  outlook: "Outlook",
+};
+
+const providerDescriptions: Record<EmailProvider, string> = {
+  gmail: "Google Gmail readonly scope ile yerel mock OAuth akışı.",
+  outlook: "Microsoft Graph Mail.Read ve offline_access scope ile yerel mock OAuth akışı.",
+};
 
 export function EmailView() {
   const { tokens } = useSession();
@@ -22,7 +37,7 @@ export function EmailView() {
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [messages, setMessages] = useState<EmailMessage[]>([]);
   const [lastSync, setLastSync] = useState<EmailSyncSummary | null>(null);
-  const [pendingConnect, setPendingConnect] = useState<EmailConnectStart | null>(null);
+  const [pendingConnect, setPendingConnect] = useState<PendingConnect | null>(null);
   const [mockCode, setMockCode] = useState("mock-code");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
@@ -90,37 +105,50 @@ export function EmailView() {
     await loadMessages(accountId);
   }
 
-  async function handleStartGmailConnect() {
+  async function handleStartConnect(provider: EmailProvider) {
     if (!tokens?.accessToken) {
       return;
     }
 
-    setActiveActionId("gmail-connect");
+    setActiveActionId(`${provider}-connect`);
     setError(null);
     try {
-      setPendingConnect(await startGmailConnect(tokens.accessToken));
+      const connectStart = await startEmailConnect(tokens.accessToken, provider);
+      setPendingConnect({ ...connectStart, provider });
     } catch (connectError) {
-      setError(connectError instanceof Error ? connectError.message : "Gmail bağlantısı başlatılamadı.");
+      setError(
+        connectError instanceof Error
+          ? connectError.message
+          : `${providerLabels[provider]} bağlantısı başlatılamadı.`,
+      );
     } finally {
       setActiveActionId(null);
     }
   }
 
-  async function handleCompleteGmailConnect() {
+  async function handleCompleteConnect() {
     if (!pendingConnect) {
       return;
     }
 
-    setActiveActionId("gmail-callback");
+    setActiveActionId(`${pendingConnect.provider}-callback`);
     setError(null);
     try {
-      const account = await completeGmailConnect(pendingConnect.state, mockCode.trim() || "mock-code");
+      const account = await completeEmailConnect(
+        pendingConnect.provider,
+        pendingConnect.state,
+        mockCode.trim() || "mock-code",
+      );
       setPendingConnect(null);
       setActiveAccountId(account.id);
       await loadAccounts();
       await loadMessages(account.id);
     } catch (connectError) {
-      setError(connectError instanceof Error ? connectError.message : "Gmail bağlantısı tamamlanamadı.");
+      setError(
+        connectError instanceof Error
+          ? connectError.message
+          : `${providerLabels[pendingConnect.provider]} bağlantısı tamamlanamadı.`,
+      );
     } finally {
       setActiveActionId(null);
     }
@@ -161,21 +189,26 @@ export function EmailView() {
     }
   }
 
-  async function handleRevoke(accountId: string) {
+  async function handleRevoke(account: EmailAccount) {
     if (!tokens?.accessToken) {
       return;
     }
 
-    setActiveActionId(`revoke-${accountId}`);
+    setActiveActionId(`revoke-${account.id}`);
     setError(null);
     try {
-      await revokeEmailAccount(tokens.accessToken, accountId);
+      await revokeEmailAccount(tokens.accessToken, account.id);
       await loadAccounts();
-      if (activeAccountId === accountId) {
+      if (activeAccountId === account.id) {
         setMessages([]);
       }
     } catch (revokeError) {
-      setError(revokeError instanceof Error ? revokeError.message : "Gmail bağlantısı kaldırılamadı.");
+      const providerLabel = getProviderLabel(account.provider);
+      setError(
+        revokeError instanceof Error
+          ? revokeError.message
+          : `${providerLabel} bağlantısı kaldırılamadı.`,
+      );
     } finally {
       setActiveActionId(null);
     }
@@ -206,10 +239,17 @@ export function EmailView() {
             <div className="rowActions horizontal">
               <button
                 disabled={activeActionId === "gmail-connect"}
-                onClick={handleStartGmailConnect}
+                onClick={() => handleStartConnect("gmail")}
                 type="button"
               >
                 {activeActionId === "gmail-connect" ? "Başlatılıyor" : "Gmail bağla"}
+              </button>
+              <button
+                disabled={activeActionId === "outlook-connect"}
+                onClick={() => handleStartConnect("outlook")}
+                type="button"
+              >
+                {activeActionId === "outlook-connect" ? "Başlatılıyor" : "Outlook bağla"}
               </button>
               <button disabled={isLoading} onClick={loadAccounts} type="button">
                 {isLoading ? "Yükleniyor" : "Yenile"}
@@ -220,11 +260,8 @@ export function EmailView() {
           {pendingConnect ? (
             <div className="connectBox">
               <div>
-                <strong>Gmail yetkilendirme hazır</strong>
-                <p>
-                  Sprint 15 yerel mock akışında Google sayfasına yönlendirme yapılmaz. URL ve
-                  state üretilir, ardından test kodu ile callback tamamlanır.
-                </p>
+                <strong>{providerLabels[pendingConnect.provider]} yetkilendirme hazır</strong>
+                <p>{providerDescriptions[pendingConnect.provider]}</p>
                 <a href={pendingConnect.authorize_url} rel="noreferrer" target="_blank">
                   Yetki URL'sini aç
                 </a>
@@ -234,11 +271,13 @@ export function EmailView() {
                 <input onChange={(event) => setMockCode(event.target.value)} value={mockCode} />
               </label>
               <button
-                disabled={activeActionId === "gmail-callback"}
-                onClick={handleCompleteGmailConnect}
+                disabled={activeActionId === `${pendingConnect.provider}-callback`}
+                onClick={handleCompleteConnect}
                 type="button"
               >
-                {activeActionId === "gmail-callback" ? "Tamamlanıyor" : "Mock callback'i tamamla"}
+                {activeActionId === `${pendingConnect.provider}-callback`
+                  ? "Tamamlanıyor"
+                  : "Mock callback'i tamamla"}
               </button>
             </div>
           ) : null}
@@ -249,8 +288,8 @@ export function EmailView() {
               <article className="dataRow" key={account.id}>
                 <div>
                   <div className="rowTitle">
-                    <h3>{account.email_address ?? account.provider}</h3>
-                    <span>{account.provider}</span>
+                    <h3>{account.email_address ?? getProviderLabel(account.provider)}</h3>
+                    <span>{getProviderLabel(account.provider)}</span>
                   </div>
                   <p>{account.consent_scope ?? "Scope bilgisi yok."}</p>
                   <small>
@@ -280,7 +319,7 @@ export function EmailView() {
                   </button>
                   <button
                     disabled={activeActionId === `revoke-${account.id}` || account.status === "revoked"}
-                    onClick={() => handleRevoke(account.id)}
+                    onClick={() => handleRevoke(account)}
                     type="button"
                   >
                     {activeActionId === `revoke-${account.id}` ? "Kaldırılıyor" : "Bağlantıyı kaldır"}
@@ -323,6 +362,13 @@ function SummaryCard({ label, value }: { label: string; value: number }) {
       <strong>{value}</strong>
     </article>
   );
+}
+
+function getProviderLabel(provider: string): string {
+  if (provider === "gmail" || provider === "outlook") {
+    return providerLabels[provider];
+  }
+  return provider;
 }
 
 function formatDateTime(value: string): string {
