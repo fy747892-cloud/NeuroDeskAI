@@ -197,6 +197,17 @@ nav a[aria-current="page"] {
   justify-content: flex-end;
 }
 
+.topbarTitle {
+  min-width: 0;
+}
+
+.topbarTitle p:last-child {
+  color: var(--muted);
+  line-height: 1.5;
+  margin: 8px 0 0;
+  max-width: 720px;
+}
+
 .eyebrow {
   color: var(--muted);
   font-size: 13px;
