@@ -1311,14 +1311,22 @@ h3 {
   align-self: end;
 }
 
-.chatWorkspace {
+.chatShell {
   display: grid;
   gap: 18px;
-  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-columns: 260px minmax(0, 1fr);
+  align-items: start;
 }
 
-.chatRail {
-  min-height: 0;
+.chatSessions {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  max-height: calc(100vh - 160px);
+  overflow: auto;
+  padding: 16px;
+  position: sticky;
+  top: 20px;
 }
 
 .sessionList {
@@ -1329,7 +1337,8 @@ h3 {
 
 .sessionItem {
   align-items: start;
-  background: #fbfbff;
+  background: var(--surface-strong);
+  border-radius: 12px;
   display: grid;
   gap: 4px;
   height: auto;
@@ -1341,7 +1350,8 @@ h3 {
 
 .sessionItem.active,
 .sessionItem:hover {
-  background: var(--surface-strong);
+  background: var(--primary-soft);
+  color: var(--primary);
 }
 
 .sessionItem span {
@@ -1349,97 +1359,255 @@ h3 {
   font-size: 12px;
 }
 
-.chatMain {
-  display: grid;
-  gap: 18px;
+.chatColumn {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   min-width: 0;
 }
 
-.chatPanel {
+.chatScroll {
   display: grid;
-  gap: 16px;
-  min-height: 520px;
-}
-
-.messageList {
-  align-content: start;
-  display: grid;
-  gap: 12px;
-  max-height: 520px;
-  overflow: auto;
+  gap: 18px;
+  max-height: calc(100vh - 360px);
+  min-height: 320px;
+  overflow-y: auto;
   padding-right: 4px;
 }
 
-.messageBubble {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  display: grid;
-  gap: 8px;
-  max-width: 780px;
-  padding: 14px;
+.bubbleRow {
+  display: flex;
+  gap: 12px;
 }
 
-.messageBubble.user {
+.bubbleRow.user {
+  justify-content: flex-end;
+}
+
+.bubbleAvatar {
+  align-items: center;
+  background: var(--primary);
+  border-radius: 50%;
+  color: #fff;
+  display: flex;
+  flex: 0 0 auto;
+  height: 32px;
+  justify-content: center;
+  width: 32px;
+}
+
+.bubbleAvatar.user {
   background: var(--surface-strong);
-  justify-self: end;
+  color: var(--muted);
 }
 
-.messageBubble.assistant {
-  background: #fbfbff;
-  justify-self: start;
+.bubbleContent {
+  display: flex;
+  flex-direction: column;
+  max-width: 640px;
 }
 
-.messageBubble div:first-child {
+.bubbleRow.user .bubbleContent {
+  align-items: flex-end;
+}
+
+.bubbleCard {
+  border-radius: 18px 18px 18px 4px;
+  padding: 14px 16px;
+}
+
+.bubbleRow.user .bubbleCard {
+  background: var(--surface-strong);
+  border-radius: 18px 18px 4px 18px;
+}
+
+.bubbleRow.assistant .bubbleCard {
+  background: var(--surface);
+  border: 1px solid rgba(53, 37, 205, 0.15);
+  box-shadow: 0 8px 20px rgba(53, 37, 205, 0.06);
+}
+
+.bubbleCard p {
+  line-height: 1.6;
+  margin: 0;
+}
+
+.bubbleMeta {
+  color: var(--muted);
+  font-size: 10px;
+  margin-top: 4px;
+}
+
+.bubbleConfidence {
   align-items: center;
   display: flex;
   gap: 8px;
-  justify-content: space-between;
+  margin-bottom: 10px;
 }
 
-.messageBubble span {
-  color: var(--teal);
-  font-size: 13px;
+.confidenceDot {
+  background: #059669;
+  border-radius: 50%;
+  height: 8px;
+  width: 8px;
+}
+
+.bubbleConfidence .confLabel {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.bubbleConfidence .confValue {
+  background: var(--primary-soft);
+  border-radius: 999px;
+  color: var(--primary);
+  font-size: 11px;
   font-weight: 700;
+  padding: 2px 8px;
 }
 
-.messageBubble p {
-  line-height: 1.6;
-  margin-bottom: 0;
+.voiceChip {
+  align-items: center;
+  background: var(--primary-soft);
+  border-radius: 999px;
+  color: var(--primary);
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 800;
+  gap: 4px;
+  margin-bottom: 6px;
+  padding: 3px 9px;
+  text-transform: uppercase;
 }
 
-.sourceList {
+.sourceGrid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  margin-top: 12px;
+}
+
+.sourceCard {
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px;
+}
+
+.sourceCard strong {
+  display: block;
+  font-size: 12px;
+}
+
+.sourceCard p {
+  color: var(--muted);
+  font-size: 11px;
+  margin: 4px 0 0;
+}
+
+.citationPills {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  margin-top: 10px;
 }
 
-.sourceList span {
-  border: 1px solid var(--line);
+.citationPills span {
+  align-items: center;
+  background: var(--surface-strong);
   border-radius: 999px;
   color: var(--muted);
-  font-size: 12px;
-  padding: 5px 8px;
+  display: inline-flex;
+  font-size: 11px;
+  gap: 4px;
+  padding: 4px 10px;
 }
 
-.chatComposer {
-  align-items: end;
-  border-top: 1px solid var(--line);
-  display: grid;
-  gap: 10px;
-  grid-template-columns: minmax(0, 1fr) auto;
-  padding-top: 14px;
+.actionChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
 }
 
-.chatComposer textarea {
-  background: #fbfbff;
-  border: 1px solid var(--line);
+.actionChips span {
+  background: var(--surface-strong);
   border-radius: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  padding: 4px 9px;
+}
+
+.composerBar {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: 12px 14px;
+  position: sticky;
+  bottom: 0;
+}
+
+.composerRow {
+  align-items: flex-end;
+  display: flex;
+  gap: 10px;
+}
+
+.composerRow textarea {
+  background: var(--surface-strong);
+  border: none;
+  border-radius: 14px;
   color: var(--ink);
   font: inherit;
   line-height: 1.5;
-  min-height: 86px;
-  padding: 12px;
-  resize: vertical;
+  max-height: 160px;
+  min-height: 44px;
+  padding: 12px 14px;
+  resize: none;
+}
+
+.composerActions {
+  display: flex;
+  gap: 8px;
+}
+
+.micToggle,
+.sendBtn {
+  align-items: center;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  height: 40px;
+  justify-content: center;
+  min-height: 0;
+  padding: 0;
+  width: 40px;
+}
+
+.micToggle {
+  background: var(--surface-strong);
+  color: var(--muted);
+}
+
+.micToggle.active {
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+
+.sendBtn {
+  background: var(--primary-gradient);
+  color: #fff;
+}
+
+.composerHint {
+  color: var(--muted);
+  display: flex;
+  font-size: 11px;
+  justify-content: space-between;
+  margin-top: 8px;
 }
 
 .searchPanel {
@@ -1655,7 +1823,7 @@ h3 {
   nav,
   .contentGrid,
   .moduleGrid,
-  .chatWorkspace,
+  .chatShell,
   .consentGrid {
     grid-template-columns: 1fr;
   }
@@ -1686,7 +1854,6 @@ h3 {
     width: 100%;
   }
 
-  .chatComposer,
   .searchForm {
     grid-template-columns: 1fr;
   }
@@ -1695,7 +1862,7 @@ h3 {
     grid-template-columns: 1fr;
   }
 
-  .messageBubble {
+  .bubbleContent {
     max-width: 100%;
   }
 }
