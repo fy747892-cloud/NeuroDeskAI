@@ -154,6 +154,47 @@ export type AIActionApproval = DashboardApproval & {
   decided_at: string | null;
 };
 
+export type Deal = {
+  id: string;
+  tenant_id: string;
+  organization_id: string;
+  owner_user_id: string;
+  contact_id: string | null;
+  title: string;
+  description: string | null;
+  value: number | null;
+  currency: string;
+  stage: string;
+  expected_close_date: string | null;
+  source_type: string;
+  source_id: string | null;
+  ai_action_approval_id: string | null;
+  created_at: string;
+};
+
+export const DEAL_STAGES = [
+  "lead",
+  "proposal_sent",
+  "negotiation",
+  "invoiced",
+  "won",
+  "lost",
+] as const;
+
+export type DealStage = (typeof DEAL_STAGES)[number];
+
+export type DealCreatePayload = {
+  title: string;
+  description?: string | null;
+  value?: number | null;
+  currency?: string;
+  stage?: string;
+  expected_close_date?: string | null;
+  contact_id?: string | null;
+};
+
+export type DealUpdatePayload = Partial<DealCreatePayload>;
+
 export type ChatSource = {
   source_type: string;
   source_id: string;
@@ -684,6 +725,61 @@ export async function createContact(
       Authorization: `Bearer ${accessToken}`,
     },
   });
+}
+
+export async function listDeals(accessToken: string, stage?: string): Promise<Deal[]> {
+  const search = stage ? `?stage=${encodeURIComponent(stage)}` : "";
+  return request<Deal[]>(`/api/v1/deals${search}`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function createDeal(accessToken: string, payload: DealCreatePayload): Promise<Deal> {
+  return request<Deal>("/api/v1/deals", {
+    method: "POST",
+    body: JSON.stringify({
+      title: payload.title,
+      description: payload.description ?? null,
+      value: payload.value ?? null,
+      currency: payload.currency ?? "TRY",
+      stage: payload.stage ?? "lead",
+      expected_close_date: payload.expected_close_date ?? null,
+      contact_id: payload.contact_id ?? null,
+    }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function updateDeal(
+  accessToken: string,
+  dealId: string,
+  payload: DealUpdatePayload,
+): Promise<Deal> {
+  return request<Deal>(`/api/v1/deals/${dealId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function deleteDeal(accessToken: string, dealId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/deals/${dealId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
 }
 
 export async function listApprovals(

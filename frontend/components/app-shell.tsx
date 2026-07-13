@@ -57,6 +57,12 @@ const navItems = [
     href: "/kisiler",
   },
   {
+    description: "Satış fırsatlarını pipeline aşamalarına göre kanban panosunda takip et.",
+    icon: "handshake",
+    label: "Fırsatlar",
+    href: "/firsatlar",
+  },
+  {
     description: "Yüklenen dosyaları, analiz durumlarını ve belge özetlerini takip et.",
     icon: "folder",
     label: "Dosyalar",
