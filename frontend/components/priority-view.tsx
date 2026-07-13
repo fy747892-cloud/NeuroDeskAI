@@ -58,27 +58,41 @@ export function PriorityView() {
             {isLoading ? "Yükleniyor" : "Yenile"}
           </button>
         </div>
-        <div className="dataList">
+        <div className="taskCardList">
           {isLoading ? <p className="emptyState">Öncelik kuyruğu yükleniyor.</p> : null}
           {!isLoading && !queue?.items.length ? (
             <p className="emptyState">Önceliklendirilecek iş yok.</p>
           ) : null}
-          {queue?.items.map((item) => (
-            <article className="dataRow" key={`${item.item_type}-${item.item_id}`}>
-              <div>
-                <div className="rowTitle">
-                  <h3>{item.title}</h3>
-                  <span>{item.item_type}</span>
-                </div>
-                <p>{item.factors.map((factor) => factor.label).join(" | ") || "Faktor yok."}</p>
-                <small>{item.due_at ? formatDateTime(item.due_at) : "Tarih yok"}</small>
-              </div>
-              <div className="rowActions">
+          {queue?.items.map((item) => {
+            const cardClass = [
+              "taskCard",
+              item.score >= 80 ? "urgent" : item.priority === "high" ? "high" : "",
+            ]
+              .filter(Boolean)
+              .join(" ");
+
+            return (
+              <article className={cardClass} key={`${item.item_type}-${item.item_id}`}>
                 <span className={item.score >= 80 ? "scorePill hot" : "scorePill"}>{item.score}</span>
-                <span className="statusPill">{item.priority}</span>
-              </div>
-            </article>
-          ))}
+                <div className="taskCardBody">
+                  <div className="taskCardHead">
+                    <span className={`priorityTag ${item.priority}`}>
+                      {item.item_type === "task" ? "Görev" : "Randevu"} · {item.priority}
+                    </span>
+                    <small>{item.due_at ? formatDateTime(item.due_at) : "Tarih yok"}</small>
+                  </div>
+                  <h4>{item.title}</h4>
+                  {item.factors.length > 0 ? (
+                    <div className="actionChips">
+                      {item.factors.map((factor) => (
+                        <span key={factor.key}>{factor.label}</span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </article>
+            );
+          })}
         </div>
       </section>
     </section>

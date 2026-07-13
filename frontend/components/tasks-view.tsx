@@ -162,37 +162,51 @@ export function TasksView() {
           </button>
         </div>
 
-        <div className="dataList">
+        <div className="taskCardList">
           {isLoading ? <p className="emptyState">Görevler yükleniyor.</p> : null}
           {!isLoading && tasks.length === 0 ? (
             <p className="emptyState">Henüz görev bulunmuyor.</p>
           ) : null}
-          {tasks.map((task) => (
-            <article className="dataRow" key={task.id}>
-              <div>
-                <div className="rowTitle">
-                  <h3>{task.title}</h3>
-                  <span>{task.priority}</span>
-                </div>
-                <p>{task.description ?? "Açıklama eklenmemiş."}</p>
-                <small>
-                  {task.due_at ? `Son tarih ${formatDateTime(task.due_at)}` : "Son tarih yok"}
-                </small>
-              </div>
-              <div className="rowActions">
-                <span className={task.status === "completed" ? "statusPill done" : "statusPill"}>
-                  {task.status}
-                </span>
+          {tasks.map((task) => {
+            const isDone = task.status === "completed";
+            const isAiSourced = task.source_type !== "manual";
+            const cardClass = [
+              "taskCard",
+              isDone ? "done" : "",
+              !isDone && task.priority === "high" ? "urgent" : "",
+              !isDone && isAiSourced ? "ai" : "",
+            ]
+              .filter(Boolean)
+              .join(" ");
+
+            return (
+              <article className={cardClass} key={task.id}>
                 <button
-                  disabled={task.status === "completed" || activeTaskId === task.id}
+                  className={isDone ? "taskCheck done" : "taskCheck"}
+                  disabled={isDone || activeTaskId === task.id}
                   onClick={() => handleComplete(task.id)}
                   type="button"
+                  aria-label="Görevi tamamla"
                 >
-                  {activeTaskId === task.id ? "İşleniyor" : "Tamamla"}
+                  <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: 14 }}>
+                    check
+                  </span>
                 </button>
-              </div>
-            </article>
-          ))}
+                <div className="taskCardBody">
+                  <div className="taskCardHead">
+                    <span className={`priorityTag ${isAiSourced ? "ai" : task.priority}`}>
+                      {isAiSourced ? "AI Önerisi" : task.priority}
+                    </span>
+                    <small>
+                      {task.due_at ? formatDateTime(task.due_at) : "Son tarih yok"}
+                    </small>
+                  </div>
+                  <h4>{task.title}</h4>
+                  <p>{task.description ?? "Açıklama eklenmemiş."}</p>
+                </div>
+              </article>
+            );
+          })}
         </div>
       </div>
     </section>
