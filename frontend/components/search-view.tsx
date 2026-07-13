@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useMemo, useState } from "react";
 import { reindexSearch, ReindexSummary, SearchResult, semanticSearch } from "@/lib/api";
+import { groupResults, highlightMatch, resultHref, SOURCE_TYPE_META } from "@/lib/search-utils";
 import { useSession } from "@/lib/session";
 
 export function SearchView() {
@@ -21,6 +23,8 @@ export function SearchView() {
       return groups;
     }, {});
   }, [results]);
+
+  const groupedResults = useMemo(() => groupResults(results), [results]);
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -122,24 +126,40 @@ export function SearchView() {
           <h2>Sonuclar</h2>
           <span className="tag">Tenant scoped</span>
         </div>
-        <div className="dataList">
-          {results.length === 0 ? <p className="emptyState">Arama sonucu yok.</p> : null}
-          {results.map((result) => (
-            <article className="dataRow" key={`${result.source_type}-${result.source_id}`}>
-              <div>
-                <div className="rowTitle">
-                  <h3>{result.title}</h3>
-                  <span>{formatSourceType(result.source_type)}</span>
-                </div>
-                <p>{result.snippet}</p>
-                <small>{result.source_id}</small>
+        {results.length === 0 ? <p className="emptyState">Arama sonucu yok.</p> : null}
+        {groupedResults.map(([sourceType, items]) => {
+          const meta = SOURCE_TYPE_META[sourceType] ?? { label: formatSourceType(sourceType), icon: "search" };
+          return (
+            <div key={sourceType} style={{ marginBottom: 20 }}>
+              <p className="extractLabel">
+                {meta.label} · {items.length}
+              </p>
+              <div className="dataList">
+                {items.map((result) => (
+                  <Link
+                    className="dataRow"
+                    href={resultHref(result)}
+                    key={`${result.source_type}-${result.source_id}`}
+                    style={{ display: "grid" }}
+                  >
+                    <div>
+                      <div className="rowTitle">
+                        <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: 16 }}>
+                          {meta.icon}
+                        </span>
+                        <h3>{result.title}</h3>
+                      </div>
+                      <p>{highlightMatch(result.snippet, query)}</p>
+                    </div>
+                    <div className="rowActions">
+                      <span className="scorePill">{Math.round(result.score * 100)}</span>
+                    </div>
+                  </Link>
+                ))}
               </div>
-              <div className="rowActions">
-                <span className="scorePill">{Math.round(result.score * 100)}</span>
-              </div>
-            </article>
-          ))}
-        </div>
+            </div>
+          );
+        })}
       </section>
     </section>
   );

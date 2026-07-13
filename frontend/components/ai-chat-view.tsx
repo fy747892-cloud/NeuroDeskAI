@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import {
   ChatMessage,
   ChatSession,
+  ChatSource,
   getChatSession,
   interpretVoiceCommand,
   listChatSessions,
@@ -13,9 +14,22 @@ import {
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
 
-type LocalMessage = Pick<ChatMessage, "role" | "content" | "confidence" | "sources" | "created_at"> & {
+type LocalMessage = {
   id: string;
+  role: "user" | "assistant";
+  content: string;
+  confidence: number | null;
+  sources: ChatSource[] | null;
+  created_at: string;
+  isVoice?: boolean;
+  voiceAction?: {
+    intent: string;
+    action_type: string;
+    requiresApproval: boolean;
+  } | null;
 };
+
+type ComposerMode = "chat" | "voice";
 
 export function AIChatView() {
   const { tokens } = useSession();
@@ -23,15 +37,13 @@ export function AIChatView() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<LocalMessage[]>([]);
   const [prompt, setPrompt] = useState("");
-  const [voiceText, setVoiceText] = useState("");
+  const [mode, setMode] = useState<ComposerMode>("chat");
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [voiceResult, setVoiceResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
   const [isSending, setSending] = useState(false);
   const [isSearching, setSearching] = useState(false);
-  const [isInterpreting, setInterpreting] = useState(false);
 
   async function loadSessions() {
     if (!tokens?.accessToken) {
@@ -63,7 +75,7 @@ export function AIChatView() {
     try {
       const detail = await getChatSession(tokens.accessToken, sessionId);
       setActiveSessionId(detail.id);
-      setMessages(detail.messages);
+      setMessages(detail.messages.map(toLocalMessage));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Chat oturumu acilamadi.");
     } finally {
@@ -71,19 +83,21 @@ export function AIChatView() {
     }
   }
 
-  async function handleSend(event: FormEvent<HTMLFormElement>) {
+  async function handleComposerSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!tokens?.accessToken || !prompt.trim()) {
       return;
     }
 
+    const text = prompt.trim();
     const userMessage: LocalMessage = {
       id: `local-${Date.now()}`,
       role: "user",
-      content: prompt.trim(),
+      content: text,
       confidence: null,
       sources: null,
       created_at: new Date().toISOString(),
+      isVoice: mode === "voice",
     };
 
     setMessages((currentMessages) => [...currentMessages, userMessage]);
@@ -92,13 +106,31 @@ export function AIChatView() {
     setError(null);
 
     try {
-      const assistantMessage = await sendChatMessage(tokens.accessToken, {
-        message: userMessage.content,
-        sessionId: activeSessionId,
-      });
-      setActiveSessionId(assistantMessage.session_id);
-      setMessages((currentMessages) => [...currentMessages, assistantMessage]);
-      await loadSessions();
+      if (mode === "chat") {
+        const assistantMessage = await sendChatMessage(tokens.accessToken, {
+          message: text,
+          sessionId: activeSessionId,
+        });
+        setActiveSessionId(assistantMessage.session_id);
+        setMessages((currentMessages) => [...currentMessages, toLocalMessage(assistantMessage)]);
+        await loadSessions();
+      } else {
+        const result = await interpretVoiceCommand(tokens.accessToken, text);
+        const assistantMessage: LocalMessage = {
+          id: `local-${Date.now()}-voice`,
+          role: "assistant",
+          content: result.spoken_response,
+          confidence: result.action.confidence,
+          sources: null,
+          created_at: new Date().toISOString(),
+          voiceAction: {
+            intent: result.action.intent,
+            action_type: result.action.action_type,
+            requiresApproval: result.action.requires_approval,
+          },
+        };
+        setMessages((currentMessages) => [...currentMessages, assistantMessage]);
+      }
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : "Mesaj gonderilemedi.");
     } finally {
@@ -123,27 +155,6 @@ export function AIChatView() {
     }
   }
 
-  async function handleVoiceCommand(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!tokens?.accessToken || !voiceText.trim()) {
-      return;
-    }
-
-    setInterpreting(true);
-    setError(null);
-    setVoiceResult(null);
-    try {
-      const result = await interpretVoiceCommand(tokens.accessToken, voiceText.trim());
-      setVoiceResult(
-        `${result.action.intent} -> ${result.action.action_type} (${Math.round(result.action.confidence * 100)}%)`,
-      );
-    } catch (voiceError) {
-      setError(voiceError instanceof Error ? voiceError.message : "Ses komutu yorumlanamadi.");
-    } finally {
-      setInterpreting(false);
-    }
-  }
-
   const summary = useMemo(() => {
     return {
       sessions: sessions.length,
@@ -154,129 +165,199 @@ export function AIChatView() {
   }, [messages, searchResults.length, sessions.length]);
 
   return (
-    <section className="chatWorkspace">
+    <>
       {error ? <p className="notice">{error}</p> : null}
 
-      <aside className="chatRail panel">
-        <div className="panelHeader">
-          <h2>Oturumlar</h2>
-          <button disabled={isLoading} onClick={loadSessions} type="button">
-            Yenile
-          </button>
-        </div>
-        <div className="sessionList">
-          {sessions.length === 0 ? <p className="emptyState">Kayıtlı chat oturumu yok.</p> : null}
-          {sessions.map((session) => (
-            <button
-              className={session.id === activeSessionId ? "sessionItem active" : "sessionItem"}
-              key={session.id}
-              onClick={() => openSession(session.id)}
-              type="button"
-            >
-              <strong>{session.title ?? "Yeni sohbet"}</strong>
-              <span>{formatDateTime(session.created_at)}</span>
+      <div className="moduleGrid" style={{ marginBottom: 16 }}>
+        <SummaryCard label="Oturum" value={summary.sessions} />
+        <SummaryCard label="Mesaj" value={summary.messages} />
+        <SummaryCard label="Kaynak" value={summary.sources} />
+        <SummaryCard label="Arama sonucu" value={summary.results} />
+      </div>
+
+      <div className="chatShell">
+        <aside className="chatSessions">
+          <div className="panelHeader">
+            <h2>Oturumlar</h2>
+            <button disabled={isLoading} onClick={loadSessions} type="button">
+              Yenile
             </button>
-          ))}
-        </div>
-      </aside>
+          </div>
+          <div className="sessionList">
+            {sessions.length === 0 ? <p className="emptyState">Kayıtlı chat oturumu yok.</p> : null}
+            {sessions.map((session) => (
+              <button
+                className={session.id === activeSessionId ? "sessionItem active" : "sessionItem"}
+                key={session.id}
+                onClick={() => openSession(session.id)}
+                type="button"
+              >
+                <strong>{session.title ?? "Yeni sohbet"}</strong>
+                <span>{formatDateTime(session.created_at)}</span>
+              </button>
+            ))}
+          </div>
+        </aside>
 
-      <div className="chatMain">
-        <div className="moduleGrid">
-          <SummaryCard label="Oturum" value={summary.sessions} />
-          <SummaryCard label="Mesaj" value={summary.messages} />
-          <SummaryCard label="Kaynak" value={summary.sources} />
-          <SummaryCard label="Arama sonucu" value={summary.results} />
-        </div>
-
-        <section className="panel chatPanel">
-          <div className="messageList" aria-live="polite">
+        <div className="chatColumn">
+          <div className="chatScroll" aria-live="polite">
             {messages.length === 0 ? (
-              <p className="emptyState">AI Chat hazır. İş akışınla ilgili bir soru sorabilirsin.</p>
+              <p className="emptyState">
+                AI Chat hazır. İş akışınla ilgili bir soru sor ya da mikrofon simgesiyle sesli komut
+                moduna geç.
+              </p>
             ) : null}
             {messages.map((message) => (
-              <article className={`messageBubble ${message.role}`} key={message.id}>
-                <div>
-                  <span>{message.role === "assistant" ? "NeuroDesk AI" : "Sen"}</span>
-                  <small>{formatConfidence(message.confidence)}</small>
-                </div>
-                <p>{message.content}</p>
-                {message.sources && message.sources.length > 0 ? (
-                  <div className="sourceList">
-                    {message.sources.map((source) => (
-                      <span key={`${source.source_type}-${source.source_id}`}>
-                        {source.source_type}: {source.title}
-                      </span>
-                    ))}
-                  </div>
-                ) : null}
-              </article>
+              <MessageBubble key={message.id} message={message} />
             ))}
           </div>
 
-          <form className="chatComposer" onSubmit={handleSend}>
-            <textarea
-              onChange={(event) => setPrompt(event.target.value)}
-              placeholder="Bugün hangi görevlere odaklanmalıyım?"
-              rows={3}
-              value={prompt}
-            />
-            <button disabled={isSending || !prompt.trim()} type="submit">
-              {isSending ? "Dusunuyor" : "Gonder"}
-            </button>
-          </form>
-        </section>
-
-        <section className="panel searchPanel">
-          <div className="panelHeader">
-            <h2>Semantic Search</h2>
-            <form className="inlineSearch" onSubmit={handleSearch}>
-              <input
-                onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Ara"
-                value={searchQuery}
+          <form className="composerBar" onSubmit={handleComposerSubmit}>
+            {mode === "voice" ? (
+              <p className="composerHint" style={{ marginTop: 0, marginBottom: 8 }}>
+                <span>Sesli komut modu: yazdığın metin konuşma gibi yorumlanıp niyet çıkarımı yapılır.</span>
+              </p>
+            ) : null}
+            <div className="composerRow">
+              <textarea
+                onChange={(event) => setPrompt(event.target.value)}
+                placeholder={
+                  mode === "chat"
+                    ? "Bugün hangi görevlere odaklanmalıyım?"
+                    : "Yarın Ahmet için takip görevi oluştur"
+                }
+                rows={1}
+                value={prompt}
               />
-              <button disabled={isSearching || !searchQuery.trim()} type="submit">
-                {isSearching ? "Aranıyor" : "Ara"}
-              </button>
-            </form>
-          </div>
-          <div className="dataList">
-            {searchResults.length === 0 ? <p className="emptyState">Arama sonucu yok.</p> : null}
-            {searchResults.map((result) => (
-              <article className="dataRow" key={`${result.source_type}-${result.source_id}`}>
-                <div>
-                  <div className="rowTitle">
-                    <h3>{result.title}</h3>
-                    <span>{result.source_type}</span>
-                  </div>
-                  <p>{result.snippet}</p>
-                  <small>Skor {Math.round(result.score * 100)}%</small>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
+              <div className="composerActions">
+                <button
+                  aria-label="Sesli komut modunu değiştir"
+                  aria-pressed={mode === "voice"}
+                  className={mode === "voice" ? "micToggle active" : "micToggle"}
+                  onClick={() => setMode((current) => (current === "chat" ? "voice" : "chat"))}
+                  type="button"
+                >
+                  <span className="material-symbols-outlined" aria-hidden="true">
+                    mic
+                  </span>
+                </button>
+                <button className="sendBtn" disabled={isSending || !prompt.trim()} type="submit">
+                  <span className="material-symbols-outlined" aria-hidden="true">
+                    {isSending ? "hourglass_empty" : "send"}
+                  </span>
+                </button>
+              </div>
+            </div>
+            <div className="composerHint">
+              <span>{mode === "voice" ? "Sesli komut modu aktif" : "NeuroModel sohbet modu"}</span>
+              <span>tr-TR</span>
+            </div>
+          </form>
+        </div>
+      </div>
 
-        <section className="panel">
-          <div className="panelHeader">
-            <h2>Voice Command</h2>
-            <span className="tag">tr-TR</span>
-          </div>
-          <form className="chatComposer" onSubmit={handleVoiceCommand}>
-            <textarea
-              onChange={(event) => setVoiceText(event.target.value)}
-              placeholder="Yarın Ahmet için takip görevi oluştur"
-              rows={2}
-              value={voiceText}
+      <section className="panel searchPanel" style={{ marginTop: 20 }}>
+        <div className="panelHeader">
+          <h2>Semantic Search</h2>
+          <form className="inlineSearch" onSubmit={handleSearch}>
+            <input
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Ara"
+              value={searchQuery}
             />
-            <button disabled={isInterpreting || !voiceText.trim()} type="submit">
-              {isInterpreting ? "Yorumlaniyor" : "Yorumla"}
+            <button disabled={isSearching || !searchQuery.trim()} type="submit">
+              {isSearching ? "Aranıyor" : "Ara"}
             </button>
           </form>
-          {voiceResult ? <p className="notice success">{voiceResult}</p> : null}
-        </section>
+        </div>
+        <div className="dataList">
+          {searchResults.length === 0 ? <p className="emptyState">Arama sonucu yok.</p> : null}
+          {searchResults.map((result) => (
+            <article className="dataRow" key={`${result.source_type}-${result.source_id}`}>
+              <div>
+                <div className="rowTitle">
+                  <h3>{result.title}</h3>
+                  <span>{result.source_type}</span>
+                </div>
+                <p>{result.snippet}</p>
+                <small>Skor {Math.round(result.score * 100)}%</small>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+    </>
+  );
+}
+
+function MessageBubble({ message }: { message: LocalMessage }) {
+  const isUser = message.role === "user";
+  return (
+    <div className={`bubbleRow ${message.role}`}>
+      {!isUser ? (
+        <div className="bubbleAvatar">
+          <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: 16 }}>
+            smart_toy
+          </span>
+        </div>
+      ) : null}
+      <div className="bubbleContent">
+        {message.isVoice ? <span className="voiceChip">Sesli Komut</span> : null}
+        <div className="bubbleCard">
+          {!isUser && message.confidence !== null ? (
+            <div className="bubbleConfidence">
+              <span className="confidenceDot" aria-hidden="true" />
+              <span className="confLabel">Güven Skoru</span>
+              <span className="confValue">%{Math.round(message.confidence * 100)}</span>
+            </div>
+          ) : null}
+          <p>{message.content}</p>
+
+          {message.voiceAction ? (
+            <div className="actionChips">
+              <span>Niyet: {message.voiceAction.intent}</span>
+              <span>Tip: {message.voiceAction.action_type}</span>
+              <span>
+                {message.voiceAction.requiresApproval ? "Onay gerekiyor" : "Onay gerekmiyor"}
+              </span>
+            </div>
+          ) : null}
+
+          {message.sources && message.sources.length > 0 ? (
+            <>
+              <div className="sourceGrid">
+                {message.sources.slice(0, 4).map((source) => (
+                  <div className="sourceCard" key={`${source.source_type}-${source.source_id}`}>
+                    <strong>{source.title}</strong>
+                    <p>{source.snippet}</p>
+                  </div>
+                ))}
+              </div>
+              {message.sources.length > 4 ? (
+                <div className="citationPills">
+                  {message.sources.slice(4).map((source) => (
+                    <span key={`${source.source_type}-${source.source_id}`}>
+                      <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: 12 }}>
+                        link
+                      </span>
+                      {source.title}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          ) : null}
+        </div>
+        <span className="bubbleMeta">{formatDateTime(message.created_at)}</span>
       </div>
-    </section>
+      {isUser ? (
+        <div className="bubbleAvatar user">
+          <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: 16 }}>
+            person
+          </span>
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -289,11 +370,15 @@ function SummaryCard({ label, value }: { label: string; value: number }) {
   );
 }
 
-function formatConfidence(value: number | null): string {
-  if (value === null) {
-    return "";
-  }
-  return `${Math.round(value * 100)}%`;
+function toLocalMessage(message: ChatMessage): LocalMessage {
+  return {
+    id: message.id,
+    role: message.role === "user" ? "user" : "assistant",
+    content: message.content,
+    confidence: message.confidence,
+    sources: message.sources,
+    created_at: message.created_at,
+  };
 }
 
 function formatDateTime(value: string): string {

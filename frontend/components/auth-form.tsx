@@ -18,6 +18,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -82,36 +83,61 @@ export function AuthForm({ mode }: AuthFormProps) {
       {isRegister ? (
         <label>
           Ad soyad
-          <input
-            autoComplete="name"
-            onChange={(event) => setDisplayName(event.target.value)}
-            placeholder="Dr. Ayşe Demir"
-            value={displayName}
-          />
+          <div className="inputIcon">
+            <span className="material-symbols-outlined" aria-hidden="true">
+              badge
+            </span>
+            <input
+              autoComplete="name"
+              onChange={(event) => setDisplayName(event.target.value)}
+              placeholder="Dr. Ayşe Demir"
+              value={displayName}
+            />
+          </div>
         </label>
       ) : null}
 
       <label>
         E-posta
-        <input
-          autoComplete="email"
-          onChange={(event) => setEmail(event.target.value)}
-          placeholder="ornek@example.com"
-          type="email"
-          value={email}
-        />
+        <div className="inputIcon">
+          <span className="material-symbols-outlined" aria-hidden="true">
+            mail
+          </span>
+          <input
+            autoComplete="email"
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="ornek@example.com"
+            type="email"
+            value={email}
+          />
+        </div>
       </label>
 
       <label>
         Şifre
-        <input
-          autoComplete={isRegister ? "new-password" : "current-password"}
-          minLength={8}
-          onChange={(event) => setPassword(event.target.value)}
-          placeholder="En az 8 karakter"
-          type="password"
-          value={password}
-        />
+        <div className="inputIcon">
+          <span className="material-symbols-outlined" aria-hidden="true">
+            lock
+          </span>
+          <input
+            autoComplete={isRegister ? "new-password" : "current-password"}
+            minLength={8}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="En az 8 karakter"
+            type={showPassword ? "text" : "password"}
+            value={password}
+          />
+          <button
+            aria-label={showPassword ? "Şifreyi gizle" : "Şifreyi göster"}
+            className="inputIconTrailing"
+            onClick={() => setShowPassword((value) => !value)}
+            type="button"
+          >
+            <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: 18 }}>
+              {showPassword ? "visibility_off" : "visibility"}
+            </span>
+          </button>
+        </div>
       </label>
 
       {!isRegister ? (
@@ -126,6 +152,9 @@ export function AuthForm({ mode }: AuthFormProps) {
       ) : null}
 
       <button disabled={isSubmitting || !canSubmit} type="submit">
+        <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: 18 }}>
+          {isSubmitting ? "hourglass_empty" : isRegister ? "person_add" : "login"}
+        </span>
         {isSubmitting ? "İşleniyor..." : isRegister ? "Hesap oluştur" : "Giriş yap"}
       </button>
 

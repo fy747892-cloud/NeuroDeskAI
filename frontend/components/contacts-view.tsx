@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Contact, createContact, listContacts } from "@/lib/api";
 import { useSession } from "@/lib/session";
@@ -180,7 +181,9 @@ export function ContactsView() {
             <article className="dataRow" key={contact.id}>
               <div>
                 <div className="rowTitle">
-                  <h3>{contact.full_name}</h3>
+                  <h3>
+                    <Link href={`/kisiler/${contact.id}`}>{contact.full_name}</Link>
+                  </h3>
                   <span>{contact.status}</span>
                 </div>
                 <p>{[contact.title, contact.company].filter(Boolean).join(" - ") || "Profil detayi yok."}</p>
@@ -188,6 +191,9 @@ export function ContactsView() {
               </div>
               <div className="rowActions">
                 <span className="statusPill">{contact.tags[0] ?? "CRM"}</span>
+                <Link href={`/kisiler/${contact.id}`}>
+                  <button type="button">Müşteri Hafızası</button>
+                </Link>
               </div>
             </article>
           ))}

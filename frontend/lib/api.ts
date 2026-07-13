@@ -117,6 +117,41 @@ export type Conversation = DashboardConversation & {
   source_type: string;
 };
 
+export type ConversationParticipant = {
+  id: string;
+  display_name: string;
+  participant_type: string;
+};
+
+export type ConversationDetail = Conversation & {
+  participants: ConversationParticipant[];
+  calls: Call[];
+};
+
+export type AIAnalysisResult = {
+  id: string;
+  job_id: string;
+  result_type: string;
+  result_payload: Record<string, unknown>;
+  created_at: string;
+};
+
+export type AIAnalysisJob = {
+  id: string;
+  tenant_id: string;
+  organization_id: string;
+  requested_by: string;
+  source_type: string;
+  source_id: string;
+  status: string;
+  attempts: number;
+  error_message: string | null;
+  queued_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  results: AIAnalysisResult[];
+};
+
 export type Contact = {
   id: string;
   tenant_id: string;
@@ -141,6 +176,42 @@ export type ContactCreatePayload = {
   tags?: string[];
 };
 
+export type ContactNote = {
+  id: string;
+  contact_id: string;
+  user_id: string;
+  note_text: string;
+  created_at: string;
+};
+
+export type ContactTimelineEvent = {
+  id: string;
+  contact_id: string;
+  event_type: string;
+  source_type: string | null;
+  source_id: string | null;
+  occurred_at: string;
+  event_metadata: Record<string, unknown> | null;
+};
+
+export type ContactDetail = Contact & {
+  notes: ContactNote[];
+  recent_timeline: ContactTimelineEvent[];
+};
+
+export type ContactMemory = {
+  contact_id: string;
+  full_name: string;
+  last_conversation: { id: string; title: string; occurred_at: string } | null;
+  last_email: { id: string; subject: string | null; from_address: string | null; received_at: string | null } | null;
+  last_topic: string | null;
+  pending_items_count: number;
+  open_deals_count: number;
+  open_deals_total_value: number;
+  next_appointment: { id: string; title: string; start_at: string } | null;
+  generated_at: string;
+};
+
 export type AIActionApproval = DashboardApproval & {
   tenant_id: string;
   organization_id: string;
@@ -153,6 +224,47 @@ export type AIActionApproval = DashboardApproval & {
   expires_at: string | null;
   decided_at: string | null;
 };
+
+export type Deal = {
+  id: string;
+  tenant_id: string;
+  organization_id: string;
+  owner_user_id: string;
+  contact_id: string | null;
+  title: string;
+  description: string | null;
+  value: number | null;
+  currency: string;
+  stage: string;
+  expected_close_date: string | null;
+  source_type: string;
+  source_id: string | null;
+  ai_action_approval_id: string | null;
+  created_at: string;
+};
+
+export const DEAL_STAGES = [
+  "lead",
+  "proposal_sent",
+  "negotiation",
+  "invoiced",
+  "won",
+  "lost",
+] as const;
+
+export type DealStage = (typeof DEAL_STAGES)[number];
+
+export type DealCreatePayload = {
+  title: string;
+  description?: string | null;
+  value?: number | null;
+  currency?: string;
+  stage?: string;
+  expected_close_date?: string | null;
+  contact_id?: string | null;
+};
+
+export type DealUpdatePayload = Partial<DealCreatePayload>;
 
 export type ChatSource = {
   source_type: string;
@@ -212,6 +324,32 @@ export type AnalyticsOverview = {
   appointments_upcoming: number;
   ai_requests: number;
   ai_cost_amount: number;
+};
+
+export type TaskMetric = {
+  date: string;
+  created_count: number;
+  completed_count: number;
+  overdue_count: number;
+};
+
+export type CallMetric = {
+  date: string;
+  call_count: number;
+  analyzed_count: number;
+};
+
+export type AppointmentMetric = {
+  date: string;
+  completed_count: number;
+  upcoming_count: number;
+};
+
+export type AIMetric = {
+  date: string;
+  request_count: number;
+  cost_amount: number;
+  avg_latency_ms: number;
 };
 
 export type EmailAccount = {
@@ -645,6 +783,39 @@ export async function listConversations(accessToken: string): Promise<Conversati
   });
 }
 
+export async function getConversation(
+  accessToken: string,
+  conversationId: string,
+): Promise<ConversationDetail> {
+  return request<ConversationDetail>(`/api/v1/conversations/${conversationId}`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function listAnalysisJobs(accessToken: string): Promise<AIAnalysisJob[]> {
+  return request<AIAnalysisJob[]>("/api/v1/ai/analysis/jobs", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function requestConversationAnalysis(
+  accessToken: string,
+  conversationId: string,
+): Promise<AIAnalysisJob> {
+  return request<AIAnalysisJob>(`/api/v1/ai/analysis/conversations/${conversationId}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
 export async function listContacts(
   accessToken: string,
   params: { search?: string; status?: string } = {},
@@ -684,6 +855,93 @@ export async function createContact(
       Authorization: `Bearer ${accessToken}`,
     },
   });
+}
+
+export async function getContact(accessToken: string, contactId: string): Promise<ContactDetail> {
+  return request<ContactDetail>(`/api/v1/contacts/${contactId}`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getContactMemory(accessToken: string, contactId: string): Promise<ContactMemory> {
+  return request<ContactMemory>(`/api/v1/contacts/${contactId}/memory`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function addContactNote(
+  accessToken: string,
+  contactId: string,
+  noteText: string,
+): Promise<ContactNote> {
+  return request<ContactNote>(`/api/v1/contacts/${contactId}/notes`, {
+    method: "POST",
+    body: JSON.stringify({ note_text: noteText }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function listDeals(accessToken: string, stage?: string): Promise<Deal[]> {
+  const search = stage ? `?stage=${encodeURIComponent(stage)}` : "";
+  return request<Deal[]>(`/api/v1/deals${search}`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function createDeal(accessToken: string, payload: DealCreatePayload): Promise<Deal> {
+  return request<Deal>("/api/v1/deals", {
+    method: "POST",
+    body: JSON.stringify({
+      title: payload.title,
+      description: payload.description ?? null,
+      value: payload.value ?? null,
+      currency: payload.currency ?? "TRY",
+      stage: payload.stage ?? "lead",
+      expected_close_date: payload.expected_close_date ?? null,
+      contact_id: payload.contact_id ?? null,
+    }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function updateDeal(
+  accessToken: string,
+  dealId: string,
+  payload: DealUpdatePayload,
+): Promise<Deal> {
+  return request<Deal>(`/api/v1/deals/${dealId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function deleteDeal(accessToken: string, dealId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/deals/${dealId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
 }
 
 export async function listApprovals(
@@ -784,9 +1042,53 @@ export async function reindexSearch(accessToken: string): Promise<ReindexSummary
   });
 }
 
-export async function getAnalyticsOverview(accessToken: string): Promise<AnalyticsOverview> {
-  return request<AnalyticsOverview>("/api/v1/analytics/overview", {
+export async function getAnalyticsOverview(
+  accessToken: string,
+  params: { dateFrom?: string; dateTo?: string } = {},
+): Promise<AnalyticsOverview> {
+  const search = new URLSearchParams();
+  if (params.dateFrom) search.set("date_from", params.dateFrom);
+  if (params.dateTo) search.set("date_to", params.dateTo);
+  const query = search.size > 0 ? `?${search.toString()}` : "";
+  return request<AnalyticsOverview>(`/api/v1/analytics/overview${query}`, {
     cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getTaskAnalytics(accessToken: string): Promise<TaskMetric[]> {
+  return request<TaskMetric[]>("/api/v1/analytics/tasks", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getCallAnalytics(accessToken: string): Promise<CallMetric[]> {
+  return request<CallMetric[]>("/api/v1/analytics/calls", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getAiAnalytics(accessToken: string): Promise<AIMetric[]> {
+  return request<AIMetric[]>("/api/v1/analytics/ai", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function runAnalyticsAggregate(accessToken: string): Promise<void> {
+  await request("/api/v1/analytics/aggregate", {
+    method: "POST",
+    body: JSON.stringify({}),
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -929,6 +1231,30 @@ export async function deleteFile(accessToken: string, fileId: string): Promise<v
 export async function listBillingPlans(accessToken: string): Promise<BillingPlan[]> {
   return request<BillingPlan[]>("/api/v1/billing/plans", {
     cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function switchPlan(accessToken: string, planCode: string): Promise<Subscription> {
+  return request<Subscription>("/api/v1/billing/subscription", {
+    method: "PATCH",
+    body: JSON.stringify({ plan_code: planCode }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function updateMemberRole(
+  accessToken: string,
+  memberId: string,
+  role: string,
+): Promise<OrganizationMember> {
+  return request<OrganizationMember>(`/api/v1/organizations/members/${memberId}/role`, {
+    method: "PATCH",
+    body: JSON.stringify({ role }),
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
