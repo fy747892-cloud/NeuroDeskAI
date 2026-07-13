@@ -2293,6 +2293,192 @@ h3 {
   margin: 2px 0 0;
 }
 
+/* Conversations: master-detail */
+.convoLayout {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: 300px minmax(0, 1fr);
+  align-items: start;
+}
+
+.convoRail {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+.convoItem {
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-left: 3px solid transparent;
+  display: block;
+  padding: 14px 16px;
+  text-align: left;
+  width: 100%;
+}
+
+.convoItem:last-child {
+  border-bottom: none;
+}
+
+.convoItem:hover {
+  background: var(--surface-strong);
+}
+
+.convoItem.active {
+  background: var(--primary-soft);
+  border-left-color: var(--primary);
+}
+
+.convoItemHead {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+}
+
+.convoItemHead strong {
+  font-size: 13px;
+}
+
+.convoItemHead span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.convoItem p {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 4px 0 0;
+}
+
+.convoDetail {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 24px;
+}
+
+.convoHeader {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.convoHeader h2 {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.convoMetaRow {
+  align-items: center;
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  gap: 16px;
+}
+
+.convoMetaRow span {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.aiSummaryBox {
+  background: var(--primary-soft);
+  border: 1px solid rgba(53, 37, 205, 0.15);
+  border-radius: 16px;
+  margin-top: 18px;
+  padding: 18px;
+}
+
+.aiSummaryBox .summaryTag {
+  align-items: center;
+  color: var(--primary);
+  display: flex;
+  font-size: 11px;
+  font-weight: 800;
+  gap: 6px;
+  letter-spacing: 0.04em;
+  margin-bottom: 10px;
+  text-transform: uppercase;
+}
+
+.aiSummaryBox p {
+  line-height: 1.6;
+  margin: 0;
+}
+
+.extractLabel {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin: 18px 0 10px;
+  text-transform: uppercase;
+}
+
+.extractChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.extractChip {
+  align-items: center;
+  background: var(--surface-strong);
+  border-radius: 999px;
+  color: var(--ink);
+  display: inline-flex;
+  font-size: 12px;
+  gap: 6px;
+  padding: 7px 12px;
+}
+
+.extractChip .material-symbols-outlined {
+  color: var(--primary);
+  font-size: 16px;
+}
+
+.transcriptList {
+  display: grid;
+  gap: 18px;
+  margin-top: 20px;
+}
+
+.transcriptTurn {
+  display: flex;
+  gap: 16px;
+}
+
+.transcriptTime {
+  color: var(--outline, var(--muted));
+  flex: 0 0 auto;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  padding-top: 2px;
+  width: 44px;
+}
+
+.transcriptSpeaker {
+  color: var(--primary);
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.transcriptBody p {
+  color: var(--ink);
+  line-height: 1.6;
+  margin: 0;
+}
+
 .searchPanel {
   min-height: 0;
 }
@@ -2473,7 +2659,8 @@ h3 {
 
   .dashboardColumns,
   .actionLayout,
-  .contactDetailGrid {
+  .contactDetailGrid,
+  .convoLayout {
     grid-template-columns: 1fr;
   }
 }

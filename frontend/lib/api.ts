@@ -117,6 +117,41 @@ export type Conversation = DashboardConversation & {
   source_type: string;
 };
 
+export type ConversationParticipant = {
+  id: string;
+  display_name: string;
+  participant_type: string;
+};
+
+export type ConversationDetail = Conversation & {
+  participants: ConversationParticipant[];
+  calls: Call[];
+};
+
+export type AIAnalysisResult = {
+  id: string;
+  job_id: string;
+  result_type: string;
+  result_payload: Record<string, unknown>;
+  created_at: string;
+};
+
+export type AIAnalysisJob = {
+  id: string;
+  tenant_id: string;
+  organization_id: string;
+  requested_by: string;
+  source_type: string;
+  source_id: string;
+  status: string;
+  attempts: number;
+  error_message: string | null;
+  queued_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  results: AIAnalysisResult[];
+};
+
 export type Contact = {
   id: string;
   tenant_id: string;
@@ -716,6 +751,39 @@ export async function createAppointment(
 export async function listConversations(accessToken: string): Promise<Conversation[]> {
   return request<Conversation[]>("/api/v1/conversations", {
     cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getConversation(
+  accessToken: string,
+  conversationId: string,
+): Promise<ConversationDetail> {
+  return request<ConversationDetail>(`/api/v1/conversations/${conversationId}`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function listAnalysisJobs(accessToken: string): Promise<AIAnalysisJob[]> {
+  return request<AIAnalysisJob[]>("/api/v1/ai/analysis/jobs", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function requestConversationAnalysis(
+  accessToken: string,
+  conversationId: string,
+): Promise<AIAnalysisJob> {
+  return request<AIAnalysisJob>(`/api/v1/ai/analysis/conversations/${conversationId}`, {
+    method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
