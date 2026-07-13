@@ -4,18 +4,30 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AuditLog,
   BillingPlan,
+  CalendarAccount,
+  EmailAccount,
   getCurrentOrganization,
   getSubscription,
   getUsageSummary,
   listAuditLogs,
   listBillingPlans,
+  listCalendarAccounts,
+  listEmailAccounts,
   listOrganizationMembers,
   Organization,
   OrganizationMember,
   Subscription,
+  switchPlan,
+  updateMemberRole,
   UsageSummary,
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
+
+const INTEGRATION_META: Record<string, { label: string; icon: string }> = {
+  gmail: { label: "Gmail", icon: "mail" },
+  outlook: { label: "Outlook", icon: "alternate_email" },
+  google: { label: "Google Calendar", icon: "calendar_today" },
+};
 
 type ConsentPreferences = {
   aiProcessing: boolean;
@@ -38,10 +50,14 @@ export function SettingsView() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [usage, setUsage] = useState<UsageSummary | null>(null);
+  const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
+  const [calendarAccounts, setCalendarAccounts] = useState<CalendarAccount[]>([]);
   const [consent, setConsent] = useState<ConsentPreferences>(DEFAULT_CONSENT);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
+  const [busyPlanCode, setBusyPlanCode] = useState<string | null>(null);
+  const [busyMemberId, setBusyMemberId] = useState<string | null>(null);
 
   async function loadSettings() {
     if (!tokens?.accessToken) {
@@ -51,18 +67,23 @@ export function SettingsView() {
     setLoading(true);
     setError(null);
     try {
-      const [nextPlans, nextSubscription, nextUsage] = await Promise.all([
-        listBillingPlans(tokens.accessToken),
-        getSubscription(tokens.accessToken),
-        getUsageSummary(tokens.accessToken),
-      ]);
+      const [nextPlans, nextSubscription, nextUsage, nextEmailAccounts, nextCalendarAccounts] =
+        await Promise.all([
+          listBillingPlans(tokens.accessToken),
+          getSubscription(tokens.accessToken),
+          getUsageSummary(tokens.accessToken),
+          listEmailAccounts(tokens.accessToken),
+          listCalendarAccounts(tokens.accessToken),
+        ]);
       setPlans(nextPlans);
       setSubscription(nextSubscription);
       setUsage(nextUsage);
+      setEmailAccounts(nextEmailAccounts);
+      setCalendarAccounts(nextCalendarAccounts);
       const [nextOrganization, nextMembers, nextAuditLogs] = await Promise.all([
         getCurrentOrganization(tokens.accessToken),
         listOrganizationMembers(tokens.accessToken),
-        listAuditLogs(tokens.accessToken, 25),
+        listAuditLogs(tokens.accessToken, 10),
       ]);
       setOrganization(nextOrganization);
       setMembers(nextMembers);
@@ -71,6 +92,39 @@ export function SettingsView() {
       setError(loadError instanceof Error ? loadError.message : "Ayarlar alınamadı.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleSwitchPlan(planCode: string) {
+    if (!tokens?.accessToken) {
+      return;
+    }
+    setBusyPlanCode(planCode);
+    setError(null);
+    try {
+      const updated = await switchPlan(tokens.accessToken, planCode);
+      setSubscription(updated);
+      setNotice(`Plan "${updated.plan.name}" olarak güncellendi.`);
+    } catch (switchError) {
+      setError(switchError instanceof Error ? switchError.message : "Plan değiştirilemedi.");
+    } finally {
+      setBusyPlanCode(null);
+    }
+  }
+
+  async function handleRoleChange(memberId: string, role: string) {
+    if (!tokens?.accessToken) {
+      return;
+    }
+    setBusyMemberId(memberId);
+    setError(null);
+    try {
+      const updated = await updateMemberRole(tokens.accessToken, memberId, role);
+      setMembers((current) => current.map((member) => (member.id === updated.id ? updated : member)));
+    } catch (roleError) {
+      setError(roleError instanceof Error ? roleError.message : "Rol güncellenemedi.");
+    } finally {
+      setBusyMemberId(null);
     }
   }
 
@@ -105,30 +159,124 @@ export function SettingsView() {
     setNotice("Tercih kaydedildi.");
   }
 
+  const connectedIntegrations = useMemo(() => {
+    const items: { key: string; provider: string; status: string; detail: string }[] = [];
+    for (const account of emailAccounts) {
+      items.push({
+        key: account.id,
+        provider: account.provider,
+        status: account.status,
+        detail: account.email_address ?? "E-posta adresi yok",
+      });
+    }
+    for (const account of calendarAccounts) {
+      items.push({
+        key: account.id,
+        provider: "google",
+        status: account.status,
+        detail: account.external_account_id ?? "Bağlantı bekliyor",
+      });
+    }
+    return items;
+  }, [emailAccounts, calendarAccounts]);
+
   return (
-    <section className="moduleSurface">
+    <>
       {error ? <p className="notice">{error}</p> : null}
       {notice ? <p className="notice success">{notice}</p> : null}
 
-      <div className="moduleGrid">
-        <SummaryCard label="Plan" value={subscription?.plan.name ?? "--"} />
-        <SummaryCard label="Durum" value={subscription?.status ?? "--"} />
-        <SummaryCard label="Kullanım" value={`${usagePercent}%`} />
-        <SummaryCard label="Üye" value={members.length} />
+      <div className="settingsGrid">
+        <section>
+          <div className="panelHeader" style={{ marginBottom: 12 }}>
+            <h2>Bağlı Entegrasyonlar</h2>
+            <button disabled={isLoading} onClick={loadSettings} type="button">
+              {isLoading ? "Yükleniyor" : "Yenile"}
+            </button>
+          </div>
+          <div className="integrationGrid">
+            {connectedIntegrations.length === 0 ? (
+              <p className="emptyState">
+                Henüz bağlı entegrasyon yok. Mail için /mailler, takvim için /takvim sayfasından bağlanabilirsin.
+              </p>
+            ) : null}
+            {connectedIntegrations.map((item) => {
+              const meta = INTEGRATION_META[item.provider] ?? { label: item.provider, icon: "extension" };
+              const isConnected = item.status === "connected" || item.status === "active";
+              return (
+                <div className="integrationCard" key={item.key}>
+                  <div className="integrationCardHead">
+                    <div className="integrationIcon">
+                      <span className="material-symbols-outlined" aria-hidden="true">
+                        {meta.icon}
+                      </span>
+                    </div>
+                    <div>
+                      <h4>{meta.label}</h4>
+                      <span className={isConnected ? "connectedTag" : "connectedTag off"}>
+                        {item.status}
+                      </span>
+                    </div>
+                  </div>
+                  <p>{item.detail}</p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section>
+          <div className="panelHeader" style={{ marginBottom: 12 }}>
+            <h2>Abonelik ve Plan</h2>
+          </div>
+          <div className="planHero">
+            <div className="planHeroTop">
+              <span>Aktif Plan</span>
+              <span className="planCode">{subscription?.plan.code ?? "--"}</span>
+            </div>
+            <h4>
+              {subscription ? formatCurrency(subscription.plan.price) : "--"}
+              <span> / {subscription?.plan.billing_period ?? "-"}</span>
+            </h4>
+            <p>
+              {subscription
+                ? `Durum: ${subscription.status} · Dönem sonu: ${formatDateTime(subscription.current_period_end)}`
+                : "Veri bekleniyor"}
+            </p>
+            <div className="planList">
+              {plans.map((plan) => (
+                <div
+                  className={plan.code === subscription?.plan.code ? "planOption current" : "planOption"}
+                  key={plan.id}
+                >
+                  <span>
+                    {plan.name} · {formatCurrency(plan.price)}/{plan.billing_period}
+                  </span>
+                  {plan.code === subscription?.plan.code ? (
+                    <span style={{ fontSize: 11, opacity: 0.7 }}>Mevcut</span>
+                  ) : (
+                    <button
+                      disabled={busyPlanCode === plan.code}
+                      onClick={() => handleSwitchPlan(plan.code)}
+                      type="button"
+                    >
+                      {busyPlanCode === plan.code ? "..." : "Seç"}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
       </div>
 
       <div className="contentGrid">
         <section className="panel">
           <div className="panelHeader">
             <h2>Hesap</h2>
-            <button disabled={isLoading} onClick={loadSettings} type="button">
-              {isLoading ? "Yükleniyor" : "Yenile"}
-            </button>
           </div>
           <div className="metricList">
             <MetricLine label="Email" value={user?.email ?? "--"} />
             <MetricLine label="Kullanici durumu" value={user?.status ?? "--"} />
-            <MetricLine label="Organizasyon" value={user?.organization_id ?? "--"} />
             <MetricLine label="Organizasyon adi" value={organization?.name ?? "--"} />
             <MetricLine label="Tenant" value={user?.tenant_id ?? "--"} />
           </div>
@@ -136,14 +284,14 @@ export function SettingsView() {
 
         <section className="panel">
           <div className="panelHeader">
-            <h2>Abonelik</h2>
+            <h2>Kullanım</h2>
             <span className="tag">{usage?.quota_type ?? "quota"}</span>
           </div>
           <div className="metricList">
             <MetricLine label="Limit" value={String(usage?.limit_value ?? 0)} />
             <MetricLine label="Kullanilan" value={String(usage?.used ?? 0)} />
             <MetricLine label="Kalan" value={String(usage?.remaining ?? 0)} />
-            <MetricLine label="Donem" value={usage?.period ?? "--"} />
+            <MetricLine label="Kullanım orani" value={`${usagePercent}%`} />
           </div>
         </section>
       </div>
@@ -175,74 +323,81 @@ export function SettingsView() {
         </div>
       </section>
 
-      <section className="panel">
+      <section className="panel" style={{ marginBottom: 20 }}>
         <div className="panelHeader">
-          <h2>Planlar</h2>
-          <span className="tag">{plans.length}</span>
+          <h2>Takım Yönetimi</h2>
+          <span className="tag">{members.length} üye</span>
         </div>
-        <div className="dataList">
-          {plans.length === 0 ? <p className="emptyState">Plan bulunmuyor.</p> : null}
-          {plans.map((plan) => (
-            <article className="dataRow" key={plan.id}>
-              <div>
-                <div className="rowTitle">
-                  <h3>{plan.name}</h3>
-                  <span>{plan.code}</span>
-                </div>
-                <p>{formatCurrency(plan.price)} / {plan.billing_period}</p>
-                <small>{plan.status}</small>
-              </div>
-            </article>
-          ))}
-        </div>
+        {members.length === 0 ? <p className="emptyState">Üye bulunmuyor.</p> : null}
+        {members.length > 0 ? (
+          <table className="teamTable">
+            <thead>
+              <tr>
+                <th>Üye</th>
+                <th>Durum</th>
+                <th>Rol</th>
+                <th>Katılım</th>
+              </tr>
+            </thead>
+            <tbody>
+              {members.map((member) => (
+                <tr key={member.id}>
+                  <td>
+                    <div className="memberCell">
+                      <div className="memberAvatar">{member.user_id.slice(0, 2).toUpperCase()}</div>
+                      <span>{member.user_id}</span>
+                    </div>
+                  </td>
+                  <td>{member.status}</td>
+                  <td>
+                    <select
+                      className="roleSelect"
+                      disabled={busyMemberId === member.id}
+                      onChange={(event) => handleRoleChange(member.id, event.target.value)}
+                      value={member.role}
+                    >
+                      <option value="owner">Owner</option>
+                      <option value="admin">Admin</option>
+                      <option value="member">Member</option>
+                      <option value="viewer">Viewer</option>
+                    </select>
+                  </td>
+                  <td>{formatDateTime(member.created_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
       </section>
 
-      <div className="contentGrid">
-        <section className="panel">
-          <div className="panelHeader">
-            <h2>Organizasyon uyeleri</h2>
-            <span className="tag">{members.length}</span>
-          </div>
-          <div className="dataList">
-            {members.length === 0 ? <p className="emptyState">Üye bulunmuyor.</p> : null}
-            {members.map((member) => (
-              <article className="dataRow" key={member.id}>
-                <div>
-                  <div className="rowTitle">
-                    <h3>{member.user_id}</h3>
-                    <span>{member.role}</span>
-                  </div>
-                  <p>{member.status}</p>
-                  <small>{formatDateTime(member.created_at)}</small>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-
-        <section className="panel">
-          <div className="panelHeader">
-            <h2>Audit logs</h2>
-            <span className="tag">{auditLogs.length}</span>
-          </div>
-          <div className="dataList">
-            {auditLogs.length === 0 ? <p className="emptyState">Audit log bulunmuyor.</p> : null}
-            {auditLogs.map((log) => (
-              <article className="dataRow" key={log.id}>
-                <div>
-                  <div className="rowTitle">
-                    <h3>{log.action}</h3>
-                    <span>{log.entity_type}</span>
-                  </div>
-                  <p>{log.request_id ?? log.ip_address ?? "Request bilgisi yok."}</p>
-                  <small>{formatDateTime(log.created_at)}</small>
-                </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      </div>
-    </section>
+      <section className="panel">
+        <div className="panelHeader">
+          <h2>Audit logs</h2>
+          <span className="tag">{auditLogs.length}</span>
+        </div>
+        {auditLogs.length === 0 ? <p className="emptyState">Audit log bulunmuyor.</p> : null}
+        {auditLogs.length > 0 ? (
+          <table className="auditTable">
+            <thead>
+              <tr>
+                <th>Aksiyon</th>
+                <th>Varlık</th>
+                <th>Zaman</th>
+              </tr>
+            </thead>
+            <tbody>
+              {auditLogs.map((log) => (
+                <tr key={log.id}>
+                  <td>{log.action}</td>
+                  <td>{log.entity_type}</td>
+                  <td>{formatDateTime(log.created_at)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
+      </section>
+    </>
   );
 }
 
@@ -269,15 +424,6 @@ function ConsentToggle({
         <small>{description}</small>
       </span>
     </label>
-  );
-}
-
-function SummaryCard({ label, value }: { label: string; value: number | string }) {
-  return (
-    <article className="moduleCard compact">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </article>
   );
 }
 

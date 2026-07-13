@@ -1237,6 +1237,30 @@ export async function listBillingPlans(accessToken: string): Promise<BillingPlan
   });
 }
 
+export async function switchPlan(accessToken: string, planCode: string): Promise<Subscription> {
+  return request<Subscription>("/api/v1/billing/subscription", {
+    method: "PATCH",
+    body: JSON.stringify({ plan_code: planCode }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function updateMemberRole(
+  accessToken: string,
+  memberId: string,
+  role: string,
+): Promise<OrganizationMember> {
+  return request<OrganizationMember>(`/api/v1/organizations/members/${memberId}/role`, {
+    method: "PATCH",
+    body: JSON.stringify({ role }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
 export async function getSubscription(accessToken: string): Promise<Subscription> {
   return request<Subscription>("/api/v1/billing/subscription", {
     cache: "no-store",
