@@ -141,6 +141,42 @@ export type ContactCreatePayload = {
   tags?: string[];
 };
 
+export type ContactNote = {
+  id: string;
+  contact_id: string;
+  user_id: string;
+  note_text: string;
+  created_at: string;
+};
+
+export type ContactTimelineEvent = {
+  id: string;
+  contact_id: string;
+  event_type: string;
+  source_type: string | null;
+  source_id: string | null;
+  occurred_at: string;
+  event_metadata: Record<string, unknown> | null;
+};
+
+export type ContactDetail = Contact & {
+  notes: ContactNote[];
+  recent_timeline: ContactTimelineEvent[];
+};
+
+export type ContactMemory = {
+  contact_id: string;
+  full_name: string;
+  last_conversation: { id: string; title: string; occurred_at: string } | null;
+  last_email: { id: string; subject: string | null; from_address: string | null; received_at: string | null } | null;
+  last_topic: string | null;
+  pending_items_count: number;
+  open_deals_count: number;
+  open_deals_total_value: number;
+  next_appointment: { id: string; title: string; start_at: string } | null;
+  generated_at: string;
+};
+
 export type AIActionApproval = DashboardApproval & {
   tenant_id: string;
   organization_id: string;
@@ -721,6 +757,38 @@ export async function createContact(
       title: payload.title ?? null,
       tags: payload.tags ?? [],
     }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getContact(accessToken: string, contactId: string): Promise<ContactDetail> {
+  return request<ContactDetail>(`/api/v1/contacts/${contactId}`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getContactMemory(accessToken: string, contactId: string): Promise<ContactMemory> {
+  return request<ContactMemory>(`/api/v1/contacts/${contactId}/memory`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function addContactNote(
+  accessToken: string,
+  contactId: string,
+  noteText: string,
+): Promise<ContactNote> {
+  return request<ContactNote>(`/api/v1/contacts/${contactId}/notes`, {
+    method: "POST",
+    body: JSON.stringify({ note_text: noteText }),
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
