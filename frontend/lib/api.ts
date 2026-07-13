@@ -326,6 +326,32 @@ export type AnalyticsOverview = {
   ai_cost_amount: number;
 };
 
+export type TaskMetric = {
+  date: string;
+  created_count: number;
+  completed_count: number;
+  overdue_count: number;
+};
+
+export type CallMetric = {
+  date: string;
+  call_count: number;
+  analyzed_count: number;
+};
+
+export type AppointmentMetric = {
+  date: string;
+  completed_count: number;
+  upcoming_count: number;
+};
+
+export type AIMetric = {
+  date: string;
+  request_count: number;
+  cost_amount: number;
+  avg_latency_ms: number;
+};
+
 export type EmailAccount = {
   id: string;
   tenant_id: string;
@@ -1016,9 +1042,53 @@ export async function reindexSearch(accessToken: string): Promise<ReindexSummary
   });
 }
 
-export async function getAnalyticsOverview(accessToken: string): Promise<AnalyticsOverview> {
-  return request<AnalyticsOverview>("/api/v1/analytics/overview", {
+export async function getAnalyticsOverview(
+  accessToken: string,
+  params: { dateFrom?: string; dateTo?: string } = {},
+): Promise<AnalyticsOverview> {
+  const search = new URLSearchParams();
+  if (params.dateFrom) search.set("date_from", params.dateFrom);
+  if (params.dateTo) search.set("date_to", params.dateTo);
+  const query = search.size > 0 ? `?${search.toString()}` : "";
+  return request<AnalyticsOverview>(`/api/v1/analytics/overview${query}`, {
     cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getTaskAnalytics(accessToken: string): Promise<TaskMetric[]> {
+  return request<TaskMetric[]>("/api/v1/analytics/tasks", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getCallAnalytics(accessToken: string): Promise<CallMetric[]> {
+  return request<CallMetric[]>("/api/v1/analytics/calls", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getAiAnalytics(accessToken: string): Promise<AIMetric[]> {
+  return request<AIMetric[]>("/api/v1/analytics/ai", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function runAnalyticsAggregate(accessToken: string): Promise<void> {
+  await request("/api/v1/analytics/aggregate", {
+    method: "POST",
+    body: JSON.stringify({}),
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
