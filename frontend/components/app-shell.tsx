@@ -5,6 +5,7 @@ import type { Route } from "next";
 import { usePathname } from "next/navigation";
 import { ReactNode } from "react";
 import { HealthStatus } from "@/lib/api";
+import { openSearchPalette, SearchPalette } from "@/components/search-palette";
 import { UserMenu } from "@/components/user-menu";
 
 const navItems = [
@@ -170,6 +171,13 @@ export function AppShell({ children, eyebrow = "Çalışma alanı", health }: Ap
             <p>{description}</p>
           </div>
           <div className="topbarActions">
+            <button className="searchTrigger" onClick={openSearchPalette} type="button">
+              <span className="material-symbols-outlined" aria-hidden="true">
+                search
+              </span>
+              <span className="searchTriggerLabel">Ara...</span>
+              <kbd>Ctrl K</kbd>
+            </button>
             <div className={`status ${health.ok ? "online" : "offline"}`}>
               <span aria-hidden="true" />
               {health.label}
@@ -185,6 +193,8 @@ export function AppShell({ children, eyebrow = "Çalışma alanı", health }: Ap
           mic
         </span>
       </Link>
+
+      <SearchPalette />
     </main>
   );
 }
