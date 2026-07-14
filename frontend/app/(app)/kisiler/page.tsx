@@ -1,4 +1,4 @@
-import { ContactsView } from "@/components/contacts-view";
+import { ContactsView } from "@/components/contacts/contacts-view";
 
 export default function ContactsPage() {
   return <ContactsView />;

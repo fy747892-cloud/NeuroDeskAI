@@ -1,13 +1,10 @@
-import { AuthGuard } from "@/components/auth-guard";
-import { AppShell } from "@/components/app-shell";
-import { getHealthStatus } from "@/lib/api";
+import { AuthGuard } from "@/components/auth/auth-guard";
+import { AppShell } from "@/components/shell/app-shell";
 
-export default async function AppLayout({ children }: { children: React.ReactNode }) {
-  const health = await getHealthStatus();
-
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <AuthGuard>
-      <AppShell health={health}>{children}</AppShell>
+      <AppShell>{children}</AppShell>
     </AuthGuard>
   );
 }

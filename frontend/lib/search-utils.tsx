@@ -17,13 +17,12 @@ export function resultHref(result: SearchResult): Route {
     case "conversation":
       return "/gorusmeler" as Route;
     case "task":
-      return "/gorevler" as Route;
     case "appointment":
-      return "/takvim" as Route;
+      return "/gorevler" as Route;
     case "email_message":
-      return "/mailler" as Route;
+      return "/ayarlar" as Route;
     default:
-      return "/arama" as Route;
+      return "/" as Route;
   }
 }
 
