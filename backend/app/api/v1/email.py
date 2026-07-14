@@ -1,10 +1,12 @@
 import uuid
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import RedirectResponse
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import require_permission
+from app.core.config import settings
 from app.core.errors import NotFoundError
 from app.core.permissions import Permission
 from app.core.rate_limit import RateLimiter
@@ -23,6 +25,12 @@ from app.modules.email.service import EmailIntegrationService
 from app.modules.users.models import User
 
 router = APIRouter(prefix="/email", tags=["email"])
+
+
+def _wants_html(request: Request) -> bool:
+    """True for a real browser navigation (OAuth provider redirect), false for our own
+    frontend's fetch() call completing the mock/manual-code flow."""
+    return "text/html" in request.headers.get("accept", "")
 
 
 async def _start_connect(
@@ -51,7 +59,7 @@ async def _complete_connect(
     state: str,
     db: AsyncSession,
     redis: Redis,
-) -> EmailAccount:
+) -> EmailAccount | RedirectResponse:
     account = await EmailIntegrationService(db, redis).complete_connect(
         provider=provider, state=state, code=code
     )
@@ -67,6 +75,11 @@ async def _complete_connect(
         metadata={"provider": account.provider},
     )
     await db.commit()
+
+    if _wants_html(request):
+        # A real OAuth provider redirected the actual browser here — send it back into
+        # the frontend app instead of showing a raw JSON response.
+        return RedirectResponse(f"{settings.frontend_base_url}/mailler?connected={provider}")
     return account
 
 
@@ -86,7 +99,7 @@ async def gmail_callback(
     state: str = Query(...),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
-) -> EmailAccount:
+) -> EmailAccount | RedirectResponse:
     return await _complete_connect("gmail", request, code, state, db, redis)
 
 
@@ -106,7 +119,7 @@ async def outlook_callback(
     state: str = Query(...),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
-) -> EmailAccount:
+) -> EmailAccount | RedirectResponse:
     return await _complete_connect("outlook", request, code, state, db, redis)
 
 

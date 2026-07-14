@@ -1,5 +1,6 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   completeEmailConnect,
@@ -39,6 +40,8 @@ const providerDescriptions: Record<EmailProvider, string> = {
 
 export function EmailView() {
   const { tokens } = useSession();
+  const searchParams = useSearchParams();
+  const justConnectedProvider = searchParams.get("connected");
   const [accounts, setAccounts] = useState<EmailAccount[]>([]);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [messages, setMessages] = useState<EmailMessage[]>([]);
@@ -242,6 +245,11 @@ export function EmailView() {
   return (
     <section className="moduleSurface">
       {error ? <p className="notice">{error}</p> : null}
+      {justConnectedProvider ? (
+        <p className="notice success">
+          {getProviderLabel(justConnectedProvider)} hesabı başarıyla bağlandı.
+        </p>
+      ) : null}
 
       <div className="statTileRow">
         <StatTile icon="account_circle" label="Hesap" value={summary.accounts} />
