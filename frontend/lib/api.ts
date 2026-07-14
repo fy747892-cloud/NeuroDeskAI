@@ -375,6 +375,7 @@ export type EmailMessage = {
   from_address: string | null;
   snippet: string | null;
   received_at: string | null;
+  is_replied: boolean;
 };
 
 export type EmailSyncSummary = {
@@ -1185,6 +1186,15 @@ export async function listEmailMessages(
   });
 }
 
+export async function markEmailReplied(accessToken: string, messageId: string): Promise<EmailMessage> {
+  return request<EmailMessage>(`/api/v1/email/messages/${messageId}/mark-replied`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
 export async function syncEmailAccount(
   accessToken: string,
   accountId: string,
@@ -1419,6 +1429,13 @@ export async function listAuditLogs(accessToken: string, limit = 50): Promise<Au
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
+  });
+}
+
+export async function refreshAccessToken(refreshToken: string): Promise<TokenResponse> {
+  return request<TokenResponse>("/api/v1/auth/refresh", {
+    method: "POST",
+    body: JSON.stringify({ refresh_token: refreshToken }),
   });
 }
 

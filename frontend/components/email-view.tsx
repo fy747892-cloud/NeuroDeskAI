@@ -10,6 +10,7 @@ import {
   EmailSyncSummary,
   listEmailAccounts,
   listEmailMessages,
+  markEmailReplied,
   refreshEmailAccountToken,
   revokeEmailAccount,
   startEmailConnect,
@@ -24,6 +25,11 @@ type PendingConnect = EmailConnectStart & {
 const providerLabels: Record<EmailProvider, string> = {
   gmail: "Gmail",
   outlook: "Outlook",
+};
+
+const providerIcons: Record<EmailProvider, string> = {
+  gmail: "mail",
+  outlook: "alternate_email",
 };
 
 const providerDescriptions: Record<EmailProvider, string> = {
@@ -189,6 +195,25 @@ export function EmailView() {
     }
   }
 
+  async function handleMarkReplied(messageId: string) {
+    if (!tokens?.accessToken) {
+      return;
+    }
+
+    setActiveActionId(`replied-${messageId}`);
+    setError(null);
+    try {
+      const updated = await markEmailReplied(tokens.accessToken, messageId);
+      setMessages((currentMessages) =>
+        currentMessages.map((message) => (message.id === updated.id ? updated : message)),
+      );
+    } catch (markError) {
+      setError(markError instanceof Error ? markError.message : "Mesaj işaretlenemedi.");
+    } finally {
+      setActiveActionId(null);
+    }
+  }
+
   async function handleRevoke(account: EmailAccount) {
     if (!tokens?.accessToken) {
       return;
@@ -218,11 +243,11 @@ export function EmailView() {
     <section className="moduleSurface">
       {error ? <p className="notice">{error}</p> : null}
 
-      <div className="moduleGrid">
-        <SummaryCard label="Hesap" value={summary.accounts} />
-        <SummaryCard label="Bağlı" value={summary.connected} />
-        <SummaryCard label="Mesaj" value={summary.messages} />
-        <SummaryCard label="Sağlayıcı" value={summary.providers} />
+      <div className="statTileRow">
+        <StatTile icon="account_circle" label="Hesap" value={summary.accounts} />
+        <StatTile icon="link" label="Bağlı" value={summary.connected} />
+        <StatTile icon="mail" label="Mesaj" value={summary.messages} />
+        <StatTile icon="hub" label="Sağlayıcı" value={summary.providers} />
       </div>
 
       {lastSync ? (
@@ -288,6 +313,11 @@ export function EmailView() {
               <article className="dataRow" key={account.id}>
                 <div>
                   <div className="rowTitle">
+                    <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: 16 }}>
+                      {account.provider === "gmail" || account.provider === "outlook"
+                        ? providerIcons[account.provider]
+                        : "mail"}
+                    </span>
                     <h3>{account.email_address ?? getProviderLabel(account.provider)}</h3>
                     <span>{getProviderLabel(account.provider)}</span>
                   </div>
@@ -341,11 +371,26 @@ export function EmailView() {
               <article className="dataRow" key={message.id}>
                 <div>
                   <div className="rowTitle">
+                    <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: 16 }}>
+                      {message.is_replied ? "mark_email_read" : "mail"}
+                    </span>
                     <h3>{message.subject ?? "Konu yok"}</h3>
+                    {message.is_replied ? <span className="statusPill done">Yanıtlandı</span> : null}
                   </div>
                   <p>{message.snippet ?? "Ön izleme yok."}</p>
                   <small>{message.from_address ?? "Gönderen yok"}</small>
                 </div>
+                {!message.is_replied ? (
+                  <div className="rowActions horizontal">
+                    <button
+                      disabled={activeActionId === `replied-${message.id}`}
+                      onClick={() => handleMarkReplied(message.id)}
+                      type="button"
+                    >
+                      Yanıtlandı işaretle
+                    </button>
+                  </div>
+                ) : null}
               </article>
             ))}
           </div>
@@ -355,12 +400,19 @@ export function EmailView() {
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: number }) {
+function StatTile({ icon, label, value }: { icon: string; label: string; value: number }) {
   return (
-    <article className="moduleCard compact">
-      <span>{label}</span>
+    <div className="statTile">
+      <div className="statTileHead">
+        <div className="statTileIcon">
+          <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: 18 }}>
+            {icon}
+          </span>
+        </div>
+      </div>
+      <p>{label}</p>
       <strong>{value}</strong>
-    </article>
+    </div>
   );
 }
 

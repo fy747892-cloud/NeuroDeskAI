@@ -95,11 +95,11 @@ export function NotificationsView() {
         </p>
       ) : null}
 
-      <div className="moduleGrid">
-        <SummaryCard label="Toplam" value={summary.total} />
-        <SummaryCard label="Okunmamis" value={summary.unread} />
-        <SummaryCard label="Due" value={summary.due} />
-        <SummaryCard label="Hatali" value={summary.failed} />
+      <div className="statTileRow">
+        <StatTile icon="notifications" label="Toplam" value={summary.total} />
+        <StatTile icon="mark_email_unread" label="Okunmamış" value={summary.unread} />
+        <StatTile icon="schedule" label="Zamanı gelen" value={summary.due} />
+        <StatTile icon="error" label="Hatalı" value={summary.failed} />
       </div>
 
       <section className="panel">
@@ -110,7 +110,7 @@ export function NotificationsView() {
               {isLoading ? "Yükleniyor" : "Yenile"}
             </button>
             <button disabled={activeId === "process-due"} onClick={handleProcessDue} type="button">
-              Due isle
+              Zamanı geleni işle
             </button>
           </div>
         </div>
@@ -123,14 +123,17 @@ export function NotificationsView() {
             <article className="dataRow" key={notification.id}>
               <div>
                 <div className="rowTitle">
+                  <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: 16 }}>
+                    {notification.channel === "email" ? "mail" : "notifications"}
+                  </span>
                   <h3>{notification.title}</h3>
-                  <span>{notification.notification_type}</span>
+                  {!notification.read_at ? <span className="priorityTag ai">Yeni</span> : null}
                 </div>
                 <p>{notification.body}</p>
-                <small>{formatDateTime(notification.scheduled_at)} | {notification.channel}</small>
+                <small>{formatDateTime(notification.scheduled_at)} · {notification.channel}</small>
               </div>
               <div className="rowActions horizontal">
-                <span className={notification.read_at ? "statusPill done" : "statusPill"}>
+                <span className={notification.status === "failed" ? "statusPill danger" : notification.read_at ? "statusPill done" : "statusPill"}>
                   {notification.status}
                 </span>
                 <button
@@ -149,12 +152,19 @@ export function NotificationsView() {
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: number }) {
+function StatTile({ icon, label, value }: { icon: string; label: string; value: number }) {
   return (
-    <article className="moduleCard compact">
-      <span>{label}</span>
+    <div className="statTile">
+      <div className="statTileHead">
+        <div className="statTileIcon">
+          <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: 18 }}>
+            {icon}
+          </span>
+        </div>
+      </div>
+      <p>{label}</p>
       <strong>{value}</strong>
-    </article>
+    </div>
   );
 }
 
