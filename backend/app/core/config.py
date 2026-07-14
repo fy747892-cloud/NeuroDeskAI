@@ -36,6 +36,14 @@ class Settings(BaseSettings):
     llm_tts_voice: str = "alloy"
     llm_timeout_seconds: float = 30.0
 
+    email_provider: str = "mock"
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_address: str = ""
+    smtp_use_tls: bool = True
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]

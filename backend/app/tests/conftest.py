@@ -1,5 +1,11 @@
 import os
 
+# Force mock providers for the test session regardless of the developer's local .env —
+# tests must stay free, fast, and isolated from real external services (OpenAI billing,
+# outbound SMTP email). Set before any app import triggers Settings() to load.
+os.environ["LLM_PROVIDER"] = "mock"
+os.environ["EMAIL_PROVIDER"] = "mock"
+
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from redis.asyncio import Redis
