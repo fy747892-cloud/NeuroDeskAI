@@ -595,3 +595,20 @@ Orijinal 15 cilt planında Cilt 8, 100 ekranlık bir UI/UX kataloğu olarak tan�
 # Sonraki Adım
 
 Bir sonraki doküman için önerilen başlık **Cilt 8 — Security Documentation**'dır (JWT/OAuth/AES/RBAC/ABAC derinliği, KVKK/GDPR uygulama checklist'i, rate limiting/audit/SIEM, ISO 27001/SOC2 hazırlığı — orijinal 15 cilt planındaki Cilt 9 kapsamı). Ürün sahibi farklı bir sıra tercih ederse (örn. Database/Backend'e dönüp uygulamaya başlamak, ya da DevOps/Sprint Planı ciltlerine geçmek), bu doküman seti buna göre esnek şekilde devam ettirilebilir.
+
+# Sprint 14 Guncel Uygulama Notu
+
+Mevcut Flutter MVP uygulamasi aktif proje kokunu `mobile/` olarak kullanir; eski `mobile/neurodeskai_mobile/` generated template aktif uygulama degildir. Uygulama web ile ayni backend API sozlesmesini tuketir ve Android emulator icin `API_BASE_URL=http://10.0.2.2:8000` ile calistirilir.
+
+Tamamlanan mobil MVP yuzeyleri:
+
+- Auth: splash, login, register, secure token storage, logout ve 401 sonrasi refresh token rotation/retry.
+- Shell: web ile uyumlu NeuroDesk AI marka basligi, alt navigasyon ve bildirim kisayolu.
+- Dashboard: ozet metrik kartlari, akilli ozet hero bandi ve ilgili sekmelere navigasyon.
+- Tasks: gorev listesi, oncelik/durum gosterimi, teslim tarihi ve tamamla aksiyonu.
+- Appointments: yaklasan randevu listesi, tarih rozeti, saat araligi, lokasyon ve durum bilgisi.
+- Conversations: manuel gorusme/transkript ekleme, katilimci girisi ve AI analiz baslatma.
+- AI Approval Center: pending onay listesi, confidence/kaynak/son tarih metasi, approve/reject ve onay sonrasi task/appointment/deal materyalizasyonu.
+- Notifications: bildirim listesi, okunmamis sayaci ve okundu isaretleme.
+
+MVP icin bilincli olarak ertelenen mobil parcalar: offline outbox/Isar cache, push notification/FCM, deep link ile dogrudan detay acma, AI Chat mobil ekrani, Contacts/CRM mobil ekrani, Files/Search/Analytics mobil yuzeyleri, biometric login, crash reporting ve store signing.

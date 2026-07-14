@@ -29,7 +29,8 @@ class DashboardData {
 
   factory DashboardData.fromJson(Map<String, dynamic> json) {
     return DashboardData(
-      summary: DashboardSummary.fromJson(json['summary'] as Map<String, dynamic>),
+      summary:
+          DashboardSummary.fromJson(json['summary'] as Map<String, dynamic>),
       generatedAt: DateTime.parse(json['generated_at'] as String),
     );
   }

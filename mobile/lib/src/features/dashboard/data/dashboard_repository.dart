@@ -8,7 +8,8 @@ final dashboardRepositoryProvider = Provider<DashboardRepository>((ref) {
   return DashboardRepository(ref.watch(dioProvider));
 });
 
-final dashboardProvider = FutureProvider.autoDispose<DashboardData>((ref) async {
+final dashboardProvider =
+    FutureProvider.autoDispose<DashboardData>((ref) async {
   return ref.watch(dashboardRepositoryProvider).getDashboard();
 });
 

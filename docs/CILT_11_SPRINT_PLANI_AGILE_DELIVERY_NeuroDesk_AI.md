@@ -892,3 +892,40 @@ Her sprint sonunda Codex su raporu sunmalidir: uretilen moduller, olusturulan do
 # 87. Codex Icin Sonraki Adim
 
 Bir sonraki dokumanda Cilt 12 - Test ve Quality Assurance Documentation hazirlanacaktir. Cilt 12; unit test, integration test, API test, E2E test, mobile test, AI test, prompt evaluation, security test, performance test, load test, regression test, UAT senaryolari, test data stratejisi, test otomasyonu ve kalite kabul kriterlerini icermelidir.
+
+# 88. Sprint 14 Guncel Mobil Gerceklesme ve Ek Backlog
+
+Sprint 14 uygulama durumu, mevcut `mobile/` Flutter projesi uzerinden guncellenmistir. Aktif kapsam web ile ayni API sozlesmesini kullanir; Android emulator smoke icin backend `0.0.0.0:8000`, mobil `API_BASE_URL=http://10.0.2.2:8000` kullanir.
+
+Tamamlanan Sprint 14 story guncellemeleri:
+
+| Story | Guncel durum | Not |
+|---|---|---|
+| US-085 Mobile skeleton | Tamamlandi | `mobile/` aktif Flutter root; native platform klasorleri aktif root'a tasindi |
+| US-086 Mobile auth | Genisletildi | Login + register + splash + logout |
+| US-087 Mobile dashboard | Tamamlandi | Summary kartlari ve web ile uyumlu hero/metric UI |
+| US-088 Mobile tasks | Tamamlandi | Liste, oncelik/durum, due date, complete action |
+| US-089 Mobile appointments | Tamamlandi | Liste, tarih rozeti, saat/lokasyon/durum |
+| US-090 Mobile secure storage | Tamamlandi | `flutter_secure_storage`, refresh token retry ve API timeout/error handling |
+
+Sprint 14'e eklenen mobil story'ler:
+
+| Story | Baslik | Modul | Oncelik | SP | Kabul kriteri |
+|---|---|---|---|---|---|
+| US-121 | Mobile register flow | Mobile/Auth | Must | 3 | Kullanici mobilde kayit olup token ile app shell'e girer |
+| US-122 | Mobile conversations manual transcript | Mobile/Conversations | Must | 5 | Kullanici baslik, katilimci ve transkript girer; call text API kaydi olusturur |
+| US-123 | Mobile AI analysis trigger | Mobile/AI | Must | 3 | Conversation icin AI analiz baslatilir ve hata/limit mesaji gosterilir |
+| US-124 | Mobile AI approval materialization | Mobile/AI Approval | Must | 5 | Onaylanan task/appointment/deal ilgili `from-approval` endpoint'iyle gercek kayda donusur |
+| US-125 | Mobile notifications read flow | Mobile/Notifications | Should | 3 | Bildirimler listelenir, okunmamis sayaci gosterilir, okundu isaretlenir |
+| US-126 | Mobile emulator smoke | Mobile/QA | Must | 3 | Pixel 8 emulator uzerinde build/install/open ve API smoke dogrulanir |
+
+Sprint 15+ mobil backlog ayrimi:
+
+- Mobile AI Chat ekrani ve chat session history.
+- Contacts/CRM mobil liste ve kisi hafizasi detayi.
+- Search, Files ve Analytics mobil yuzeyleri.
+- Offline outbox/cache, conflict UI ve background sync.
+- Push notification/FCM, deep link ile ilgili kayda gitme.
+- Crash reporting, analytics eventleri, biometric login ve store signing.
+
+Sprint 14 kabul kapisi: `flutter analyze`, `flutter test`, debug APK build, Pixel 8 emulator install/open, backend register/dashboard/tasks/appointments/conversations/notifications/approvals smoke testleri temiz olmalidir.

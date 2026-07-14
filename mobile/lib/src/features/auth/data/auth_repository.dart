@@ -24,6 +24,22 @@ class AuthRepository {
     return AuthTokens.fromJson(response.data!);
   }
 
+  Future<AuthTokens> register({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/v1/auth/register',
+      data: {
+        'email': email,
+        'password': password,
+        'display_name': displayName,
+      },
+    );
+    return AuthTokens.fromJson(response.data!);
+  }
+
   Future<void> logout(String refreshToken) async {
     await _dio.post<void>(
       '/api/v1/auth/logout',

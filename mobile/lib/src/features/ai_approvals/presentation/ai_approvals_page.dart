@@ -1,0 +1,333 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../core/api/api_error.dart';
+import '../data/ai_approvals_repository.dart';
+import '../domain/ai_action_approval.dart';
+
+class AiApprovalsPage extends ConsumerWidget {
+  const AiApprovalsPage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final approvals = ref.watch(pendingAiApprovalsProvider);
+    final theme = Theme.of(context);
+
+    return RefreshIndicator(
+      onRefresh: () => ref.refresh(pendingAiApprovalsProvider.future),
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          Text('AI Onay', style: theme.textTheme.headlineMedium),
+          const SizedBox(height: 6),
+          Text(
+            'AI tarafindan hazirlanan aksiyonlari insan onayindan gecir.',
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 16),
+          approvals.when(
+            data: (items) => items.isEmpty
+                ? const _PageMessage(message: 'Bekleyen AI onayi yok.')
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _ApprovalsSummary(approvals: items),
+                      const SizedBox(height: 14),
+                      ...items.map(
+                        (approval) => _ApprovalCard(approval: approval),
+                      ),
+                    ],
+                  ),
+            error: (error, stackTrace) => _PageMessage(
+              message: readableApiError(error, 'AI onaylari alinamadi.'),
+            ),
+            loading: () => const Center(child: CircularProgressIndicator()),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ApprovalsSummary extends StatelessWidget {
+  const _ApprovalsSummary({required this.approvals});
+
+  final List<AiActionApproval> approvals;
+
+  @override
+  Widget build(BuildContext context) {
+    final appointmentCount = approvals
+        .where(
+          (approval) =>
+              approval.actionType == 'appointment' ||
+              approval.actionType == 'create_appointment',
+        )
+        .length;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF17152F),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _SummaryMetric(
+              label: 'Bekleyen',
+              value: approvals.length.toString(),
+              icon: Icons.verified_outlined,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _SummaryMetric(
+              label: 'Takvim onerisi',
+              value: appointmentCount.toString(),
+              icon: Icons.event_available,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryMetric extends StatelessWidget {
+  const _SummaryMetric({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.72),
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ApprovalCard extends ConsumerStatefulWidget {
+  const _ApprovalCard({required this.approval});
+
+  final AiActionApproval approval;
+
+  @override
+  ConsumerState<_ApprovalCard> createState() => _ApprovalCardState();
+}
+
+class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    final approval = widget.approval;
+    final confidence = approval.confidenceScore == null
+        ? null
+        : '${(approval.confidenceScore! * 100).round()}%';
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    color: const Color(0x1A3525CD),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(
+                    Icons.auto_awesome,
+                    color: Color(0xFF3525CD),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    approval.displayTitle,
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                Chip(label: Text(approval.actionLabel)),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(approval.displayDescription),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 12,
+              runSpacing: 6,
+              children: [
+                _MetaLine(
+                  icon: Icons.hub_outlined,
+                  text: 'Kaynak: ${approval.sourceType}',
+                ),
+                if (confidence != null)
+                  _MetaLine(
+                    icon: Icons.speed,
+                    text: 'Guven: $confidence',
+                  ),
+                if (approval.expiresAt != null)
+                  _MetaLine(
+                    icon: Icons.timer_outlined,
+                    text: 'Son: ${_formatDate(approval.expiresAt!)}',
+                  ),
+              ],
+            ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                _errorMessage!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isSubmitting ? null : () => _reject(approval),
+                    icon: const Icon(Icons.close),
+                    label: Text(_isSubmitting ? 'Bekle' : 'Reddet'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _isSubmitting ? null : () => _approve(approval),
+                    icon: const Icon(Icons.check),
+                    label: Text(_isSubmitting ? 'Isleniyor' : 'Onayla'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _approve(AiActionApproval approval) async {
+    await _submit(
+      () => ref.read(aiApprovalsRepositoryProvider).approve(approval),
+    );
+  }
+
+  Future<void> _reject(AiActionApproval approval) async {
+    await _submit(
+      () => ref.read(aiApprovalsRepositoryProvider).reject(approval.id),
+    );
+  }
+
+  Future<void> _submit(Future<Object?> Function() action) async {
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+    try {
+      await action();
+      ref.invalidate(pendingAiApprovalsProvider);
+    } catch (error) {
+      setState(() {
+        _errorMessage = readableApiError(error, 'Islem tamamlanamadi.');
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  String _formatDate(DateTime value) {
+    final local = value.toLocal();
+    return '${local.day.toString().padLeft(2, '0')}.'
+        '${local.month.toString().padLeft(2, '0')} '
+        '${local.hour.toString().padLeft(2, '0')}:'
+        '${local.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+class _MetaLine extends StatelessWidget {
+  const _MetaLine({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          icon,
+          size: 16,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
+        const SizedBox(width: 6),
+        Text(text, style: Theme.of(context).textTheme.bodySmall),
+      ],
+    );
+  }
+}
+
+class _PageMessage extends StatelessWidget {
+  const _PageMessage({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Text(message),
+      ),
+    );
+  }
+}

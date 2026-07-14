@@ -834,3 +834,21 @@ Codex ileride DevOps dosyalarini uretirken su sirayi izlemelidir:
 
 Bir sonraki dokumanda Cilt 11 - Sprint Plani ve Agile Delivery Documentation hazirlanacaktir. Cilt 11; urun gelistirme sprintleri, MVP backlog, modul bazli is paketleri, story point tahminleri, sprint hedefleri, kabul kriterleri, release plani, ekip rolleri, onceliklendirme, risk yonetimi ve Codex ile modul modul gelistirme sirasini icermelidir.
 
+
+# 108. Local Mobile Emulator API Runbook
+
+Mobil MVP smoke testlerinde Android emulator host makineye `localhost` ile degil `10.0.2.2` ile erisir. Bu nedenle local backend asagidaki kosullari saglamalidir:
+
+- Backend API host makinede `0.0.0.0:8000` veya en azindan emulator tarafindan erisilebilir bir interface uzerinde calismalidir.
+- Mobil debug build `--dart-define=API_BASE_URL=http://10.0.2.2:8000` ile uretilmelidir.
+- Host kontrolu: `GET http://localhost:8000/health` 200 donmelidir.
+- Emulator kontrolu: `adb shell` uzerinden `10.0.2.2:8000` portuna TCP erisimi dogrulanmalidir.
+
+Docker compose API servisi port veya dependency cakismasi nedeniyle kalkmazsa MVP local smoke icin gecici kabul edilen yol:
+
+1. `docker compose up -d db minio` ve Redis icin mevcut saglikli local/container Redis kullanilir.
+2. `backend/.env` icindeki `DATABASE_URL` ve `REDIS_URL` local servisleri gostermelidir.
+3. Migration `python -m alembic upgrade head` ile calistirilir.
+4. API `python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload` ile baslatilir.
+
+Bu yol production deployment yerine gecmez; yalnizca local mobile emulator smoke testini hizlandirmak icindir. Kalici cozum, Docker compose port cakismalarini temizlemek ve `api`, `db`, `redis`, `minio` servislerini ayni compose network'u icinde tutmaktir.
