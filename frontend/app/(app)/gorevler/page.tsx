@@ -1,5 +1,5 @@
-import { TasksView } from "@/components/tasks-view";
+import { TasksAppointmentsView } from "@/components/tasks/tasks-appointments-view";
 
 export default function TasksPage() {
-  return <TasksView />;
+  return <TasksAppointmentsView />;
 }

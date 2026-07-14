@@ -983,6 +983,42 @@ export async function rejectAction(
   });
 }
 
+// Approving an AIActionApproval only flips its status — it does not create the
+// real record. A separate materialize call against the matching from-approval
+// endpoint is required to turn it into a real task/appointment/deal.
+export async function createTaskFromApproval(accessToken: string, approvalId: string): Promise<Task> {
+  return request<Task>("/api/v1/tasks/from-approval", {
+    method: "POST",
+    body: JSON.stringify({ approval_id: approvalId }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function createAppointmentFromApproval(
+  accessToken: string,
+  approvalId: string,
+): Promise<Appointment> {
+  return request<Appointment>("/api/v1/appointments/from-approval", {
+    method: "POST",
+    body: JSON.stringify({ approval_id: approvalId }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function createDealFromApproval(accessToken: string, approvalId: string): Promise<Deal> {
+  return request<Deal>("/api/v1/deals/from-approval", {
+    method: "POST",
+    body: JSON.stringify({ approval_id: approvalId }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
 export async function listChatSessions(accessToken: string): Promise<ChatSession[]> {
   return request<ChatSession[]>("/api/v1/ai/chat/sessions", {
     cache: "no-store",
