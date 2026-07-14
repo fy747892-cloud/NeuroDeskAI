@@ -22,7 +22,9 @@ class Task {
       description: json['description'] as String?,
       status: json['status'] as String,
       priority: json['priority'] as String,
-      dueAt: json['due_at'] == null ? null : DateTime.parse(json['due_at'] as String),
+      dueAt: json['due_at'] == null
+          ? null
+          : DateTime.parse(json['due_at'] as String),
     );
   }
 }

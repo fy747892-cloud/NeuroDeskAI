@@ -49,6 +49,30 @@ class AuthController extends AsyncNotifier<AuthState> {
     }
   }
 
+  Future<void> register({
+    required String email,
+    required String password,
+    required String displayName,
+  }) async {
+    state = const AsyncLoading();
+    try {
+      final tokens = await ref.read(authRepositoryProvider).register(
+            email: email,
+            password: password,
+            displayName: displayName,
+          );
+      await ref.read(secureTokenStoreProvider).save(tokens);
+      state = AsyncData(AuthState(tokens: tokens));
+    } catch (error) {
+      state = AsyncData(
+        AuthState(
+          tokens: null,
+          errorMessage: readableApiError(error, 'Kayit tamamlanamadi.'),
+        ),
+      );
+    }
+  }
+
   Future<void> logout() async {
     final tokens = state.valueOrNull?.tokens;
     await ref.read(secureTokenStoreProvider).clear();

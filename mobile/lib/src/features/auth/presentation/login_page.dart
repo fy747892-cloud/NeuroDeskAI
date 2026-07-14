@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'auth_controller.dart';
 
@@ -13,6 +14,7 @@ class LoginPage extends ConsumerStatefulWidget {
 class _LoginPageState extends ConsumerState<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  String? _validationMessage;
 
   @override
   void dispose() {
@@ -25,53 +27,133 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
     final isLoading = authState.isLoading;
-    final errorMessage = authState.valueOrNull?.errorMessage;
+    final errorMessage =
+        _validationMessage ?? authState.valueOrNull?.errorMessage;
 
     return Scaffold(
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(20),
-          children: [
-            const SizedBox(height: 48),
-            Text('NeuroDesk AI', style: Theme.of(context).textTheme.headlineLarge),
-            const SizedBox(height: 8),
-            Text(
-              'Mobil calisma alanina giris yap.',
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-            const SizedBox(height: 28),
-            TextField(
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(labelText: 'Email'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              onSubmitted: (_) => _submit(),
-              decoration: const InputDecoration(labelText: 'Sifre'),
-            ),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: isLoading ? null : _submit,
-              child: Text(isLoading ? 'Giris yapiliyor' : 'Giris yap'),
-            ),
-            if (errorMessage != null) ...[
-              const SizedBox(height: 12),
-              Text(errorMessage, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF150C3C), Color(0xFF241169), Color(0xFF3525CD)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.all(20),
+            children: [
+              const SizedBox(height: 48),
+              const _AuthBrand(),
+              const SizedBox(height: 28),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Giris yap',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Mobil calisma alanina devam et.',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 18),
+                      TextField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        decoration: const InputDecoration(labelText: 'Email'),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _passwordController,
+                        obscureText: true,
+                        onSubmitted: (_) => _submit(),
+                        decoration: const InputDecoration(labelText: 'Sifre'),
+                      ),
+                      const SizedBox(height: 16),
+                      FilledButton(
+                        onPressed: isLoading ? null : _submit,
+                        child:
+                            Text(isLoading ? 'Giris yapiliyor' : 'Giris yap'),
+                      ),
+                      const SizedBox(height: 10),
+                      TextButton(
+                        onPressed: isLoading
+                            ? null
+                            : () => context.go('/auth/register'),
+                        child: const Text('Yeni hesap olustur'),
+                      ),
+                      if (errorMessage != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          errorMessage,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 
   void _submit() {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      setState(() {
+        _validationMessage = 'Email ve sifre zorunlu.';
+      });
+      return;
+    }
+
+    setState(() => _validationMessage = null);
     ref.read(authControllerProvider.notifier).login(
-          _emailController.text.trim(),
-          _passwordController.text,
+          email,
+          password,
         );
+  }
+}
+
+class _AuthBrand extends StatelessWidget {
+  const _AuthBrand();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'NeuroDesk AI',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 34,
+            fontWeight: FontWeight.w900,
+            height: 1.05,
+          ),
+        ),
+        SizedBox(height: 10),
+        Text(
+          'AI destekli operasyon alanin cebinde.',
+          style: TextStyle(
+            color: Color(0xFFC3C0FF),
+            fontSize: 16,
+            height: 1.35,
+          ),
+        ),
+      ],
+    );
   }
 }

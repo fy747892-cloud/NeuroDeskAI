@@ -10,27 +10,131 @@ class TasksPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final tasks = ref.watch(tasksProvider);
+    final theme = Theme.of(context);
 
     return RefreshIndicator(
       onRefresh: () => ref.refresh(tasksProvider.future),
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Gorevler', style: Theme.of(context).textTheme.headlineMedium),
+          Text('Gorevler', style: theme.textTheme.headlineMedium),
+          const SizedBox(height: 6),
+          Text(
+            'Operasyon akisindaki acik isleri, oncelikleri ve teslim tarihlerini takip et.',
+            style: theme.textTheme.bodyMedium,
+          ),
           const SizedBox(height: 16),
           tasks.when(
             data: (items) => items.isEmpty
                 ? const _EmptyList(message: 'Henuz gorev yok.')
                 : Column(
-                    children: items
-                        .map((task) => _TaskTile(task: task))
-                        .toList(growable: false),
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _TaskSummary(tasks: items),
+                      const SizedBox(height: 14),
+                      ...items.map((task) => _TaskTile(task: task)),
+                    ],
                   ),
-            error: (error, stackTrace) => const _EmptyList(message: 'Gorevler alinamadi.'),
+            error: (error, stackTrace) =>
+                const _EmptyList(message: 'Gorevler alinamadi.'),
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _TaskSummary extends StatelessWidget {
+  const _TaskSummary({required this.tasks});
+
+  final List<Task> tasks;
+
+  @override
+  Widget build(BuildContext context) {
+    final openCount = tasks.where((task) => task.status != 'completed').length;
+    final urgentCount = tasks.where((task) {
+      final priority = task.priority.toLowerCase();
+      return priority == 'high' || priority == 'urgent';
+    }).length;
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF17152F),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _SummaryMetric(
+              label: 'Acik gorev',
+              value: openCount.toString(),
+              icon: Icons.pending_actions,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _SummaryMetric(
+              label: 'Yuksek oncelik',
+              value: urgentCount.toString(),
+              icon: Icons.priority_high,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryMetric extends StatelessWidget {
+  const _SummaryMetric({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                value,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+              ),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.72),
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -45,21 +149,133 @@ class _TaskTile extends ConsumerWidget {
     final isCompleted = task.status == 'completed';
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: ListTile(
-        title: Text(task.title),
-        subtitle: Text(task.description ?? task.priority),
-        trailing: isCompleted
-            ? const Icon(Icons.check_circle)
-            : IconButton(
-                tooltip: 'Tamamla',
-                icon: const Icon(Icons.check),
-                onPressed: () async {
-                  await ref.read(tasksRepositoryProvider).completeTask(task.id);
-                  ref.invalidate(tasksProvider);
-                },
-              ),
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _PriorityDot(priority: task.priority),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    task.title,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          decoration: isCompleted
+                              ? TextDecoration.lineThrough
+                              : TextDecoration.none,
+                        ),
+                  ),
+                ),
+                _StatusChip(status: task.status),
+              ],
+            ),
+            if (task.description != null && task.description!.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(task.description!, style: Theme.of(context).textTheme.bodyMedium),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(
+                  Icons.schedule,
+                  size: 16,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    task.dueAt == null
+                        ? 'Teslim tarihi yok'
+                        : 'Teslim: ${_formatDate(task.dueAt!)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                Text(
+                  _priorityLabel(task.priority),
+                  style: Theme.of(context).textTheme.labelMedium,
+                ),
+                if (!isCompleted) ...[
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    tooltip: 'Tamamla',
+                    icon: const Icon(Icons.check),
+                    onPressed: () async {
+                      await ref
+                          .read(tasksRepositoryProvider)
+                          .completeTask(task.id);
+                      ref.invalidate(tasksProvider);
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  String _formatDate(DateTime value) {
+    return '${value.day.toString().padLeft(2, '0')}.'
+        '${value.month.toString().padLeft(2, '0')} '
+        '${value.hour.toString().padLeft(2, '0')}:'
+        '${value.minute.toString().padLeft(2, '0')}';
+  }
+
+  String _priorityLabel(String priority) {
+    return switch (priority.toLowerCase()) {
+      'urgent' => 'Acil',
+      'high' => 'Yuksek',
+      'medium' => 'Orta',
+      'low' => 'Dusuk',
+      _ => priority,
+    };
+  }
+}
+
+class _PriorityDot extends StatelessWidget {
+  const _PriorityDot({required this.priority});
+
+  final String priority;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (priority.toLowerCase()) {
+      'urgent' => const Color(0xFFFF6B6B),
+      'high' => const Color(0xFFFF9F1C),
+      'medium' => const Color(0xFF3525CD),
+      _ => const Color(0xFF2EC4B6),
+    };
+
+    return Container(
+      width: 12,
+      height: 12,
+      margin: const EdgeInsets.only(top: 4),
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+}
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.status});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final isCompleted = status == 'completed';
+
+    return Chip(
+      avatar: Icon(
+        isCompleted ? Icons.check_circle : Icons.radio_button_unchecked,
+        size: 16,
+      ),
+      label: Text(isCompleted ? 'Tamam' : 'Acik'),
+      visualDensity: VisualDensity.compact,
     );
   }
 }
