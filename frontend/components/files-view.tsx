@@ -84,11 +84,11 @@ export function FilesView() {
       {error ? <p className="notice">{error}</p> : null}
       {notice ? <p className="notice success">{notice}</p> : null}
 
-      <div className="moduleGrid">
-        <SummaryCard label="Dosya" value={summary.total} />
-        <SummaryCard label="Hazir" value={summary.ready} />
-        <SummaryCard label="Islemde" value={summary.processing} />
-        <SummaryCard label="Boyut" value={summary.storage} />
+      <div className="statTileRow">
+        <StatTile icon="folder" label="Dosya" value={summary.total} />
+        <StatTile icon="check_circle" label="Hazır" value={summary.ready} />
+        <StatTile icon="hourglass_empty" label="İşlemde" value={summary.processing} />
+        <StatTile icon="database" label="Boyut" value={summary.storage} />
       </div>
 
       <div className="panel">
@@ -105,10 +105,13 @@ export function FilesView() {
             <article className="dataRow" key={file.id}>
               <div>
                 <div className="rowTitle">
+                  <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: 16 }}>
+                    {fileIcon(file.mime_type)}
+                  </span>
                   <h3>{file.filename}</h3>
                   <span>{file.mime_type}</span>
                 </div>
-                <p>{formatBytes(file.size_bytes)} | {formatDateTime(file.created_at)}</p>
+                <p>{formatBytes(file.size_bytes)} · {formatDateTime(file.created_at)}</p>
                 <small>{file.status}</small>
               </div>
               <div className="rowActions horizontal">
@@ -127,13 +130,28 @@ export function FilesView() {
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: number | string }) {
+function StatTile({ icon, label, value }: { icon: string; label: string; value: number | string }) {
   return (
-    <article className="moduleCard compact">
-      <span>{label}</span>
+    <div className="statTile">
+      <div className="statTileHead">
+        <div className="statTileIcon">
+          <span className="material-symbols-outlined" aria-hidden="true" style={{ fontSize: 18 }}>
+            {icon}
+          </span>
+        </div>
+      </div>
+      <p>{label}</p>
       <strong>{value}</strong>
-    </article>
+    </div>
   );
+}
+
+function fileIcon(mimeType: string): string {
+  if (mimeType.includes("pdf")) return "picture_as_pdf";
+  if (mimeType.includes("word") || mimeType.includes("doc")) return "description";
+  if (mimeType.includes("image")) return "image";
+  if (mimeType.includes("sheet") || mimeType.includes("excel")) return "table_chart";
+  return "draft";
 }
 
 function formatBytes(bytes: number): string {

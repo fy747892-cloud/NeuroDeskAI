@@ -7,21 +7,25 @@ import { useSession } from "@/lib/session";
 
 export function AuthGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const { isAuthenticated } = useSession();
+  const { isAuthenticated, isInitializing } = useSession();
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!isInitializing && !isAuthenticated) {
       router.replace("/giris" as Route);
     }
-  }, [isAuthenticated, router]);
+  }, [isInitializing, isAuthenticated, router]);
 
-  if (!isAuthenticated) {
+  if (isInitializing || !isAuthenticated) {
     return (
       <main className="authPage">
         <section className="authCard">
           <p className="eyebrow">NeuroDeskAI</p>
           <h1>Oturum kontrol ediliyor</h1>
-          <p className="formMessage">Devam etmek için giriş sayfasına yönlendiriliyorsun.</p>
+          <p className="formMessage">
+            {isInitializing
+              ? "Oturum bilgin doğrulanıyor..."
+              : "Devam etmek için giriş sayfasına yönlendiriliyorsun."}
+          </p>
         </section>
       </main>
     );
