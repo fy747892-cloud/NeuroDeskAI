@@ -17,12 +17,14 @@ import {
   TaskMetric,
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
+import { Language, useLanguage } from "@/lib/i18n/context";
 import { formatDateTime, formatMoney } from "@/lib/format";
 
 const RANGE_DAYS = 7;
 
 export function AnalyticsView() {
   const { tokens } = useSession();
+  const { t, language } = useLanguage();
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
   const [previousOverview, setPreviousOverview] = useState<AnalyticsOverview | null>(null);
   const [taskMetrics, setTaskMetrics] = useState<TaskMetric[]>([]);
@@ -68,7 +70,7 @@ export function AnalyticsView() {
       setAuditLogs(nextAuditLogs);
       setApprovals(nextApprovals);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Analitik verisi alınamadı.");
+      setError(loadError instanceof Error ? loadError.message : t("analytics.errors.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -86,7 +88,7 @@ export function AnalyticsView() {
       await runAnalyticsAggregate(tokens.accessToken);
       await loadAnalytics();
     } catch (aggregateError) {
-      setError(aggregateError instanceof Error ? aggregateError.message : "Hesaplama tetiklenemedi.");
+      setError(aggregateError instanceof Error ? aggregateError.message : t("analytics.errors.aggregateFailed"));
     } finally {
       setAggregating(false);
     }
@@ -114,11 +116,12 @@ export function AnalyticsView() {
       <div className="flex justify-between items-end flex-wrap gap-md">
         <div>
           <h2 className="font-headline-lg text-headline-lg text-on-surface tracking-tight">
-            Performance Intelligence
+            {t("analytics.title")}
           </h2>
           <p className="text-on-surface-variant font-body-md mt-1">
-            {overview ? `${overview.date_from} — ${overview.date_to}` : "Son 7 gün"} gerçek zamanlı operasyon ve AI
-            verimlilik metrikleri.
+            {t("analytics.subtitle", {
+              range: overview ? `${overview.date_from} — ${overview.date_to}` : t("analytics.defaultRange"),
+            })}
           </p>
         </div>
         <button
@@ -128,7 +131,7 @@ export function AnalyticsView() {
           className="px-4 py-2 bg-primary text-on-primary rounded-lg text-label-sm flex items-center gap-2 shadow-sm active:scale-95 transition-transform disabled:opacity-60"
         >
           <span className="material-symbols-outlined text-[18px]">bolt</span>
-          {isAggregating ? "Hesaplanıyor..." : "Bugünü Hesapla"}
+          {isAggregating ? t("analytics.aggregating") : t("analytics.aggregateButton")}
         </button>
       </div>
 
@@ -138,10 +141,12 @@ export function AnalyticsView() {
             <span className="material-symbols-outlined text-primary bg-primary-container/10 p-2 rounded-lg">call</span>
             {callDelta !== null ? <DeltaBadge value={callDelta} /> : null}
           </div>
-          <p className="text-on-surface-variant font-label-md text-label-md">Weekly Call Volume</p>
-          <h3 className="text-headline-lg font-bold mt-2">{(overview?.calls_total ?? 0).toLocaleString("tr-TR")}</h3>
+          <p className="text-on-surface-variant font-label-md text-label-md">{t("analytics.weeklyCallVolume")}</p>
+          <h3 className="text-headline-lg font-bold mt-2">
+            {(overview?.calls_total ?? 0).toLocaleString(localeFor(language))}
+          </h3>
           <div className="mt-4 h-12 flex items-end gap-1">
-            {sparklineBars(callMetrics.map((m) => m.call_count))}
+            {sparklineBars(callMetrics.map((m) => m.call_count), t)}
           </div>
         </div>
 
@@ -150,11 +155,13 @@ export function AnalyticsView() {
             <span className="material-symbols-outlined text-secondary bg-secondary-fixed p-2 rounded-lg">task_alt</span>
             {taskDelta !== null ? <DeltaBadge value={taskDelta} /> : null}
           </div>
-          <p className="text-on-surface-variant font-label-md text-label-md">Tasks Completed</p>
+          <p className="text-on-surface-variant font-label-md text-label-md">{t("analytics.tasksCompleted")}</p>
           <h3 className="text-headline-lg font-bold mt-2">
-            {(overview?.tasks_completed ?? 0).toLocaleString("tr-TR")}
+            {(overview?.tasks_completed ?? 0).toLocaleString(localeFor(language))}
           </h3>
-          <p className="text-[11px] text-outline mt-4">{overview?.tasks_overdue ?? 0} gecikmiş görev</p>
+          <p className="text-[11px] text-outline mt-4">
+            {t("analytics.overdueTasks", { count: overview?.tasks_overdue ?? 0 })}
+          </p>
         </div>
 
         <div className="glass-card p-xl rounded-xl border-primary/20 ai-glow bg-gradient-to-br from-white to-primary/5">
@@ -163,40 +170,42 @@ export function AnalyticsView() {
               auto_awesome
             </span>
             <span className="text-body-sm font-semibold text-primary-fixed-variant bg-primary-fixed rounded px-2 py-0.5 animate-pulse-subtle">
-              LIVE
+              {t("analytics.live")}
             </span>
           </div>
-          <p className="text-on-surface-variant font-label-md text-label-md">AI Suggestions Approved</p>
+          <p className="text-on-surface-variant font-label-md text-label-md">{t("analytics.aiSuggestionsApproved")}</p>
           <h3 className="text-headline-lg font-bold mt-2 text-primary">
             {acceptance !== null ? `${acceptance}%` : "--"}
           </h3>
-          <p className="text-[11px] text-outline mt-4">{approvals.length} toplam öneri</p>
+          <p className="text-[11px] text-outline mt-4">
+            {t("analytics.totalSuggestions", { count: approvals.length })}
+          </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-lg">
         <div className="glass-card p-xl rounded-xl flex flex-col h-[380px]">
           <div className="flex justify-between items-center mb-xl">
-            <h4 className="font-headline-md text-headline-md">Productivity Trends</h4>
+            <h4 className="font-headline-md text-headline-md">{t("analytics.productivityTrends")}</h4>
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-primary" />
-                <span className="text-body-sm text-outline">Tamamlanan</span>
+                <span className="text-body-sm text-outline">{t("analytics.completedLegend")}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full bg-outline-variant" />
-                <span className="text-body-sm text-outline">Oluşturulan</span>
+                <span className="text-body-sm text-outline">{t("analytics.createdLegend")}</span>
               </div>
             </div>
           </div>
-          <TrendChart metrics={taskMetrics} />
+          <TrendChart metrics={taskMetrics} t={t} language={language} />
         </div>
 
         <div className="glass-card p-xl rounded-xl flex flex-col h-[380px]">
           <div className="flex justify-between items-center mb-xl">
-            <h4 className="font-headline-md text-headline-md">Çağrı Hacmi</h4>
+            <h4 className="font-headline-md text-headline-md">{t("analytics.callVolume")}</h4>
           </div>
-          <CallBarChart metrics={callMetrics} />
+          <CallBarChart metrics={callMetrics} t={t} language={language} />
         </div>
       </div>
 
@@ -204,27 +213,29 @@ export function AnalyticsView() {
         <div className="md:col-span-3 glass-card p-xl rounded-xl">
           <div className="flex justify-between items-center mb-md flex-wrap gap-2">
             <div>
-              <h4 className="font-headline-md text-headline-md">AI Compute Usage</h4>
-              <p className="text-body-sm text-outline">Bu dönem için tahmini maliyet</p>
+              <h4 className="font-headline-md text-headline-md">{t("analytics.aiComputeUsage")}</h4>
+              <p className="text-body-sm text-outline">{t("analytics.estimatedCostSubtitle")}</p>
             </div>
             <div className="text-right">
               <span className="text-headline-md font-bold text-primary">
-                {formatMoney(overview?.ai_cost_amount ?? 0, "USD")}
+                {formatMoney(overview?.ai_cost_amount ?? 0, "USD", language)}
               </span>
-              <p className="text-[10px] text-outline uppercase font-bold">Estimated Total</p>
+              <p className="text-[10px] text-outline uppercase font-bold">{t("analytics.estimatedTotal")}</p>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-4">
             <div className="bg-surface-container-low p-3 rounded-lg border border-outline-variant/20">
-              <p className="text-[10px] text-outline uppercase font-bold">AI İstekleri</p>
-              <p className="text-body-md font-bold">{(overview?.ai_requests ?? 0).toLocaleString("tr-TR")}</p>
+              <p className="text-[10px] text-outline uppercase font-bold">{t("analytics.aiRequests")}</p>
+              <p className="text-body-md font-bold">
+                {(overview?.ai_requests ?? 0).toLocaleString(localeFor(language))}
+              </p>
             </div>
             <div className="bg-surface-container-low p-3 rounded-lg border border-outline-variant/20">
-              <p className="text-[10px] text-outline uppercase font-bold">Ort. Gecikme</p>
+              <p className="text-[10px] text-outline uppercase font-bold">{t("analytics.avgLatency")}</p>
               <p className="text-body-md font-bold">{avgLatency !== null ? `${avgLatency} ms` : "--"}</p>
             </div>
             <div className="bg-surface-container-low p-3 rounded-lg border border-outline-variant/20">
-              <p className="text-[10px] text-outline uppercase font-bold">Analiz Edilen Görüşme</p>
+              <p className="text-[10px] text-outline uppercase font-bold">{t("analytics.analyzedConversations")}</p>
               <p className="text-body-md font-bold">{overview?.calls_analyzed ?? 0}</p>
             </div>
           </div>
@@ -232,34 +243,34 @@ export function AnalyticsView() {
         <div className="glass-card p-xl rounded-xl bg-inverse-surface text-inverse-on-surface flex flex-col justify-between overflow-hidden relative">
           <div className="relative z-10">
             <span className="material-symbols-outlined text-primary-fixed-dim mb-md">workspace_premium</span>
-            <h4 className="font-headline-md text-headline-md mb-2">Upgrade for advanced ML features</h4>
-            <p className="text-body-sm text-outline-variant">Gelişmiş modelleri Ayarlar &gt; Billing üzerinden keşfet.</p>
+            <h4 className="font-headline-md text-headline-md mb-2">{t("analytics.upgradeTitle")}</h4>
+            <p className="text-body-sm text-outline-variant">{t("analytics.upgradeSubtitle")}</p>
           </div>
           <a
             href="/ayarlar"
             className="w-full py-3 bg-primary text-on-primary rounded-lg font-label-md mt-lg hover:brightness-110 active:scale-95 transition-all relative z-10 text-center"
           >
-            View Plans
+            {t("analytics.viewPlans")}
           </a>
         </div>
       </div>
 
       <div className="glass-card rounded-xl overflow-hidden">
         <div className="px-xl py-md border-b border-outline-variant/30 flex justify-between items-center">
-          <h4 className="font-headline-md text-headline-md">Audit Logs</h4>
+          <h4 className="font-headline-md text-headline-md">{t("analytics.auditLogs")}</h4>
         </div>
-        {isLoading ? <p className="p-xl text-body-sm text-on-surface-variant">Yükleniyor...</p> : null}
+        {isLoading ? <p className="p-xl text-body-sm text-on-surface-variant">{t("common.loading")}</p> : null}
         {!isLoading && auditLogs.length === 0 ? (
-          <p className="p-xl text-body-sm text-on-surface-variant">Henüz denetim kaydı yok.</p>
+          <p className="p-xl text-body-sm text-on-surface-variant">{t("analytics.noAuditLogs")}</p>
         ) : null}
         {auditLogs.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-surface-container text-outline font-label-sm uppercase tracking-wider">
-                  <th className="px-xl py-4">Aksiyon</th>
-                  <th className="px-xl py-4">Varlık</th>
-                  <th className="px-xl py-4 text-right">Zaman</th>
+                  <th className="px-xl py-4">{t("analytics.table.action")}</th>
+                  <th className="px-xl py-4">{t("analytics.table.entity")}</th>
+                  <th className="px-xl py-4 text-right">{t("analytics.table.time")}</th>
                 </tr>
               </thead>
               <tbody className="text-body-sm text-on-surface">
@@ -267,7 +278,9 @@ export function AnalyticsView() {
                   <tr key={log.id} className="hover:bg-surface-container-low transition-colors border-b border-outline-variant/10">
                     <td className="px-xl py-4">{log.action}</td>
                     <td className="px-xl py-4">{log.entity_type}</td>
-                    <td className="px-xl py-4 text-right text-outline">{formatDateTime(log.created_at)}</td>
+                    <td className="px-xl py-4 text-right text-outline">
+                      {formatDateTime(log.created_at, language)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -277,6 +290,10 @@ export function AnalyticsView() {
       </div>
     </div>
   );
+}
+
+function localeFor(language: Language): string {
+  return language === "tr" ? "tr-TR" : "en-US";
 }
 
 function DeltaBadge({ value }: { value: number }) {
@@ -289,9 +306,9 @@ function DeltaBadge({ value }: { value: number }) {
   );
 }
 
-function sparklineBars(values: number[]) {
+function sparklineBars(values: number[], t: (path: string) => string) {
   if (values.length === 0) {
-    return <p className="text-[11px] text-on-surface-variant">Veri yok</p>;
+    return <p className="text-[11px] text-on-surface-variant">{t("analytics.noData")}</p>;
   }
   const max = Math.max(1, ...values);
   return values.map((value, index) => (
@@ -303,11 +320,19 @@ function sparklineBars(values: number[]) {
   ));
 }
 
-function TrendChart({ metrics }: { metrics: TaskMetric[] }) {
+function TrendChart({
+  metrics,
+  t,
+  language,
+}: {
+  metrics: TaskMetric[];
+  t: (path: string, vars?: Record<string, string | number>) => string;
+  language: Language;
+}) {
   if (metrics.length === 0) {
     return (
       <p className="flex-1 flex items-center justify-center text-body-sm text-on-surface-variant">
-        Bu aralıkta veri yok. &quot;Bugünü Hesapla&quot; ile üretebilirsin.
+        {t("analytics.noDataInRange")}
       </p>
     );
   }
@@ -369,25 +394,37 @@ function TrendChart({ metrics }: { metrics: TaskMetric[] }) {
             strokeWidth={2}
           >
             <title>
-              {item.date}: {item.completed_count} tamamlanan / {item.created_count} oluşturulan
+              {t("analytics.chartTooltip", {
+                date: item.date,
+                completed: item.completed_count,
+                created: item.created_count,
+              })}
             </title>
           </circle>
         ))}
       </svg>
       <div className="flex justify-between mt-4 text-[10px] text-outline uppercase tracking-widest font-bold">
         {metrics.map((item) => (
-          <span key={item.date}>{formatShortDate(item.date)}</span>
+          <span key={item.date}>{formatShortDate(item.date, language)}</span>
         ))}
       </div>
     </div>
   );
 }
 
-function CallBarChart({ metrics }: { metrics: CallMetric[] }) {
+function CallBarChart({
+  metrics,
+  t,
+  language,
+}: {
+  metrics: CallMetric[];
+  t: (path: string, vars?: Record<string, string | number>) => string;
+  language: Language;
+}) {
   if (metrics.length === 0) {
     return (
       <p className="flex-1 flex items-center justify-center text-body-sm text-on-surface-variant">
-        Bu aralıkta veri yok. &quot;Bugünü Hesapla&quot; ile üretebilirsin.
+        {t("analytics.noDataInRange")}
       </p>
     );
   }
@@ -403,7 +440,11 @@ function CallBarChart({ metrics }: { metrics: CallMetric[] }) {
               <div
                 className="w-full bg-primary group-hover:brightness-110 transition-all duration-300"
                 style={{ height: `${Math.max(4, (item.call_count / maxValue) * 100)}%` }}
-                title={`${item.date}: ${item.call_count} çağrı, ${item.analyzed_count} analiz edildi`}
+                title={t("analytics.callChartTooltip", {
+                  date: item.date,
+                  count: item.call_count,
+                  analyzed: item.analyzed_count,
+                })}
               />
             </div>
           </div>
@@ -411,7 +452,7 @@ function CallBarChart({ metrics }: { metrics: CallMetric[] }) {
       </div>
       <div className="flex justify-between mt-2 text-[10px] text-outline uppercase tracking-widest font-bold">
         {metrics.map((item) => (
-          <span key={item.date}>{formatShortDate(item.date)}</span>
+          <span key={item.date}>{formatShortDate(item.date, language)}</span>
         ))}
       </div>
     </div>
@@ -428,6 +469,6 @@ function toDateKey(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-function formatShortDate(value: string): string {
-  return new Intl.DateTimeFormat("tr-TR", { day: "2-digit", month: "2-digit" }).format(new Date(value));
+function formatShortDate(value: string, language: Language): string {
+  return new Intl.DateTimeFormat(localeFor(language), { day: "2-digit", month: "2-digit" }).format(new Date(value));
 }

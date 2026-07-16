@@ -3,15 +3,16 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Contact, createDeal, Deal, DEAL_STAGES, listContacts, listDeals, updateDeal } from "@/lib/api";
 import { useSession } from "@/lib/session";
+import { useLanguage } from "@/lib/i18n/context";
 import { formatMoney } from "@/lib/format";
 
-const STAGE_LABEL: Record<string, string> = {
-  lead: "Lead",
-  proposal_sent: "Proposal Sent",
-  negotiation: "Negotiation",
-  invoiced: "Invoiced",
-  won: "Won",
-  lost: "Lost",
+const STAGE_LABEL_KEY: Record<string, string> = {
+  lead: "deals.stage.lead",
+  proposal_sent: "deals.stage.proposalSent",
+  negotiation: "deals.stage.negotiation",
+  invoiced: "deals.stage.invoiced",
+  won: "deals.stage.won",
+  lost: "deals.stage.lost",
 };
 
 const STAGE_DOT: Record<string, string> = {
@@ -27,6 +28,7 @@ const OPEN_STAGES = new Set(["lead", "proposal_sent", "negotiation", "invoiced"]
 
 export function DealsView() {
   const { tokens } = useSession();
+  const { t, language } = useLanguage();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +57,7 @@ export function DealsView() {
       setDeals(nextDeals);
       setContacts(nextContacts);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Fırsatlar alınamadı.");
+      setError(loadError instanceof Error ? loadError.message : t("deals.loadError"));
     } finally {
       setLoading(false);
     }
@@ -91,7 +93,7 @@ export function DealsView() {
       const updated = await updateDeal(tokens.accessToken, deal.id, { stage });
       setDeals((current) => current.map((item) => (item.id === updated.id ? updated : item)));
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : "Aşama güncellenemedi.");
+      setError(updateError instanceof Error ? updateError.message : t("deals.stageUpdateError"));
     } finally {
       setActiveId(null);
     }
@@ -112,10 +114,10 @@ export function DealsView() {
       });
       setDeals((current) => [created, ...current]);
       setNewDeal({ title: "", value: "", currency: "TRY", contactId: "", expectedCloseDate: "" });
-      setNotice("Fırsat oluşturuldu.");
+      setNotice(t("deals.dealCreated"));
       setShowForm(false);
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "Fırsat oluşturulamadı.");
+      setError(createError instanceof Error ? createError.message : t("deals.dealCreateError"));
     } finally {
       setCreating(false);
     }
@@ -126,13 +128,14 @@ export function DealsView() {
       <div className="flex items-center justify-between mb-lg flex-wrap gap-md">
         <div>
           <h2 className="font-headline-lg text-headline-lg text-on-surface flex items-center gap-3 flex-wrap">
-            Sales Pipeline
+            {t("deals.pageTitle")}
             <span className="font-label-sm text-label-sm bg-primary/10 text-primary px-3 py-1 rounded-full">
-              {isLoading ? "Yükleniyor" : "Active"}
+              {isLoading ? t("common.loading") : t("deals.activeBadge")}
             </span>
           </h2>
           <p className="text-on-surface-variant font-body-md">
-            Total Pipeline Value: {formatMoney(summary.totalValue, summary.currency)} · {summary.openCount} açık fırsat
+            {t("deals.totalPipelineValue")}: {formatMoney(summary.totalValue, summary.currency, language)} ·{" "}
+            {t("deals.openDealsCount", { count: summary.openCount })}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -142,7 +145,7 @@ export function DealsView() {
             className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-lg font-label-md text-label-md shadow-sm active:scale-95 transition-transform"
           >
             <span className="material-symbols-outlined">add</span>
-            New Deal
+            {t("deals.newDeal")}
           </button>
         </div>
       </div>
@@ -155,13 +158,13 @@ export function DealsView() {
           <input
             className="bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm col-span-2"
             onChange={(e) => setNewDeal((d) => ({ ...d, title: e.target.value }))}
-            placeholder="Başlık"
+            placeholder={t("deals.titlePlaceholder")}
             value={newDeal.title}
           />
           <input
             className="bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
             onChange={(e) => setNewDeal((d) => ({ ...d, value: e.target.value }))}
-            placeholder="Değer"
+            placeholder={t("deals.valuePlaceholder")}
             type="number"
             value={newDeal.value}
           />
@@ -179,7 +182,7 @@ export function DealsView() {
             onChange={(e) => setNewDeal((d) => ({ ...d, contactId: e.target.value }))}
             value={newDeal.contactId}
           >
-            <option value="">Kişi seç</option>
+            <option value="">{t("deals.selectContact")}</option>
             {contacts.map((contact) => (
               <option key={contact.id} value={contact.id}>
                 {contact.full_name}
@@ -191,7 +194,7 @@ export function DealsView() {
             disabled={isCreating || !newDeal.title.trim()}
             className="col-span-2 md:col-span-5 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
           >
-            {isCreating ? "Oluşturuluyor..." : "Oluştur"}
+            {isCreating ? t("deals.creating") : t("deals.create")}
           </button>
         </form>
       ) : null}
@@ -204,7 +207,7 @@ export function DealsView() {
                 <div className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full ${STAGE_DOT[stage]}`} />
                   <h3 className="font-label-sm text-label-sm text-on-surface uppercase tracking-wider">
-                    {STAGE_LABEL[stage]}
+                    {t(STAGE_LABEL_KEY[stage])}
                   </h3>
                   <span className="text-on-surface-variant text-[11px] font-bold px-1.5 py-0.5 bg-surface-container-high rounded">
                     {stageDeals.length}
@@ -213,7 +216,7 @@ export function DealsView() {
               </div>
               <div className="flex-1 flex flex-col gap-sm overflow-y-auto pb-4 px-1 min-h-[120px]">
                 {stageDeals.length === 0 ? (
-                  <p className="text-body-sm text-on-surface-variant px-2">Fırsat yok.</p>
+                  <p className="text-body-sm text-on-surface-variant px-2">{t("deals.noDealsInStage")}</p>
                 ) : null}
                 {stageDeals.map((deal) => {
                   const isAiSourced = deal.source_type !== "manual";
@@ -232,11 +235,11 @@ export function DealsView() {
                             <span className="material-symbols-outlined !text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>
                               auto_awesome
                             </span>
-                            AI SUGGESTED
+                            {t("deals.aiSuggestedBadge")}
                           </span>
                         ) : (
                           <span className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest">
-                            Manuel
+                            {t("deals.manualBadge")}
                           </span>
                         )}
                         <span className="material-symbols-outlined text-outline-variant text-[16px]">drag_indicator</span>
@@ -253,7 +256,7 @@ export function DealsView() {
                       ) : null}
                       <div className="flex justify-between items-end border-t border-outline-variant/10 pt-3 gap-2">
                         <div className="font-headline-md text-primary text-[15px]">
-                          {formatMoney(deal.value, deal.currency)}
+                          {formatMoney(deal.value, deal.currency, language)}
                         </div>
                         <select
                           className="bg-surface-container-high rounded px-2 py-1 text-[11px] border-none"
@@ -263,7 +266,7 @@ export function DealsView() {
                         >
                           {DEAL_STAGES.map((stageOption) => (
                             <option key={stageOption} value={stageOption}>
-                              {STAGE_LABEL[stageOption]}
+                              {t(STAGE_LABEL_KEY[stageOption])}
                             </option>
                           ))}
                         </select>

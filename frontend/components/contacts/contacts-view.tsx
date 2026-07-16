@@ -4,10 +4,12 @@ import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Contact, createContact, listContacts } from "@/lib/api";
 import { useSession } from "@/lib/session";
+import { useLanguage } from "@/lib/i18n/context";
 import { getInitials } from "@/lib/format";
 
 export function ContactsView() {
   const { tokens } = useSession();
+  const { t } = useLanguage();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -31,7 +33,7 @@ export function ContactsView() {
       try {
         setContacts(await listContacts(tokens.accessToken, { search: nextSearch.trim() || undefined }));
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Kişiler alınamadı.");
+        setError(loadError instanceof Error ? loadError.message : t("contacts.loadError"));
       } finally {
         setLoading(false);
       }
@@ -63,10 +65,10 @@ export function ContactsView() {
       });
       setContacts((current) => [created, ...current]);
       setNewContact({ fullName: "", email: "", phone: "", company: "", title: "" });
-      setNotice("Kişi oluşturuldu.");
+      setNotice(t("contacts.contactCreated"));
       setShowForm(false);
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "Kişi oluşturulamadı.");
+      setError(createError instanceof Error ? createError.message : t("contacts.contactCreateError"));
     } finally {
       setCreating(false);
     }
@@ -76,10 +78,8 @@ export function ContactsView() {
     <div className="p-xl">
       <div className="flex items-center justify-between mb-xl flex-wrap gap-md">
         <div>
-          <h2 className="font-headline-lg text-headline-lg text-on-surface">Contacts</h2>
-          <p className="text-body-md text-on-surface-variant mt-1">
-            Kişi hafızasını, şirket bilgilerini ve CRM kayıtlarını yönet.
-          </p>
+          <h2 className="font-headline-lg text-headline-lg text-on-surface">{t("contacts.pageTitle")}</h2>
+          <p className="text-body-md text-on-surface-variant mt-1">{t("contacts.pageSubtitle")}</p>
         </div>
         <div className="flex gap-2">
           <form onSubmit={handleSearch} className="relative">
@@ -89,7 +89,7 @@ export function ContactsView() {
             <input
               className="bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 text-body-sm w-64"
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Kişi ara..."
+              placeholder={t("contacts.searchPlaceholder")}
               value={search}
             />
           </form>
@@ -99,7 +99,7 @@ export function ContactsView() {
             className="flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded-lg font-label-md text-label-sm"
           >
             <span className="material-symbols-outlined text-[18px]">person_add</span>
-            Yeni Kişi
+            {t("contacts.newContact")}
           </button>
         </div>
       </div>
@@ -112,32 +112,32 @@ export function ContactsView() {
           <input
             className="bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
             onChange={(e) => setNewContact((c) => ({ ...c, fullName: e.target.value }))}
-            placeholder="Ad soyad"
+            placeholder={t("contacts.fullNamePlaceholder")}
             value={newContact.fullName}
           />
           <input
             className="bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
             onChange={(e) => setNewContact((c) => ({ ...c, email: e.target.value }))}
-            placeholder="E-posta"
+            placeholder={t("common.email")}
             type="email"
             value={newContact.email}
           />
           <input
             className="bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
             onChange={(e) => setNewContact((c) => ({ ...c, phone: e.target.value }))}
-            placeholder="Telefon"
+            placeholder={t("common.phone")}
             value={newContact.phone}
           />
           <input
             className="bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
             onChange={(e) => setNewContact((c) => ({ ...c, company: e.target.value }))}
-            placeholder="Şirket"
+            placeholder={t("common.company")}
             value={newContact.company}
           />
           <input
             className="bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm col-span-2"
             onChange={(e) => setNewContact((c) => ({ ...c, title: e.target.value }))}
-            placeholder="Ünvan"
+            placeholder={t("contacts.titleRolePlaceholder")}
             value={newContact.title}
           />
           <button
@@ -145,15 +145,15 @@ export function ContactsView() {
             disabled={isCreating || !newContact.fullName.trim()}
             className="col-span-2 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
           >
-            {isCreating ? "Oluşturuluyor..." : "Oluştur"}
+            {isCreating ? t("contacts.creating") : t("contacts.create")}
           </button>
         </form>
       ) : null}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-md">
-        {isLoading ? <p className="text-body-sm text-on-surface-variant">Yükleniyor...</p> : null}
+        {isLoading ? <p className="text-body-sm text-on-surface-variant">{t("common.loading")}</p> : null}
         {!isLoading && contacts.length === 0 ? (
-          <p className="text-body-sm text-on-surface-variant">Kişi kaydı bulunmuyor.</p>
+          <p className="text-body-sm text-on-surface-variant">{t("contacts.noContacts")}</p>
         ) : null}
         {contacts.map((contact) => (
           <Link
@@ -167,10 +167,10 @@ export function ContactsView() {
             <div className="flex-1 min-w-0">
               <p className="font-label-md text-label-md text-on-surface truncate">{contact.full_name}</p>
               <p className="text-body-sm text-on-surface-variant truncate">
-                {[contact.title, contact.company].filter(Boolean).join(", ") || "Profil detayı yok"}
+                {[contact.title, contact.company].filter(Boolean).join(", ") || t("contacts.noProfileDetail")}
               </p>
               <p className="text-[11px] text-outline truncate mt-1">
-                {contact.email ?? contact.phone ?? "İletişim bilgisi yok"}
+                {contact.email ?? contact.phone ?? t("contacts.noContactInfo")}
               </p>
             </div>
             <span className="text-[10px] px-2 py-0.5 bg-surface-container-high rounded-full text-on-surface-variant shrink-0">

@@ -7,67 +7,68 @@ import { ReactNode } from "react";
 import { openSearchPalette, SearchPalette } from "@/components/shell/search-palette";
 import { NotificationBell } from "@/components/shell/notification-bell";
 import { UserMenu } from "@/components/shell/user-menu";
+import { LanguageSwitcher } from "@/components/shell/language-switcher";
 import { useSession } from "@/lib/session";
+import { useLanguage } from "@/lib/i18n/context";
 import { getInitials } from "@/lib/format";
 
 const navItems = [
-  { icon: "dashboard", label: "Dashboard", href: "/" },
-  { icon: "auto_awesome", label: "AI Action Center", href: "/onay-merkezi" },
-  { icon: "forum", label: "Conversations", href: "/gorusmeler" },
-  { icon: "task_alt", label: "Tasks", href: "/gorevler" },
-  { icon: "contacts", label: "Contacts", href: "/kisiler" },
-  { icon: "handshake", label: "Deals", href: "/firsatlar" },
-  { icon: "smart_toy", label: "AI Chat", href: "/ai-chat" },
-  { icon: "analytics", label: "Analytics", href: "/analitik" },
-  { icon: "settings", label: "Settings", href: "/ayarlar" },
-] satisfies Array<{ icon: string; label: string; href: Route }>;
+  { icon: "dashboard", labelKey: "dashboard", href: "/" },
+  { icon: "auto_awesome", labelKey: "aiActionCenter", href: "/onay-merkezi" },
+  { icon: "forum", labelKey: "conversations", href: "/gorusmeler" },
+  { icon: "task_alt", labelKey: "tasks", href: "/gorevler" },
+  { icon: "contacts", labelKey: "contacts", href: "/kisiler" },
+  { icon: "handshake", labelKey: "deals", href: "/firsatlar" },
+  { icon: "smart_toy", labelKey: "aiChat", href: "/ai-chat" },
+  { icon: "analytics", labelKey: "analytics", href: "/analitik" },
+  { icon: "settings", labelKey: "settings", href: "/ayarlar" },
+] satisfies Array<{ icon: string; labelKey: string; href: Route }>;
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { user } = useSession();
+  const { t } = useLanguage();
 
   const displayName = user?.profile?.full_name ?? user?.email ?? "NeuroDesk";
-  const planLabel = "Pro Plan";
+  const planLabel = t("shell.planLabel");
 
   return (
     <div className="flex min-h-screen">
       <aside
         className="fixed h-full w-[260px] left-0 top-0 bg-surface-container-low shadow-sm flex flex-col py-md z-50"
-        aria-label="Ana navigasyon"
+        aria-label={t("shell.ariaMainNav")}
       >
         <div className="px-lg mb-xl">
           <h1 className="font-headline-md text-headline-md font-bold text-primary">NeuroDesk AI</h1>
           <p className="font-label-sm text-label-sm text-on-surface-variant opacity-70">
-            Professional Assistant
+            {t("shell.subtitle")}
           </p>
         </div>
 
         <nav className="flex-1 space-y-1 overflow-y-auto custom-scrollbar">
-          {navItems.map((item) =>
-            item.label === "Search" ? null : (
-              <Link
-                key={item.href}
-                href={item.href}
-                aria-current={isActive(pathname, item.href) ? "page" : undefined}
-                className={
-                  "flex items-center gap-3 px-4 py-3 font-label-md text-label-md transition-colors active:scale-95 duration-150 " +
-                  (isActive(pathname, item.href)
-                    ? "text-primary bg-primary-container/10 border-l-2 border-primary"
-                    : "text-on-surface-variant hover:bg-surface-container-high")
-                }
-              >
-                <span className="material-symbols-outlined">{item.icon}</span>
-                <span>{item.label}</span>
-              </Link>
-            ),
-          )}
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              aria-current={isActive(pathname, item.href) ? "page" : undefined}
+              className={
+                "flex items-center gap-3 px-4 py-3 font-label-md text-label-md transition-colors active:scale-95 duration-150 " +
+                (isActive(pathname, item.href)
+                  ? "text-primary bg-primary-container/10 border-l-2 border-primary"
+                  : "text-on-surface-variant hover:bg-surface-container-high")
+              }
+            >
+              <span className="material-symbols-outlined">{item.icon}</span>
+              <span>{t(`shell.nav.${item.labelKey}`)}</span>
+            </Link>
+          ))}
           <button
             type="button"
             onClick={openSearchPalette}
             className="w-full flex items-center gap-3 px-4 py-3 font-label-md text-label-md text-on-surface-variant hover:bg-surface-container-high transition-colors active:scale-95 duration-150"
           >
             <span className="material-symbols-outlined">search</span>
-            <span>Search</span>
+            <span>{t("shell.nav.search")}</span>
             <kbd className="ml-auto text-[10px] text-outline border border-outline-variant/40 rounded px-1.5 py-0.5">
               ⌘K
             </kbd>
@@ -82,7 +83,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
               mic
             </span>
-            Voice Trigger
+            {t("shell.voiceTrigger")}
           </Link>
 
           <div className="flex items-center gap-3 mt-md p-2 rounded-lg hover:bg-surface-container-high transition-colors">
@@ -110,16 +111,17 @@ export function AppShell({ children }: { children: ReactNode }) {
                 onClick={openSearchPalette}
                 className="w-full text-left pl-10 pr-4 py-2 bg-surface-container-low border-none rounded-full font-body-sm text-on-surface-variant hover:bg-surface-container-high transition-colors"
               >
-                Search tasks, deals, or ask AI...
+                {t("shell.topSearchPlaceholder")}
               </button>
             </div>
           </div>
           <div className="flex items-center gap-lg">
+            <LanguageSwitcher />
             <NotificationBell />
             <Link
               href="/ayarlar"
               className="text-on-surface-variant hover:text-primary transition-colors"
-              aria-label="Hesap ayarları"
+              aria-label={t("shell.accountSettingsAria")}
             >
               <span className="material-symbols-outlined">account_circle</span>
             </Link>
@@ -131,7 +133,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
       <Link
         href="/ai-chat"
-        aria-label="Sesli komut için AI Chat'e git"
+        aria-label={t("shell.voiceAria")}
         className="fixed bottom-xl right-xl z-50 w-16 h-16 bg-primary text-on-primary rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all"
       >
         <span className="material-symbols-outlined text-[32px]" style={{ fontVariationSettings: "'FILL' 1" }}>

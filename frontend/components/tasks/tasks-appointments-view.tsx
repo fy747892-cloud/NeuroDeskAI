@@ -15,12 +15,21 @@ import {
   PriorityQueue,
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
+import { Language, useLanguage } from "@/lib/i18n/context";
 import { formatDateTime, formatTime } from "@/lib/format";
-
-const DAY_LABELS = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
 export function TasksAppointmentsView() {
   const { tokens } = useSession();
+  const { t, language } = useLanguage();
+  const dayLabels = [
+    t("tasks.day.sun"),
+    t("tasks.day.mon"),
+    t("tasks.day.tue"),
+    t("tasks.day.wed"),
+    t("tasks.day.thu"),
+    t("tasks.day.fri"),
+    t("tasks.day.sat"),
+  ];
   const [activeView, setActiveView] = useState<"list" | "calendar">("list");
 
   // Priority / task list state
@@ -59,7 +68,7 @@ export function TasksAppointmentsView() {
     try {
       setQueue(await getPriorityQueue(tokens.accessToken));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Öncelik kuyruğu alınamadı.");
+      setError(loadError instanceof Error ? loadError.message : t("tasks.queueLoadError"));
     } finally {
       setQueueLoading(false);
     }
@@ -85,7 +94,7 @@ export function TasksAppointmentsView() {
         setAppointments(nextAppointments);
         setCalendarAccounts(nextAccounts);
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Randevular alınamadı.");
+        setError(loadError instanceof Error ? loadError.message : t("tasks.appointmentsLoadError"));
       } finally {
         setCalendarLoading(false);
       }
@@ -138,7 +147,7 @@ export function TasksAppointmentsView() {
       await completeTask(tokens.accessToken, itemId);
       await loadQueue();
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Görev tamamlanamadı.");
+      setError(actionError instanceof Error ? actionError.message : t("tasks.taskCompleteError"));
     } finally {
       setBusyItemId(null);
     }
@@ -158,10 +167,10 @@ export function TasksAppointmentsView() {
       });
       setNewTask({ title: "", description: "", priority: "medium", dueAt: "" });
       setShowTaskForm(false);
-      setNotice("Görev oluşturuldu.");
+      setNotice(t("tasks.taskCreated"));
       await loadQueue();
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "Görev oluşturulamadı.");
+      setError(createError instanceof Error ? createError.message : t("tasks.taskCreateError"));
     } finally {
       setCreatingTask(false);
     }
@@ -174,7 +183,7 @@ export function TasksAppointmentsView() {
       const updated = await cancelAppointment(tokens.accessToken, appointmentId);
       setAppointments((current) => current.map((item) => (item.id === updated.id ? updated : item)));
     } catch (cancelError) {
-      setError(cancelError instanceof Error ? cancelError.message : "Randevu iptal edilemedi.");
+      setError(cancelError instanceof Error ? cancelError.message : t("tasks.appointmentCancelError"));
     } finally {
       setActiveApptId(null);
     }
@@ -187,7 +196,7 @@ export function TasksAppointmentsView() {
       const account = await connectGoogleCalendar(tokens.accessToken);
       setCalendarAccounts((current) => [account, ...current]);
     } catch (connectError) {
-      setError(connectError instanceof Error ? connectError.message : "Takvim bağlanamadı.");
+      setError(connectError instanceof Error ? connectError.message : t("tasks.calendarConnectError"));
     } finally {
       setActiveApptId(null);
     }
@@ -211,9 +220,9 @@ export function TasksAppointmentsView() {
       setAppointments((current) => [appointment, ...current]);
       setNewAppointment({ title: "", startAt: "", endAt: "", location: "", description: "" });
       setShowApptForm(false);
-      setNotice("Randevu oluşturuldu.");
+      setNotice(t("tasks.appointmentCreated"));
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "Randevu oluşturulamadı.");
+      setError(createError instanceof Error ? createError.message : t("tasks.appointmentCreateError"));
     } finally {
       setCreatingAppt(false);
     }
@@ -222,7 +231,7 @@ export function TasksAppointmentsView() {
   return (
     <div className="p-xl">
       <div className="flex flex-wrap items-center gap-xl mb-xl">
-        <h2 className="font-headline-md text-headline-md font-black text-on-surface">Tasks &amp; Appointments</h2>
+        <h2 className="font-headline-md text-headline-md font-black text-on-surface">{t("tasks.pageTitle")}</h2>
         <div className="flex bg-surface-container-high p-1 rounded-lg">
           <button
             type="button"
@@ -232,7 +241,7 @@ export function TasksAppointmentsView() {
               (activeView === "list" ? "bg-white shadow-sm text-primary" : "text-on-surface-variant hover:text-on-surface")
             }
           >
-            List View
+            {t("tasks.listView")}
           </button>
           <button
             type="button"
@@ -242,7 +251,7 @@ export function TasksAppointmentsView() {
               (activeView === "calendar" ? "bg-white shadow-sm text-primary" : "text-on-surface-variant hover:text-on-surface")
             }
           >
-            Calendar View
+            {t("tasks.calendarView")}
           </button>
         </div>
       </div>
@@ -253,14 +262,14 @@ export function TasksAppointmentsView() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-xl">
         <section className={"lg:col-span-5 flex flex-col gap-lg " + (activeView === "calendar" ? "hidden lg:flex" : "")}>
           <div className="flex items-center justify-between">
-            <h3 className="font-headline-md text-headline-md">Priority Engine</h3>
+            <h3 className="font-headline-md text-headline-md">{t("tasks.priorityEngine")}</h3>
             <button
               type="button"
               onClick={() => setShowTaskForm((v) => !v)}
               className="flex items-center gap-2 text-primary font-label-md hover:underline"
             >
               <span className="material-symbols-outlined text-body-lg">add</span>
-              New Task
+              {t("tasks.newTask")}
             </button>
           </div>
 
@@ -268,29 +277,29 @@ export function TasksAppointmentsView() {
             <form onSubmit={handleCreateTask} className="glass-card p-lg rounded-xl space-y-2">
               <input
                 className="w-full bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
-                onChange={(e) => setNewTask((t) => ({ ...t, title: e.target.value }))}
-                placeholder="Görev başlığı"
+                onChange={(e) => setNewTask((current) => ({ ...current, title: e.target.value }))}
+                placeholder={t("tasks.taskTitlePlaceholder")}
                 value={newTask.title}
               />
               <input
                 className="w-full bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
-                onChange={(e) => setNewTask((t) => ({ ...t, description: e.target.value }))}
-                placeholder="Açıklama"
+                onChange={(e) => setNewTask((current) => ({ ...current, description: e.target.value }))}
+                placeholder={t("tasks.descriptionPlaceholder")}
                 value={newTask.description}
               />
               <div className="flex gap-2">
                 <select
                   className="flex-1 bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
-                  onChange={(e) => setNewTask((t) => ({ ...t, priority: e.target.value }))}
+                  onChange={(e) => setNewTask((current) => ({ ...current, priority: e.target.value }))}
                   value={newTask.priority}
                 >
-                  <option value="low">low</option>
-                  <option value="medium">medium</option>
-                  <option value="high">high</option>
+                  <option value="low">{t("tasks.priorityLow")}</option>
+                  <option value="medium">{t("tasks.priorityMedium")}</option>
+                  <option value="high">{t("tasks.priorityHigh")}</option>
                 </select>
                 <input
                   className="flex-1 bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
-                  onChange={(e) => setNewTask((t) => ({ ...t, dueAt: e.target.value }))}
+                  onChange={(e) => setNewTask((current) => ({ ...current, dueAt: e.target.value }))}
                   type="datetime-local"
                   value={newTask.dueAt}
                 />
@@ -300,15 +309,15 @@ export function TasksAppointmentsView() {
                 disabled={isCreatingTask || !newTask.title.trim()}
                 className="w-full py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
               >
-                {isCreatingTask ? "Oluşturuluyor..." : "Oluştur"}
+                {isCreatingTask ? t("tasks.creating") : t("tasks.create")}
               </button>
             </form>
           ) : null}
 
           <div className="flex-1 overflow-y-auto space-y-md pr-2 max-h-[calc(100vh-320px)]">
-            {isQueueLoading ? <p className="text-body-sm text-on-surface-variant">Yükleniyor...</p> : null}
+            {isQueueLoading ? <p className="text-body-sm text-on-surface-variant">{t("common.loading")}</p> : null}
             {!isQueueLoading && !queue?.items.length ? (
-              <p className="text-body-sm text-on-surface-variant">Önceliklendirilecek iş yok.</p>
+              <p className="text-body-sm text-on-surface-variant">{t("tasks.noPrioritizedWork")}</p>
             ) : null}
             {queue?.items.map((item) => {
               const borderClass = item.score >= 80 ? "border-l-error" : item.priority === "high" ? "border-l-secondary" : "border-l-primary/30";
@@ -323,7 +332,7 @@ export function TasksAppointmentsView() {
                       type="button"
                       disabled={busyItemId === item.item_id}
                       onClick={() => handleCompletePriorityItem(item.item_id)}
-                      aria-label="Görevi tamamla"
+                      aria-label={t("dashboard.completeTaskAria")}
                       className="mt-1 w-5 h-5 rounded border-outline-variant border text-primary shrink-0 disabled:opacity-60"
                     />
                   ) : (
@@ -332,10 +341,10 @@ export function TasksAppointmentsView() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
                       <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${badgeClass}`}>
-                        {item.score >= 80 ? "Urgent" : item.priority}
+                        {item.score >= 80 ? t("tasks.urgent") : item.priority}
                       </span>
                       <span className="text-body-sm text-outline shrink-0">
-                        {item.due_at ? formatDateTime(item.due_at) : "Tarih yok"}
+                        {item.due_at ? formatDateTime(item.due_at, language) : t("tasks.noDueDate")}
                       </span>
                     </div>
                     <h4 className="font-label-md text-on-surface group-hover:text-primary transition-colors truncate">
@@ -356,11 +365,11 @@ export function TasksAppointmentsView() {
         <section className={"lg:col-span-7 flex flex-col " + (activeView === "list" ? "hidden lg:flex" : "")}>
           <div className="flex items-center justify-between mb-lg flex-wrap gap-2">
             <div className="flex items-center gap-md">
-              <h3 className="font-headline-md text-headline-md">{formatMonthLabel(visibleMonth)}</h3>
+              <h3 className="font-headline-md text-headline-md">{formatMonthLabel(visibleMonth, language)}</h3>
               <div className="flex gap-1">
                 <button
                   type="button"
-                  aria-label="Önceki ay"
+                  aria-label={t("tasks.previousMonth")}
                   onClick={() => setVisibleMonth((m) => addMonths(m, -1))}
                   className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high"
                 >
@@ -368,7 +377,7 @@ export function TasksAppointmentsView() {
                 </button>
                 <button
                   type="button"
-                  aria-label="Sonraki ay"
+                  aria-label={t("tasks.nextMonth")}
                   onClick={() => setVisibleMonth((m) => addMonths(m, 1))}
                   className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high"
                 >
@@ -382,7 +391,7 @@ export function TasksAppointmentsView() {
               className="bg-surface-container-high text-on-surface-variant font-label-sm px-4 py-2 rounded-lg hover:bg-surface-container-highest transition-colors flex items-center gap-2"
             >
               <span className="material-symbols-outlined text-body-lg">add</span>
-              Yeni Randevu
+              {t("tasks.newAppointment")}
             </button>
           </div>
 
@@ -391,7 +400,7 @@ export function TasksAppointmentsView() {
               <input
                 className="w-full bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
                 onChange={(e) => setNewAppointment((a) => ({ ...a, title: e.target.value }))}
-                placeholder="Başlık"
+                placeholder={t("tasks.titlePlaceholder")}
                 value={newAppointment.title}
               />
               <div className="flex gap-2">
@@ -411,7 +420,7 @@ export function TasksAppointmentsView() {
               <input
                 className="w-full bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
                 onChange={(e) => setNewAppointment((a) => ({ ...a, location: e.target.value }))}
-                placeholder="Lokasyon"
+                placeholder={t("tasks.locationPlaceholder")}
                 value={newAppointment.location}
               />
               <button
@@ -419,13 +428,13 @@ export function TasksAppointmentsView() {
                 disabled={isCreatingAppt || !newAppointment.title.trim() || !newAppointment.startAt || !newAppointment.endAt}
                 className="w-full py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
               >
-                {isCreatingAppt ? "Oluşturuluyor..." : "Oluştur"}
+                {isCreatingAppt ? t("tasks.creating") : t("tasks.create")}
               </button>
             </form>
           ) : null}
 
           <div className="calendar-grid">
-            {DAY_LABELS.map((label) => (
+            {dayLabels.map((label) => (
               <div key={label} className="bg-surface-container-low text-center py-2 font-label-sm text-on-surface-variant">
                 {label}
               </div>
@@ -470,7 +479,9 @@ export function TasksAppointmentsView() {
                       </div>
                     ))}
                     {dayAppointments.length > 2 ? (
-                      <div className="text-[9px] text-on-surface-variant">+{dayAppointments.length - 2} daha</div>
+                      <div className="text-[9px] text-on-surface-variant">
+                        {t("tasks.daysMore", { count: dayAppointments.length - 2 })}
+                      </div>
                     ) : null}
                   </div>
                 </div>
@@ -486,20 +497,20 @@ export function TasksAppointmentsView() {
                 </span>
               </div>
               <div className="flex-1">
-                <h5 className="font-bold text-error text-label-md">Schedule Conflict Detected</h5>
+                <h5 className="font-bold text-error text-label-md">{t("tasks.scheduleConflictTitle")}</h5>
                 <p className="text-body-sm text-on-surface-variant">
-                  {conflictDays.size} günde çakışan randevu tespit edildi.
+                  {t("tasks.conflictDetected", { count: conflictDays.size })}
                 </p>
               </div>
             </div>
           ) : null}
 
           <div className="mt-lg">
-            <h4 className="font-headline-md text-headline-md mb-md">{formatDayLabel(selectedDate)}</h4>
+            <h4 className="font-headline-md text-headline-md mb-md">{formatDayLabel(selectedDate, language)}</h4>
             <div className="space-y-md">
-              {isCalendarLoading ? <p className="text-body-sm text-on-surface-variant">Yükleniyor...</p> : null}
+              {isCalendarLoading ? <p className="text-body-sm text-on-surface-variant">{t("common.loading")}</p> : null}
               {!isCalendarLoading && selectedDayAppointments.length === 0 ? (
-                <p className="text-body-sm text-on-surface-variant">Bu gün için randevu yok.</p>
+                <p className="text-body-sm text-on-surface-variant">{t("tasks.noAppointmentsToday")}</p>
               ) : null}
               {selectedDayAppointments.map((appointment) => (
                 <div
@@ -509,8 +520,8 @@ export function TasksAppointmentsView() {
                   <div className="min-w-0">
                     <p className="font-label-md text-on-surface truncate">{appointment.title}</p>
                     <p className="text-body-sm text-on-surface-variant truncate">
-                      {formatDateTime(appointment.start_at)} - {formatTime(appointment.end_at)} ·{" "}
-                      {appointment.location ?? "Online"}
+                      {formatDateTime(appointment.start_at, language)} - {formatTime(appointment.end_at, language)} ·{" "}
+                      {appointment.location ?? t("tasks.online")}
                     </p>
                   </div>
                   <button
@@ -519,7 +530,7 @@ export function TasksAppointmentsView() {
                     onClick={() => handleCancelAppointment(appointment.id)}
                     className="text-error text-[12px] font-bold hover:underline disabled:opacity-60 shrink-0"
                   >
-                    {appointment.status === "cancelled" ? "İptal edildi" : "İptal et"}
+                    {appointment.status === "cancelled" ? t("tasks.cancelled") : t("tasks.cancel")}
                   </button>
                 </div>
               ))}
@@ -529,8 +540,8 @@ export function TasksAppointmentsView() {
           <div className="mt-lg flex items-center justify-between p-md bg-surface-container-low rounded-xl">
             <p className="text-body-sm text-on-surface-variant">
               {calendarAccounts.length > 0
-                ? `${calendarAccounts.length} bağlı takvim hesabı`
-                : "Bağlı takvim hesabı yok"}
+                ? t("tasks.connectedCalendarsCount", { count: calendarAccounts.length })
+                : t("tasks.noConnectedCalendar")}
             </p>
             <button
               type="button"
@@ -538,7 +549,7 @@ export function TasksAppointmentsView() {
               onClick={handleConnectCalendar}
               className="text-primary text-[12px] font-bold hover:underline disabled:opacity-60"
             >
-              Google Takvim bağla
+              {t("tasks.connectGoogleCalendar")}
             </button>
           </div>
         </section>
@@ -568,12 +579,20 @@ function getCalendarGrid(month: Date): Date[] {
   });
 }
 
-function formatMonthLabel(date: Date): string {
-  return new Intl.DateTimeFormat("tr-TR", { month: "long", year: "numeric" }).format(date);
+function formatMonthLabel(date: Date, language: Language): string {
+  return new Intl.DateTimeFormat(localeFor(language), { month: "long", year: "numeric" }).format(date);
 }
 
-function formatDayLabel(key: string): string {
+function formatDayLabel(key: string, language: Language): string {
   const [year, month, day] = key.split("-").map(Number);
   const date = new Date(year, month, day);
-  return new Intl.DateTimeFormat("tr-TR", { day: "2-digit", month: "long", weekday: "long" }).format(date);
+  return new Intl.DateTimeFormat(localeFor(language), {
+    day: "2-digit",
+    month: "long",
+    weekday: "long",
+  }).format(date);
+}
+
+function localeFor(language: Language): string {
+  return language === "tr" ? "tr-TR" : "en-US";
 }

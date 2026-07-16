@@ -5,11 +5,13 @@ import { KeyboardEvent, useEffect, useRef, useState } from "react";
 import { SearchResult, semanticSearch } from "@/lib/api";
 import { groupResults, highlightMatch, resultHref, SOURCE_TYPE_META } from "@/lib/search-utils";
 import { useSession } from "@/lib/session";
+import { useLanguage } from "@/lib/i18n/context";
 
 const OPEN_EVENT = "neurodesk:open-search";
 
 export function SearchPalette() {
   const { tokens } = useSession();
+  const { t } = useLanguage();
   const router = useRouter();
   const [isOpen, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -111,7 +113,7 @@ export function SearchPalette() {
             className="flex-1 bg-transparent border-none outline-none focus:ring-0 font-body-lg text-body-lg text-on-surface placeholder-on-surface-variant/60"
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={handleKeyNav}
-            placeholder="Semantic search across your work..."
+            placeholder={t("shell.search.placeholder")}
             ref={inputRef}
             value={query}
           />
@@ -123,14 +125,18 @@ export function SearchPalette() {
         <div className="flex-1 max-h-[60vh] overflow-y-auto custom-scrollbar pb-lg">
           {!query.trim() ? (
             <p className="px-lg py-xl text-body-md text-on-surface-variant text-center">
-              Aramaya başlamak için yazmaya başla.
+              {t("shell.search.startTyping")}
             </p>
           ) : null}
           {query.trim() && isSearching ? (
-            <p className="px-lg py-xl text-body-md text-on-surface-variant text-center">Aranıyor...</p>
+            <p className="px-lg py-xl text-body-md text-on-surface-variant text-center">
+              {t("shell.search.searching")}
+            </p>
           ) : null}
           {query.trim() && !isSearching && results.length === 0 ? (
-            <p className="px-lg py-xl text-body-md text-on-surface-variant text-center">Sonuç bulunamadı.</p>
+            <p className="px-lg py-xl text-body-md text-on-surface-variant text-center">
+              {t("shell.search.noResults")}
+            </p>
           ) : null}
           {grouped.map(([sourceType, items]) => {
             const meta = SOURCE_TYPE_META[sourceType] ?? { label: sourceType, icon: "search" };
@@ -140,7 +146,9 @@ export function SearchPalette() {
                   <span className="font-label-sm text-label-sm text-outline uppercase tracking-widest">
                     {meta.label}
                   </span>
-                  <span className="text-body-sm text-primary">{items.length} eşleşme</span>
+                  <span className="text-body-sm text-primary">
+                    {t("shell.search.matches", { count: items.length })}
+                  </span>
                 </div>
                 <div className="space-y-base">
                   {items.slice(0, 4).map((result) => {
@@ -188,23 +196,23 @@ export function SearchPalette() {
               <kbd className="px-1.5 py-0.5 rounded bg-white border border-outline-variant/30 text-[10px] font-bold shadow-sm">
                 ↵
               </kbd>
-              <span className="text-body-sm text-on-surface-variant">Aç</span>
+              <span className="text-body-sm text-on-surface-variant">{t("shell.search.open")}</span>
             </div>
             <div className="flex items-center gap-2">
               <kbd className="px-1.5 py-0.5 rounded bg-white border border-outline-variant/30 text-[10px] font-bold shadow-sm">
                 ↑↓
               </kbd>
-              <span className="text-body-sm text-on-surface-variant">Gezin</span>
+              <span className="text-body-sm text-on-surface-variant">{t("shell.search.navigate")}</span>
             </div>
             <div className="flex items-center gap-2">
               <kbd className="px-1.5 py-0.5 rounded bg-white border border-outline-variant/30 text-[10px] font-bold shadow-sm">
                 Esc
               </kbd>
-              <span className="text-body-sm text-on-surface-variant">Kapat</span>
+              <span className="text-body-sm text-on-surface-variant">{t("shell.search.closeHint")}</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-body-sm text-on-surface-variant italic">NeuroDesk AI Core ile aranıyor</span>
+            <span className="text-body-sm text-on-surface-variant italic">{t("shell.search.poweredBy")}</span>
             <span className="material-symbols-outlined text-primary text-sm animate-pulse">bolt</span>
           </div>
         </div>
