@@ -31,13 +31,21 @@ class AuthController extends AsyncNotifier<AuthState> {
     return AuthState(tokens: tokens);
   }
 
-  Future<void> login(String email, String password) async {
+  Future<void> login(
+    String email,
+    String password, {
+    bool rememberMe = true,
+  }) async {
     state = const AsyncLoading();
     try {
       final tokens = await ref
           .read(authRepositoryProvider)
           .login(email: email, password: password);
-      await ref.read(secureTokenStoreProvider).save(tokens);
+      if (rememberMe) {
+        await ref.read(secureTokenStoreProvider).save(tokens);
+      } else {
+        await ref.read(secureTokenStoreProvider).clear();
+      }
       state = AsyncData(AuthState(tokens: tokens));
     } catch (error) {
       state = AsyncData(

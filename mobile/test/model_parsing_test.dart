@@ -1,12 +1,18 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:neurodesk_ai_mobile/src/features/ai_approvals/domain/ai_action_approval.dart';
 import 'package:neurodesk_ai_mobile/src/features/ai_chat/domain/chat_message.dart';
+import 'package:neurodesk_ai_mobile/src/features/analytics/domain/analytics_models.dart';
+import 'package:neurodesk_ai_mobile/src/features/calls/domain/call_record.dart'
+    as call_domain;
 import 'package:neurodesk_ai_mobile/src/features/contacts/domain/contact.dart';
 import 'package:neurodesk_ai_mobile/src/features/conversations/domain/conversation.dart';
 import 'package:neurodesk_ai_mobile/src/features/deals/domain/deal.dart';
+import 'package:neurodesk_ai_mobile/src/features/email/domain/email_models.dart';
+import 'package:neurodesk_ai_mobile/src/features/files/domain/file_record.dart';
 import 'package:neurodesk_ai_mobile/src/features/notifications/domain/app_notification.dart';
 import 'package:neurodesk_ai_mobile/src/features/priority/domain/priority_queue.dart';
 import 'package:neurodesk_ai_mobile/src/features/search/domain/search_result.dart';
+import 'package:neurodesk_ai_mobile/src/features/settings/domain/user_profile.dart';
 
 void main() {
   test('parses AI action approval payloads from backend schema', () {
@@ -231,5 +237,130 @@ void main() {
     expect(queue.items.first.score, 86);
     expect(queue.items.first.factors.first.key, 'due_soon');
     expect(priorityLabel(queue.items.first.priority), 'Acil');
+  });
+
+  test('parses analytics overview payloads from backend schema', () {
+    final overview = AnalyticsOverview.fromJson({
+      'date_from': '2026-07-10',
+      'date_to': '2026-07-16',
+      'tasks_created': 8,
+      'tasks_completed': 5,
+      'tasks_overdue': 1,
+      'calls_total': 4,
+      'calls_analyzed': 3,
+      'appointments_completed': 2,
+      'appointments_upcoming': 6,
+      'ai_requests': 12,
+      'ai_cost_amount': 0.0345,
+    });
+
+    expect(overview.tasksCompleted, 5);
+    expect(overview.callsAnalyzed, 3);
+    expect(overview.aiCostAmount, 0.0345);
+  });
+
+  test('parses file payloads from backend schema', () {
+    final file = FileRecord.fromJson({
+      'id': 'file-1',
+      'tenant_id': 'tenant-1',
+      'organization_id': 'org-1',
+      'owner_user_id': 'user-1',
+      'filename': 'teklif.pdf',
+      'mime_type': 'application/pdf',
+      'size_bytes': 2048,
+      'status': 'ready',
+      'created_at': '2026-07-16T09:00:00Z',
+    });
+    final analysis = FileAnalysis.fromJson({
+      'file_id': 'file-1',
+      'summary': 'Kisa ozet',
+      'status': 'completed',
+    });
+
+    expect(file.filename, 'teklif.pdf');
+    expect(file.sizeBytes, 2048);
+    expect(analysis.summary, 'Kisa ozet');
+  });
+
+  test('parses call payloads from backend schema', () {
+    final call = call_domain.CallRecord.fromJson({
+      'id': 'call-1',
+      'conversation_id': 'conversation-1',
+      'call_direction': 'outbound',
+      'phone_number': '+905551112233',
+      'started_at': '2026-07-16T09:00:00Z',
+      'duration_seconds': 180,
+      'status': 'uploaded',
+      'created_at': '2026-07-16T09:03:00Z',
+      'transcriptions': [
+        {
+          'id': 'transcription-1',
+          'call_id': 'call-1',
+          'language': 'tr',
+          'status': 'completed',
+          'transcript_text': 'Teklif konusuldu.',
+          'created_at': '2026-07-16T09:04:00Z',
+        },
+      ],
+    });
+
+    expect(call.conversationId, 'conversation-1');
+    expect(call.callDirection, 'outbound');
+    expect(call.durationSeconds, 180);
+    expect(call.transcriptions.first.transcriptText, 'Teklif konusuldu.');
+  });
+
+  test('parses email account and message payloads from backend schema', () {
+    final account = EmailAccount.fromJson({
+      'id': 'account-1',
+      'tenant_id': 'tenant-1',
+      'organization_id': 'org-1',
+      'user_id': 'user-1',
+      'provider': 'gmail',
+      'email_address': 'demo@example.com',
+      'status': 'connected',
+      'consent_granted_at': '2026-07-16T09:00:00Z',
+      'consent_scope': 'gmail.readonly',
+      'last_synced_at': null,
+      'created_at': '2026-07-16T09:00:00Z',
+    });
+    final message = EmailMessage.fromJson({
+      'id': 'message-1',
+      'email_account_id': 'account-1',
+      'provider_message_id': 'provider-1',
+      'thread_id': 'thread-1',
+      'subject': 'Teklif',
+      'from_address': 'lead@example.com',
+      'snippet': 'Merhaba',
+      'body': null,
+      'received_at': '2026-07-16T09:30:00Z',
+      'is_replied': false,
+    });
+
+    expect(account.provider, 'gmail');
+    expect(account.emailAddress, 'demo@example.com');
+    expect(message.subject, 'Teklif');
+    expect(message.isReplied, isFalse);
+  });
+
+  test('parses current user payloads from backend schema', () {
+    final user = CurrentUser.fromJson({
+      'id': 'user-1',
+      'email': 'demo@example.com',
+      'tenant_id': 'tenant-1',
+      'organization_id': 'org-1',
+      'status': 'active',
+      'is_email_verified': true,
+      'created_at': '2026-07-16T09:00:00Z',
+      'profile': {
+        'full_name': 'Demo User',
+        'title': 'Founder',
+        'avatar_url': null,
+      },
+    });
+
+    expect(user.email, 'demo@example.com');
+    expect(user.profile!.fullName, 'Demo User');
+    expect(user.isEmailVerified, isTrue);
   });
 }

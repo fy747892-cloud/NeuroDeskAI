@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/api/api_status.dart';
 import '../auth/presentation/auth_controller.dart';
 
 class MobileShell extends ConsumerWidget {
@@ -12,6 +13,7 @@ class MobileShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).uri.path;
+    final apiStatus = ref.watch(apiStatusProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -69,10 +71,20 @@ class MobileShell extends ConsumerWidget {
               switch (action) {
                 case _ShellAction.contacts:
                   context.go('/app/contacts');
+                case _ShellAction.conversations:
+                  context.go('/app/conversations');
                 case _ShellAction.deals:
                   context.go('/app/deals');
                 case _ShellAction.priority:
                   context.go('/app/priority');
+                case _ShellAction.analytics:
+                  context.go('/app/analytics');
+                case _ShellAction.files:
+                  context.go('/app/files');
+                case _ShellAction.email:
+                  context.go('/app/email');
+                case _ShellAction.settings:
+                  context.go('/app/settings');
                 case _ShellAction.logout:
                   ref.read(authControllerProvider.notifier).logout();
               }
@@ -83,6 +95,14 @@ class MobileShell extends ConsumerWidget {
                 child: ListTile(
                   leading: Icon(Icons.people_alt_outlined),
                   title: Text('Kisiler'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: _ShellAction.conversations,
+                child: ListTile(
+                  leading: Icon(Icons.forum_outlined),
+                  title: Text('Gorusmeler'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -103,6 +123,38 @@ class MobileShell extends ConsumerWidget {
                 ),
               ),
               PopupMenuItem(
+                value: _ShellAction.analytics,
+                child: ListTile(
+                  leading: Icon(Icons.insights_outlined),
+                  title: Text('Analitik'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: _ShellAction.files,
+                child: ListTile(
+                  leading: Icon(Icons.folder_outlined),
+                  title: Text('Dosyalar'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: _ShellAction.email,
+                child: ListTile(
+                  leading: Icon(Icons.mail_outline),
+                  title: Text('E-posta'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
+                value: _ShellAction.settings,
+                child: ListTile(
+                  leading: Icon(Icons.settings_outlined),
+                  title: Text('Ayarlar'),
+                  contentPadding: EdgeInsets.zero,
+                ),
+              ),
+              PopupMenuItem(
                 value: _ShellAction.logout,
                 child: ListTile(
                   leading: Icon(Icons.logout),
@@ -114,7 +166,20 @@ class MobileShell extends ConsumerWidget {
           ),
         ],
       ),
-      body: child,
+      body: Column(
+        children: [
+          apiStatus.when(
+            data: (status) => status.isOk
+                ? const SizedBox.shrink()
+                : const _ApiStatusBanner(),
+            error: (error, stackTrace) => _ApiStatusBanner(
+              onRetry: () => ref.invalidate(apiStatusProvider),
+            ),
+            loading: () => const SizedBox.shrink(),
+          ),
+          Expanded(child: child),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex(location),
         onDestinationSelected: (index) => context.go(_pathForIndex(index)),
@@ -130,9 +195,9 @@ class MobileShell extends ConsumerWidget {
             label: 'Gorevler',
           ),
           NavigationDestination(
-            icon: Icon(Icons.forum_outlined),
-            selectedIcon: Icon(Icons.forum),
-            label: 'Gorusme',
+            icon: Icon(Icons.call_outlined),
+            selectedIcon: Icon(Icons.call),
+            label: 'Cagri',
           ),
           NavigationDestination(
             icon: Icon(Icons.calendar_today_outlined),
@@ -156,6 +221,9 @@ class MobileShell extends ConsumerWidget {
     if (location.startsWith('/app/conversations')) {
       return 2;
     }
+    if (location.startsWith('/app/calls')) {
+      return 2;
+    }
     if (location.startsWith('/app/appointments')) {
       return 3;
     }
@@ -168,7 +236,7 @@ class MobileShell extends ConsumerWidget {
   String _pathForIndex(int index) {
     return switch (index) {
       1 => '/app/tasks',
-      2 => '/app/conversations',
+      2 => '/app/calls',
       3 => '/app/appointments',
       4 => '/app/approvals',
       _ => '/app/dashboard',
@@ -176,4 +244,58 @@ class MobileShell extends ConsumerWidget {
   }
 }
 
-enum _ShellAction { contacts, deals, priority, logout }
+enum _ShellAction {
+  contacts,
+  conversations,
+  deals,
+  priority,
+  analytics,
+  files,
+  email,
+  settings,
+  logout,
+}
+
+class _ApiStatusBanner extends StatelessWidget {
+  const _ApiStatusBanner({this.onRetry});
+
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFFFFF7ED),
+      child: SafeArea(
+        bottom: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Row(
+            children: [
+              const Icon(
+                Icons.wifi_off_outlined,
+                color: Color(0xFFC2410C),
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'API baglantisi zayif. Backend ve ag durumunu kontrol edin.',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: const Color(0xFF9A3412),
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ),
+              TextButton(
+                onPressed: onRetry,
+                child: const Text('Dene'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

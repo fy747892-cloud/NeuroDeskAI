@@ -14,6 +14,7 @@ class LoginPage extends ConsumerStatefulWidget {
 class _LoginPageState extends ConsumerState<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  bool _rememberMe = true;
   String? _validationMessage;
 
   @override
@@ -75,6 +76,22 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         onSubmitted: (_) => _submit(),
                         decoration: const InputDecoration(labelText: 'Sifre'),
                       ),
+                      const SizedBox(height: 8),
+                      CheckboxListTile(
+                        value: _rememberMe,
+                        onChanged: isLoading
+                            ? null
+                            : (value) {
+                                setState(() {
+                                  _rememberMe = value ?? true;
+                                });
+                              },
+                        title: const Text('Beni hatirla'),
+                        subtitle: const Text('Oturumu bu cihazda sakla'),
+                        controlAffinity: ListTileControlAffinity.leading,
+                        contentPadding: EdgeInsets.zero,
+                        visualDensity: VisualDensity.compact,
+                      ),
                       const SizedBox(height: 16),
                       FilledButton(
                         onPressed: isLoading ? null : _submit,
@@ -123,6 +140,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     ref.read(authControllerProvider.notifier).login(
           email,
           password,
+          rememberMe: _rememberMe,
         );
   }
 }

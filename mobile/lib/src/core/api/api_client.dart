@@ -6,15 +6,20 @@ import '../../features/auth/domain/auth_tokens.dart';
 
 const apiBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
-  defaultValue: 'http://localhost:8000',
+  defaultValue: 'http://10.0.2.2:8000',
 );
 
 final dioProvider = Provider<Dio>((ref) {
   final baseOptions = BaseOptions(
     baseUrl: apiBaseUrl,
-    connectTimeout: const Duration(seconds: 12),
-    receiveTimeout: const Duration(seconds: 20),
-    sendTimeout: const Duration(seconds: 20),
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(seconds: 30),
+    sendTimeout: const Duration(seconds: 30),
+    responseType: ResponseType.json,
+    headers: const {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json',
+    },
   );
   final dio = Dio(baseOptions);
   final tokenStore = ref.watch(secureTokenStoreProvider);
@@ -24,6 +29,7 @@ final dioProvider = Provider<Dio>((ref) {
     QueuedInterceptorsWrapper(
       onRequest: (options, handler) async {
         options.headers['x-device-id'] = 'neurodesk-mobile-mvp';
+        options.headers['x-client-platform'] = 'flutter';
         if (options.extra['skipAuth'] == true) {
           handler.next(options);
           return;
@@ -37,6 +43,10 @@ final dioProvider = Provider<Dio>((ref) {
         handler.next(options);
       },
       onError: (error, handler) async {
+        if (await _retryTransientError(dio, error, handler)) {
+          return;
+        }
+
         final request = error.requestOptions;
         final isUnauthorized = error.response?.statusCode == 401;
         final alreadyRetried = request.extra['retriedAfterRefresh'] == true;
@@ -68,6 +78,70 @@ final dioProvider = Provider<Dio>((ref) {
   return dio;
 });
 
+Future<bool> _retryTransientError(
+  Dio dio,
+  DioException error,
+  ErrorInterceptorHandler handler,
+) async {
+  final request = error.requestOptions;
+  final retryCount = request.extra['transientRetryCount'] as int? ?? 0;
+
+  if (retryCount >= _maxTransientRetries ||
+      !_isRetryableRequest(request) ||
+      !_isTransientError(error)) {
+    return false;
+  }
+
+  await Future<void>.delayed(_retryDelay(retryCount));
+
+  final retryOptions = request.copyWith(
+    extra: {
+      ...request.extra,
+      'transientRetryCount': retryCount + 1,
+    },
+  );
+
+  try {
+    final response = await dio.fetch<dynamic>(retryOptions);
+    handler.resolve(response);
+  } on DioException catch (retryError) {
+    handler.next(retryError);
+  }
+  return true;
+}
+
+const _maxTransientRetries = 2;
+
+bool _isRetryableRequest(RequestOptions request) {
+  if (request.extra['disableRetry'] == true) {
+    return false;
+  }
+
+  final method = request.method.toUpperCase();
+  return method == 'GET' || method == 'HEAD' || method == 'OPTIONS';
+}
+
+bool _isTransientError(DioException error) {
+  if (error.type == DioExceptionType.connectionTimeout ||
+      error.type == DioExceptionType.receiveTimeout ||
+      error.type == DioExceptionType.sendTimeout ||
+      error.type == DioExceptionType.connectionError) {
+    return true;
+  }
+
+  final statusCode = error.response?.statusCode;
+  return statusCode == 408 ||
+      statusCode == 429 ||
+      statusCode == 500 ||
+      statusCode == 502 ||
+      statusCode == 503 ||
+      statusCode == 504;
+}
+
+Duration _retryDelay(int retryCount) {
+  return Duration(milliseconds: retryCount == 0 ? 350 : 900);
+}
+
 bool _isAuthEndpoint(String path) {
   return path.contains('/api/v1/auth/login') ||
       path.contains('/api/v1/auth/register') ||
@@ -95,7 +169,9 @@ Future<AuthTokens?> _refreshTokens(
       ),
     );
     final tokens = AuthTokens.fromJson(response.data!);
-    await tokenStore.save(tokens);
+    if (await tokenStore.hasSavedSession()) {
+      await tokenStore.save(tokens);
+    }
     return tokens;
   } on DioException {
     return null;
@@ -105,7 +181,8 @@ Future<AuthTokens?> _refreshTokens(
 RequestOptions _copyForRetry(RequestOptions request, String accessToken) {
   final headers = Map<String, dynamic>.from(request.headers)
     ..['Authorization'] = 'Bearer $accessToken'
-    ..['x-device-id'] = 'neurodesk-mobile-mvp';
+    ..['x-device-id'] = 'neurodesk-mobile-mvp'
+    ..['x-client-platform'] = 'flutter';
   final extra = Map<String, dynamic>.from(request.extra)
     ..['retriedAfterRefresh'] = true;
 

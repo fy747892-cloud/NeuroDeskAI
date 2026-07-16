@@ -38,6 +38,10 @@ class SecureTokenStore {
     await _storage.write(key: _tokenTypeKey, value: tokens.tokenType);
   }
 
+  Future<bool> hasSavedSession() async {
+    return await _storage.read(key: _refreshTokenKey) != null;
+  }
+
   Future<void> clear() async {
     await _storage.delete(key: _accessTokenKey);
     await _storage.delete(key: _refreshTokenKey);
