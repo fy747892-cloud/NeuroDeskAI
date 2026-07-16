@@ -919,13 +919,25 @@ Sprint 14'e eklenen mobil story'ler:
 | US-125 | Mobile notifications read flow | Mobile/Notifications | Should | 3 | Bildirimler listelenir, okunmamis sayaci gosterilir, okundu isaretlenir |
 | US-126 | Mobile emulator smoke | Mobile/QA | Must | 3 | Pixel 8 emulator uzerinde build/install/open ve API smoke dogrulanir |
 
-Sprint 15+ mobil backlog ayrimi:
+Sprint 15-18 mobil guncel gerceklesme:
 
-- Mobile AI Chat ekrani ve chat session history.
-- Contacts/CRM mobil liste ve kisi hafizasi detayi.
-- Search, Files ve Analytics mobil yuzeyleri.
+- Mobile AI Chat ekrani ve chat session history tamamlandi.
+- Contacts/CRM mobil liste, kisi detayi, kisi hafizasi ve not ekleme tamamlandi.
+- Search, Files ve Analytics mobil yuzeyleri tamamlandi.
+- Deals/Pipeline, Priority Queue, Calls, Email ve Settings mobil yuzeyleri eklendi.
+- Native file picker/upload tamamlandi; Android emulator icin MinIO public signed URL akisi dogrulandi.
+- Native OAuth browser launch tamamlandi; Gmail/Outlook connect-start sistem tarayicisinda acilir ve uygulamaya donuste hesaplar yenilenir.
+- Biometric login tamamlandi; kayitli oturumlar desteklenen cihazlarda local_auth ile dogrulanarak acilir.
+- Deep link routing tamamlandi; custom scheme, Android App Link intent filter ve liste/detay route alias'lari eklendi.
+- Notification source navigation tamamlandi; bildirim kartlari ilgili deep-linked mobil modulu acar.
+- API hardening tamamlandi: emulator varsayilan URL, transient read retry, global API health bandi ve daha okunur hata mesajlari.
+
+Sprint 19+ mobil backlog ayrimi:
+
 - Offline outbox/cache, conflict UI ve background sync.
-- Push notification/FCM, deep link ile ilgili kayda gitme.
-- Crash reporting, analytics eventleri, biometric login ve store signing.
+- Push notification/FCM ve production App/Universal Link association dosyalari.
+- Tam OAuth app callback/deep link routing ve buyuk dosyalar icin offline upload kuyrugu.
+- Crash reporting, product analytics eventleri ve store signing.
+- Tablet/foldable polish ve release automation.
 
 Sprint 14 kabul kapisi: `flutter analyze`, `flutter test`, debug APK build, Pixel 8 emulator install/open, backend register/dashboard/tasks/appointments/conversations/notifications/approvals smoke testleri temiz olmalidir.

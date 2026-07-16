@@ -18,6 +18,23 @@ subprojects {
 subprojects {
     project.evaluationDependsOn(":app")
 }
+subprojects {
+    plugins.withId("com.android.library") {
+        extensions.configure<com.android.build.api.dsl.LibraryExtension>("android") {
+            compileSdk = 36
+        }
+    }
+    fun alignCompileSdk() {
+        extensions.findByType<com.android.build.gradle.BaseExtension>()?.compileSdkVersion(36)
+    }
+    if (state.executed) {
+        alignCompileSdk()
+    } else {
+        afterEvaluate {
+            alignCompileSdk()
+        }
+    }
+}
 
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)

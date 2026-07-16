@@ -28,6 +28,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
     final isLoading = authState.isLoading;
+    final hasLockedSession = authState.valueOrNull?.hasLockedSession ?? false;
     final errorMessage =
         _validationMessage ?? authState.valueOrNull?.errorMessage;
 
@@ -98,6 +99,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         child:
                             Text(isLoading ? 'Giris yapiliyor' : 'Giris yap'),
                       ),
+                      if (hasLockedSession) ...[
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          onPressed: isLoading
+                              ? null
+                              : () => ref
+                                  .read(authControllerProvider.notifier)
+                                  .unlockSavedSession(),
+                          icon: const Icon(Icons.fingerprint),
+                          label: const Text('Biyometrik ile devam et'),
+                        ),
+                      ],
                       const SizedBox(height: 10),
                       TextButton(
                         onPressed: isLoading

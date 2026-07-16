@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api/api_error.dart';
 import '../data/email_repository.dart';
@@ -12,10 +13,41 @@ class EmailPage extends ConsumerStatefulWidget {
   ConsumerState<EmailPage> createState() => _EmailPageState();
 }
 
-class _EmailPageState extends ConsumerState<EmailPage> {
+class _EmailPageState extends ConsumerState<EmailPage>
+    with WidgetsBindingObserver {
   String? _selectedAccountId;
   String? _notice;
   String? _activeAction;
+  String? _pendingOAuthProvider;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed || _pendingOAuthProvider == null) {
+      return;
+    }
+    final provider = _pendingOAuthProvider!;
+    _pendingOAuthProvider = null;
+    ref.invalidate(emailAccountsProvider);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _notice =
+          '${_providerLabel(provider)} yetkilendirmesinden donuldu. Hesap durumu yenileniyor.';
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -118,9 +150,15 @@ class _EmailPageState extends ConsumerState<EmailPage> {
       final result = await ref.read(emailRepositoryProvider).startConnect(
             provider,
           );
+      final opened = await launchUrl(
+        Uri.parse(result.authorizeUrl),
+        mode: LaunchMode.externalApplication,
+      );
       setState(() {
-        _notice = '${_providerLabel(provider)} yetki URL hazir: '
-            '${result.authorizeUrl}';
+        _pendingOAuthProvider = opened ? provider : null;
+        _notice = opened
+            ? '${_providerLabel(provider)} yetkilendirmesi tarayicida acildi. Islemi tamamlayip uygulamaya don.'
+            : '${_providerLabel(provider)} yetki URL hazir: ${result.authorizeUrl}';
       });
     } catch (error) {
       setState(() {

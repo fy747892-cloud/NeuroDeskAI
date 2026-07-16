@@ -98,6 +98,7 @@ void main() {
     expect(notification.title, 'Analiz tamamlandi');
     expect(notification.isRead, isFalse);
     expect(notification.sourceType, 'conversation');
+    expect(notification.targetRoute, '/app/conversations/conversation-1');
   });
 
   test('parses AI chat message payloads from backend schema', () {

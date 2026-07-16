@@ -27,6 +27,25 @@ class AppNotification {
 
   bool get isRead => readAt != null || status == 'read';
 
+  String? get targetRoute {
+    final id = sourceId;
+    if (id == null || id.isEmpty) {
+      return null;
+    }
+
+    return switch (sourceType?.toLowerCase()) {
+      'task' => '/app/tasks/$id',
+      'appointment' => '/app/appointments/$id',
+      'conversation' => '/app/conversations/$id',
+      'call' => '/app/calls',
+      'approval' || 'ai_action_approval' => '/app/approvals/$id',
+      'file' => '/app/files/$id',
+      'contact' => '/app/contacts/$id',
+      'email' || 'email_account' || 'email_message' => '/app/email',
+      _ => null,
+    };
+  }
+
   factory AppNotification.fromJson(Map<String, dynamic> json) {
     return AppNotification(
       id: json['id'] as String,

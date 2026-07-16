@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_error.dart';
 import '../data/auth_repository.dart';
+import '../data/biometric_auth_service.dart';
 import '../data/secure_token_store.dart';
 import '../domain/auth_tokens.dart';
 
@@ -9,17 +10,27 @@ final authControllerProvider =
     AsyncNotifierProvider<AuthController, AuthState>(AuthController.new);
 
 class AuthState {
-  const AuthState({required this.tokens, this.errorMessage});
+  const AuthState({
+    required this.tokens,
+    this.errorMessage,
+    this.hasLockedSession = false,
+  });
 
   final AuthTokens? tokens;
   final String? errorMessage;
+  final bool hasLockedSession;
 
   bool get isAuthenticated => tokens != null;
 
-  AuthState copyWith({AuthTokens? tokens, String? errorMessage}) {
+  AuthState copyWith({
+    AuthTokens? tokens,
+    String? errorMessage,
+    bool? hasLockedSession,
+  }) {
     return AuthState(
       tokens: tokens ?? this.tokens,
       errorMessage: errorMessage,
+      hasLockedSession: hasLockedSession ?? this.hasLockedSession,
     );
   }
 }
@@ -27,8 +38,45 @@ class AuthState {
 class AuthController extends AsyncNotifier<AuthState> {
   @override
   Future<AuthState> build() async {
-    final tokens = await ref.watch(secureTokenStoreProvider).read();
+    final store = ref.watch(secureTokenStoreProvider);
+    final tokens = await store.read();
+    if (tokens == null) {
+      return const AuthState(tokens: null);
+    }
+    final unlocked =
+        await ref.read(biometricAuthServiceProvider).authenticate();
+    if (!unlocked) {
+      return const AuthState(
+        tokens: null,
+        hasLockedSession: true,
+        errorMessage: 'Kayitli oturum biyometrik dogrulama bekliyor.',
+      );
+    }
     return AuthState(tokens: tokens);
+  }
+
+  Future<void> unlockSavedSession() async {
+    state = const AsyncLoading();
+    final unlocked =
+        await ref.read(biometricAuthServiceProvider).authenticate();
+    if (!unlocked) {
+      state = const AsyncData(
+        AuthState(
+          tokens: null,
+          hasLockedSession: true,
+          errorMessage: 'Biyometrik dogrulama tamamlanamadi.',
+        ),
+      );
+      return;
+    }
+    final tokens = await ref.read(secureTokenStoreProvider).read();
+    state = AsyncData(
+      AuthState(
+        tokens: tokens,
+        hasLockedSession: tokens != null,
+        errorMessage: tokens == null ? 'Kayitli oturum bulunamadi.' : null,
+      ),
+    );
   }
 
   Future<void> login(
@@ -46,7 +94,8 @@ class AuthController extends AsyncNotifier<AuthState> {
       } else {
         await ref.read(secureTokenStoreProvider).clear();
       }
-      state = AsyncData(AuthState(tokens: tokens));
+      state =
+          AsyncData(AuthState(tokens: tokens, hasLockedSession: rememberMe));
     } catch (error) {
       state = AsyncData(
         AuthState(
@@ -70,7 +119,7 @@ class AuthController extends AsyncNotifier<AuthState> {
             displayName: displayName,
           );
       await ref.read(secureTokenStoreProvider).save(tokens);
-      state = AsyncData(AuthState(tokens: tokens));
+      state = AsyncData(const AuthState(tokens: null).copyWith(tokens: tokens));
     } catch (error) {
       state = AsyncData(
         AuthState(

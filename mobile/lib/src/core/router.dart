@@ -75,7 +75,15 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const TasksPage(),
           ),
           GoRoute(
+            path: '/app/tasks/:taskId',
+            builder: (context, state) => const TasksPage(),
+          ),
+          GoRoute(
             path: '/app/conversations',
+            builder: (context, state) => const ConversationsPage(),
+          ),
+          GoRoute(
+            path: '/app/conversations/:conversationId',
             builder: (context, state) => const ConversationsPage(),
           ),
           GoRoute(
@@ -87,7 +95,15 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const AppointmentsPage(),
           ),
           GoRoute(
+            path: '/app/appointments/:appointmentId',
+            builder: (context, state) => const AppointmentsPage(),
+          ),
+          GoRoute(
             path: '/app/approvals',
+            builder: (context, state) => const AiApprovalsPage(),
+          ),
+          GoRoute(
+            path: '/app/approvals/:approvalId',
             builder: (context, state) => const AiApprovalsPage(),
           ),
           GoRoute(
@@ -127,6 +143,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const FilesPage(),
           ),
           GoRoute(
+            path: '/app/files/:fileId',
+            builder: (context, state) => const FilesPage(),
+          ),
+          GoRoute(
             path: '/app/email',
             builder: (context, state) => const EmailPage(),
           ),
@@ -136,6 +156,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/app/notifications',
+            builder: (context, state) => const NotificationsPage(),
+          ),
+          GoRoute(
+            path: '/app/notifications/:notificationId',
             builder: (context, state) => const NotificationsPage(),
           ),
         ],
