@@ -506,7 +506,7 @@ Firebase Analytics, ürün kullanım metriklerini (Cilt 1 §44 Başarı Metrikle
 
 # 55. Feature Flags
 
-Cilt 6 §43 ile aynı mekanizmanın mobil karşılığı: MVP dışı modüller (Email, Billing, Roller/İzinler, Biometric Login MVP açılana kadar) Remote Config (Bölüm 56) tabanlı flag'lerle kapatılır/açılır; store'a yeni sürüm göndermeden kademeli açılış yapılabilir.
+Cilt 6 §43 ile aynı mekanizmanın mobil karşılığı: MVP dışı modüller (Billing, Roller/İzinler, gelişmiş güvenlik/politika seçenekleri gibi) Remote Config (Bölüm 56) tabanlı flag'lerle kapatılır/açılır; store'a yeni sürüm göndermeden kademeli açılış yapılabilir.
 
 # 56. Remote Config
 
@@ -561,7 +561,7 @@ Mobil kod üretimine başlanacağında izlenmesi önerilen sıra:
 8. Calendar/Appointments, Contacts (Bölüm 24-25, 27).
 9. AI Chat Mobile UI (Bölüm 19) — RAG backend'i hazır olduğunda; önce Bölüm 18.2'deki proaktif/bildirim tabanlı AI deneyimine öncelik verilebilir.
 10. Crash reporting, analytics, remote config (Bölüm 53-56) özellik geliştirmeyle paralel, sona bırakılmadan kurulur.
-11. Tablet/Foldable/Desktop (Bölüm 46-47) ve Biometric Login (Bölüm 40) gibi ileri faz/MVP dışı öğeler, temel telefon deneyimi stabil olduktan sonra ele alınır.
+11. Tablet/Foldable/Desktop (Bölüm 46-47), store release ve gelişmiş güvenlik/politika öğeleri, temel telefon deneyimi stabil olduktan sonra ele alınır.
 
 # Modül Kataloğu
 
@@ -583,7 +583,7 @@ Mobil kod üretimine başlanacağında izlenmesi önerilen sıra:
 | Analytics | /app/analytics | Should | Okuma (cache) |
 | Voice Search | (bileşen, Chat/Search içinde) | Should | Hayır (cihaz API'si online gerekmez ama sonuç işleme online) |
 | Email | /app/emails | Future (iskelet) | — |
-| Biometric Login | (Auth eklentisi) | Future | — |
+| Biometric Login | (Auth eklentisi) | Must | — |
 | Tablet UI optimizasyonu | (tüm modüller) | Should (temel modüllerde) | — |
 | Foldable / Desktop Flutter | (platform) | Future | — |
 | Enterprise MDM | (platform) | Future | — |
@@ -602,13 +602,42 @@ Mevcut Flutter MVP uygulamasi aktif proje kokunu `mobile/` olarak kullanir; eski
 
 Tamamlanan mobil MVP yuzeyleri:
 
-- Auth: splash, login, register, secure token storage, logout ve 401 sonrasi refresh token rotation/retry.
+- Auth: splash, login, register, secure token storage, biyometrik oturum acma, logout ve 401 sonrasi refresh token rotation/retry.
 - Shell: web ile uyumlu NeuroDesk AI marka basligi, alt navigasyon ve bildirim kisayolu.
 - Dashboard: ozet metrik kartlari, akilli ozet hero bandi ve ilgili sekmelere navigasyon.
 - Tasks: gorev listesi, oncelik/durum gosterimi, teslim tarihi ve tamamla aksiyonu.
 - Appointments: yaklasan randevu listesi, tarih rozeti, saat araligi, lokasyon ve durum bilgisi.
 - Conversations: manuel gorusme/transkript ekleme, katilimci girisi ve AI analiz baslatma.
 - AI Approval Center: pending onay listesi, confidence/kaynak/son tarih metasi, approve/reject ve onay sonrasi task/appointment/deal materyalizasyonu.
-- Notifications: bildirim listesi, okunmamis sayaci ve okundu isaretleme.
+- Notifications: bildirim listesi, okunmamis sayaci, okundu isaretleme ve source metadata ile ilgili modulu acma.
+- Deep links: `neurodesk://app/...` custom scheme, Android `https://app.neurodesk.ai/...` App Link intent filter ve liste/detay route alias'lari.
 
-MVP icin bilincli olarak ertelenen mobil parcalar: offline outbox/Isar cache, push notification/FCM, deep link ile dogrudan detay acma, AI Chat mobil ekrani, Contacts/CRM mobil ekrani, Files/Search/Analytics mobil yuzeyleri, biometric login, crash reporting ve store signing.
+MVP icin bilincli olarak ertelenen mobil parcalar: offline outbox/Isar cache, push notification/FCM, production App/Universal Link association dosyalari, tam OAuth app callback routing, crash reporting, product analytics eventleri, tablet/foldable polish, store signing ve buyuk dosyalar icin offline upload kuyrugu.
+
+# Sprint 15-18 Mobil Guncel Uygulama Notu
+
+Sprint 14 sonrasi mobil uygulamada Cilt 7 modul katalogundaki ek yuzeylerin onemli bolumu aktif hale getirilmistir. Aktif proje koku halen `mobile/` dizinidir; Android emulator smoke icin `API_BASE_URL=http://10.0.2.2:8000` kullanilir.
+
+Tamamlanan ek mobil yuzeyler:
+
+- AI Chat: session history, mesaj gonderme, confidence/source gosterimi.
+- Contacts/CRM: kisi listesi, kisi detayi, hafiza ozeti ve not ekleme.
+- Semantic Search: backend `/api/v1/search/semantic` uzerinden anlamsal arama.
+- Deals/Pipeline: firsat listesi, yeni firsat, asama guncelleme.
+- Priority Queue: gorev/randevu oncelik skoru ve faktor chipleri.
+- Analytics: son 7 gun overview, gorev/cagri/AI metrikleri ve bugunu hesapla aksiyonu.
+- Files: dosya listesi, native dosya secici ile upload, analiz tetikleme ve silme.
+- Calls: Cilt 7 kisitlarina uygun manuel cagri metni ekleme ve AI analiz baslatma.
+- Email: hesap listesi, mesaj listesi, senkronizasyon, connect-start ve revoke yuzeyi.
+- Email OAuth: Gmail/Outlook connect-start sonrasi sistem tarayicisini acma ve uygulamaya donuste hesap listesini yenileme.
+- Settings: profil guncelleme, hesap/API durumu ve cikis aksiyonu.
+- API hardening: emulator varsayilan base URL, transient read retry, daha okunur hata mesajlari ve global API health bandi.
+
+Kalan mobil backlog:
+
+- Offline outbox/cache ve sync engine.
+- Push notification/FCM, production App/Universal Link association ve detay ekranlarinda secili kaydi vurgulama.
+- Buyuk dosya on kontrolu ve offline upload kuyrugu.
+- Tam OAuth app callback/deep link routing ile Gmail/Outlook baglantisini uygulama icinde son durum ekranina dusurme.
+- Crash reporting ve product analytics eventleri.
+- Store signing, CI release ve TestFlight/Play Internal Testing hazirligi.

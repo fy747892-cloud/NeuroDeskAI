@@ -15,12 +15,25 @@ _s3_client = boto3.client(
     config=Config(signature_version="s3v4"),
 )
 
+_public_s3_client = boto3.client(
+    "s3",
+    endpoint_url=settings.minio_public_endpoint_url or settings.minio_endpoint_url,
+    aws_access_key_id=settings.minio_access_key,
+    aws_secret_access_key=settings.minio_secret_key,
+    region_name="us-east-1",
+    config=Config(signature_version="s3v4"),
+)
+
 _bucket_ensured = False
 _bucket_lock = asyncio.Lock()
 
 
 def get_storage_client():
     return _s3_client
+
+
+def get_public_storage_client():
+    return _public_s3_client
 
 
 def _create_bucket_if_missing() -> None:

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_error.dart';
 import '../data/notifications_repository.dart';
@@ -159,74 +160,80 @@ class _NotificationTileState extends ConsumerState<_NotificationTile> {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: notification.isRead
-                    ? const Color(0xFFF4F5FB)
-                    : const Color(0x1A3525CD),
-                borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        onTap: notification.targetRoute == null || _isSubmitting
+            ? null
+            : () => _openNotification(notification),
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: notification.isRead
+                      ? const Color(0xFFF4F5FB)
+                      : const Color(0x1A3525CD),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  notification.isRead
+                      ? Icons.notifications_none
+                      : Icons.notifications_active,
+                  color: notification.isRead ? null : colorScheme.primary,
+                ),
               ),
-              child: Icon(
-                notification.isRead
-                    ? Icons.notifications_none
-                    : Icons.notifications_active,
-                color: notification.isRead ? null : colorScheme.primary,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          notification.title,
-                          style: Theme.of(context).textTheme.titleMedium,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            notification.title,
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                        Chip(
+                          label: Text(notification.isRead ? 'Okundu' : 'Yeni'),
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(notification.body),
+                    const SizedBox(height: 8),
+                    Text(
+                      '${_typeLabel(notification.notificationType)} - ${_formatDate(notification.scheduledAt)}',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    if (!notification.isRead) ...[
+                      const SizedBox(height: 10),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: OutlinedButton.icon(
+                          onPressed: _isSubmitting ? null : _markRead,
+                          icon: _isSubmitting
+                              ? const SizedBox.square(
+                                  dimension: 16,
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Icon(Icons.done),
+                          label: const Text('Okundu'),
                         ),
                       ),
-                      Chip(
-                        label: Text(notification.isRead ? 'Okundu' : 'Yeni'),
-                        visualDensity: VisualDensity.compact,
-                      ),
                     ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(notification.body),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${_typeLabel(notification.notificationType)} - ${_formatDate(notification.scheduledAt)}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  if (!notification.isRead) ...[
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: OutlinedButton.icon(
-                        onPressed: _isSubmitting ? null : _markRead,
-                        icon: _isSubmitting
-                            ? const SizedBox.square(
-                                dimension: 16,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.done),
-                        label: const Text('Okundu'),
-                      ),
-                    ),
                   ],
-                ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -260,6 +267,19 @@ class _NotificationTileState extends ConsumerState<_NotificationTile> {
       if (mounted) {
         setState(() => _isSubmitting = false);
       }
+    }
+  }
+
+  Future<void> _openNotification(AppNotification notification) async {
+    if (!notification.isRead) {
+      await _markRead();
+    }
+    if (!mounted) {
+      return;
+    }
+    final route = notification.targetRoute;
+    if (route != null) {
+      context.go(route);
     }
   }
 }

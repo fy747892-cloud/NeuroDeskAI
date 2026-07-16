@@ -6,7 +6,7 @@ from botocore.exceptions import ClientError
 
 from app.core.config import settings
 from app.core.llm_retry import with_retry
-from app.db.storage import ensure_bucket, get_storage_client
+from app.db.storage import ensure_bucket, get_public_storage_client, get_storage_client
 
 UPLOAD_URL_TTL_SECONDS = 900
 DOWNLOAD_URL_TTL_SECONDS = 900
@@ -17,11 +17,12 @@ class ObjectStorageProvider:
 
     def __init__(self):
         self._client = get_storage_client()
+        self._public_client = get_public_storage_client()
 
     async def generate_upload_url(self, *, storage_key: str, content_type: str) -> str:
         await ensure_bucket()
         return await asyncio.to_thread(
-            self._client.generate_presigned_url,
+            self._public_client.generate_presigned_url,
             "put_object",
             Params={
                 "Bucket": settings.minio_bucket_name,
@@ -34,7 +35,7 @@ class ObjectStorageProvider:
     async def generate_download_url(self, *, storage_key: str) -> str:
         await ensure_bucket()
         return await asyncio.to_thread(
-            self._client.generate_presigned_url,
+            self._public_client.generate_presigned_url,
             "get_object",
             Params={"Bucket": settings.minio_bucket_name, "Key": storage_key},
             ExpiresIn=DOWNLOAD_URL_TTL_SECONDS,

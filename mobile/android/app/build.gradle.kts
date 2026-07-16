@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "ai.neurodesk.mobile"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 36
     buildToolsVersion = "36.1.0"
     ndkVersion = flutter.ndkVersion
 

@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     microsoft_client_id: str = ""
 
     minio_endpoint_url: str = "http://localhost:9000"
+    minio_public_endpoint_url: str | None = None
     minio_access_key: str = ""
     minio_secret_key: str = ""
     minio_bucket_name: str = "neurodesk-files"

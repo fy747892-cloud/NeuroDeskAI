@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../../../core/api/api_error.dart';
 import '../data/files_repository.dart';
@@ -15,6 +16,7 @@ class FilesPage extends ConsumerStatefulWidget {
 class _FilesPageState extends ConsumerState<FilesPage> {
   String? _activeFileId;
   String? _notice;
+  bool _isUploading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -26,11 +28,33 @@ class _FilesPageState extends ConsumerState<FilesPage> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Dosyalar', style: theme.textTheme.headlineMedium),
-          const SizedBox(height: 6),
-          Text(
-            'Yuklenen dokumanlari izle, analiz et ve temizle.',
-            style: theme.textTheme.bodyMedium,
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Dosyalar', style: theme.textTheme.headlineMedium),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Yuklenen dokumanlari izle, analiz et ve temizle.',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton.filled(
+                tooltip: 'Dosya yukle',
+                onPressed: _isUploading ? null : _pickAndUpload,
+                icon: _isUploading
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.upload_file),
+              ),
+            ],
           ),
           if (_notice != null) ...[
             const SizedBox(height: 12),
@@ -85,6 +109,61 @@ class _FilesPageState extends ConsumerState<FilesPage> {
     } finally {
       if (mounted) {
         setState(() => _activeFileId = null);
+      }
+    }
+  }
+
+  Future<void> _pickAndUpload() async {
+    setState(() {
+      _isUploading = true;
+      _notice = null;
+    });
+
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: false,
+        type: FileType.custom,
+        allowedExtensions: const [
+          'pdf',
+          'docx',
+          'txt',
+          'mp3',
+          'wav',
+          'm4a',
+          'eml',
+        ],
+        withData: false,
+        withReadStream: true,
+      );
+      final file = result?.files.single;
+      if (file == null) {
+        return;
+      }
+      final stream = file.readStream;
+      if (stream == null || file.size <= 0) {
+        setState(() {
+          _notice = 'Dosya okunamadi.';
+        });
+        return;
+      }
+
+      final uploaded = await ref.read(filesRepositoryProvider).uploadFile(
+            filename: file.name,
+            mimeType: _mimeTypeFor(file.extension),
+            sizeBytes: file.size,
+            bytes: stream,
+          );
+      setState(() {
+        _notice = '${uploaded.filename} yuklendi.';
+      });
+      ref.invalidate(filesProvider);
+    } catch (error) {
+      setState(() {
+        _notice = readableApiError(error, 'Dosya yuklenemedi.');
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isUploading = false);
       }
     }
   }
@@ -417,4 +496,18 @@ String _formatDateTime(DateTime value) {
       '${local.month.toString().padLeft(2, '0')} '
       '${local.hour.toString().padLeft(2, '0')}:'
       '${local.minute.toString().padLeft(2, '0')}';
+}
+
+String _mimeTypeFor(String? extension) {
+  return switch (extension?.toLowerCase()) {
+    'pdf' => 'application/pdf',
+    'docx' =>
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'txt' => 'text/plain',
+    'mp3' => 'audio/mpeg',
+    'wav' => 'audio/wav',
+    'm4a' => 'audio/x-m4a',
+    'eml' => 'message/rfc822',
+    _ => 'text/plain',
+  };
 }
