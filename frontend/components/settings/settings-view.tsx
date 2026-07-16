@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   AuditLog,
   BillingPlan,
   CalendarAccount,
-  completeGmailConnect,
-  completeOutlookConnect,
   connectGoogleCalendar,
   EmailAccount,
   getCurrentOrganization,
@@ -51,6 +50,8 @@ const DEFAULT_CONSENT: ConsentPreferences = {
 
 export function SettingsView() {
   const { user, tokens } = useSession();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
@@ -104,6 +105,14 @@ export function SettingsView() {
   }, [loadSettings]);
 
   useEffect(() => {
+    const connected = searchParams.get("connected");
+    if (!connected) return;
+    const label = connected === "gmail" ? "Gmail" : connected === "outlook" ? "Outlook" : connected;
+    setNotice(`${label} bağlandı.`);
+    router.replace("/ayarlar");
+  }, [searchParams, router]);
+
+  useEffect(() => {
     const stored = window.localStorage.getItem(CONSENT_STORAGE_KEY);
     if (!stored) return;
     try {
@@ -147,13 +156,16 @@ export function SettingsView() {
     setBusyIntegration(provider);
     setError(null);
     try {
-      const { state } = provider === "gmail" ? await startGmailConnect(tokens.accessToken) : await startOutlookConnect(tokens.accessToken);
-      const account = provider === "gmail" ? await completeGmailConnect(state) : await completeOutlookConnect(state);
-      setEmailAccounts((current) => [account, ...current.filter((item) => item.id !== account.id)]);
-      setNotice(`${provider === "gmail" ? "Gmail" : "Outlook"} bağlandı.`);
+      const { authorize_url } =
+        provider === "gmail"
+          ? await startGmailConnect(tokens.accessToken)
+          : await startOutlookConnect(tokens.accessToken);
+      // Full-page redirect: the provider's consent screen must see the real
+      // top-level navigation, then it redirects the browser back to our
+      // backend callback, which in turn redirects here with ?connected=.
+      window.location.href = authorize_url;
     } catch (connectError) {
       setError(connectError instanceof Error ? connectError.message : "Bağlantı kurulamadı.");
-    } finally {
       setBusyIntegration(null);
     }
   }
