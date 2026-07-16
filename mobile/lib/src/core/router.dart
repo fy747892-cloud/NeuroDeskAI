@@ -3,19 +3,24 @@ import 'package:go_router/go_router.dart';
 
 import '../features/ai_approvals/presentation/ai_approvals_page.dart';
 import '../features/ai_chat/presentation/ai_chat_page.dart';
+import '../features/analytics/presentation/analytics_page.dart';
 import '../features/appointments/presentation/appointments_page.dart';
 import '../features/auth/presentation/auth_controller.dart';
 import '../features/auth/presentation/login_page.dart';
 import '../features/auth/presentation/register_page.dart';
 import '../features/auth/presentation/splash_page.dart';
+import '../features/calls/presentation/calls_page.dart';
 import '../features/contacts/presentation/contact_detail_page.dart';
 import '../features/contacts/presentation/contacts_page.dart';
 import '../features/conversations/presentation/conversations_page.dart';
 import '../features/dashboard/presentation/dashboard_page.dart';
 import '../features/deals/presentation/deals_page.dart';
+import '../features/email/presentation/email_page.dart';
+import '../features/files/presentation/files_page.dart';
 import '../features/notifications/presentation/notifications_page.dart';
 import '../features/priority/presentation/priority_page.dart';
 import '../features/search/presentation/search_page.dart';
+import '../features/settings/presentation/settings_page.dart';
 import '../features/shell/mobile_shell.dart';
 import '../features/tasks/presentation/tasks_page.dart';
 
@@ -74,6 +79,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const ConversationsPage(),
           ),
           GoRoute(
+            path: '/app/calls',
+            builder: (context, state) => const CallsPage(),
+          ),
+          GoRoute(
             path: '/app/appointments',
             builder: (context, state) => const AppointmentsPage(),
           ),
@@ -108,6 +117,22 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/app/priority',
             builder: (context, state) => const PriorityPage(),
+          ),
+          GoRoute(
+            path: '/app/analytics',
+            builder: (context, state) => const AnalyticsPage(),
+          ),
+          GoRoute(
+            path: '/app/files',
+            builder: (context, state) => const FilesPage(),
+          ),
+          GoRoute(
+            path: '/app/email',
+            builder: (context, state) => const EmailPage(),
+          ),
+          GoRoute(
+            path: '/app/settings',
+            builder: (context, state) => const SettingsPage(),
           ),
           GoRoute(
             path: '/app/notifications',
