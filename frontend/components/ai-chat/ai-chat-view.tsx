@@ -11,6 +11,7 @@ import {
   sendChatMessage,
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
+import { useLanguage } from "@/lib/i18n/context";
 import { formatDateTime, getInitials } from "@/lib/format";
 
 type LocalMessage = {
@@ -24,6 +25,7 @@ type LocalMessage = {
 
 export function AIChatView() {
   const { tokens, user } = useSession();
+  const { t, language } = useLanguage();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<LocalMessage[]>([]);
@@ -45,7 +47,7 @@ export function AIChatView() {
         setMessages(detail.messages.map(toLocalMessage));
       }
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Chat oturumları alınamadı.");
+      setError(loadError instanceof Error ? loadError.message : t("aiChat.errors.loadSessionsFailed"));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tokens?.accessToken]);
@@ -66,7 +68,7 @@ export function AIChatView() {
       setMessages(detail.messages.map(toLocalMessage));
       setShowSessions(false);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Chat oturumu açılamadı.");
+      setError(loadError instanceof Error ? loadError.message : t("aiChat.errors.openSessionFailed"));
     }
   }
 
@@ -93,7 +95,7 @@ export function AIChatView() {
       setMessages((current) => [...current, toLocalMessage(assistantMessage)]);
       await loadSessions();
     } catch (sendError) {
-      setError(sendError instanceof Error ? sendError.message : "Mesaj gönderilemedi.");
+      setError(sendError instanceof Error ? sendError.message : t("aiChat.errors.sendFailed"));
     } finally {
       setSending(false);
     }
@@ -106,7 +108,7 @@ export function AIChatView() {
     await sendMessage(text);
   }
 
-  const displayName = user?.profile?.full_name ?? user?.email ?? "Kullanıcı";
+  const displayName = user?.profile?.full_name ?? user?.email ?? t("aiChat.defaultUserName");
 
   return (
     <div className="relative">
@@ -115,7 +117,7 @@ export function AIChatView() {
           {error ? <p className="text-error text-body-sm">{error}</p> : null}
 
           <div className="flex items-center justify-between">
-            <h2 className="font-headline-md text-headline-md font-black text-on-surface">AI Chat</h2>
+            <h2 className="font-headline-md text-headline-md font-black text-on-surface">{t("aiChat.title")}</h2>
             <div className="relative">
               <button
                 type="button"
@@ -123,12 +125,12 @@ export function AIChatView() {
                 className="text-on-surface-variant text-body-sm hover:text-primary flex items-center gap-1"
               >
                 <span className="material-symbols-outlined text-[18px]">history</span>
-                Oturumlar
+                {t("aiChat.sessionsButton")}
               </button>
               {showSessions ? (
                 <div className="absolute right-0 mt-2 w-64 bg-surface-container-lowest border border-outline-variant/30 rounded-xl shadow-xl z-30 max-h-80 overflow-y-auto custom-scrollbar">
                   {sessions.length === 0 ? (
-                    <p className="p-md text-body-sm text-on-surface-variant">Kayıtlı oturum yok.</p>
+                    <p className="p-md text-body-sm text-on-surface-variant">{t("aiChat.noSavedSessions")}</p>
                   ) : (
                     sessions.map((s) => (
                       <button
@@ -140,7 +142,7 @@ export function AIChatView() {
                           (s.id === activeSessionId ? "text-primary font-bold" : "text-on-surface")
                         }
                       >
-                        {s.title ?? "Yeni sohbet"}
+                        {s.title ?? t("aiChat.newChatFallback")}
                       </button>
                     ))
                   )}
@@ -151,9 +153,7 @@ export function AIChatView() {
 
           <div ref={scrollRef} className="space-y-lg overflow-y-auto">
             {messages.length === 0 ? (
-              <p className="text-body-md text-on-surface-variant">
-                AI Chat hazır. İş akışınla ilgili bir soru sor ya da mikrofon simgesiyle sesli komut moduna geç.
-              </p>
+              <p className="text-body-md text-on-surface-variant">{t("aiChat.emptyState")}</p>
             ) : null}
             {messages.map((message) =>
               message.role === "user" ? (
@@ -163,7 +163,7 @@ export function AIChatView() {
                       <p className="font-body-md text-body-md text-on-surface">{message.content}</p>
                     </div>
                     <span className="mt-xs text-[10px] text-on-surface-variant">
-                      {formatDateTime(message.created_at)}
+                      {formatDateTime(message.created_at, language)}
                     </span>
                   </div>
                   <div className="w-8 h-8 rounded-full bg-primary-container/20 flex items-center justify-center text-primary text-[11px] font-bold shrink-0 mt-1">
@@ -183,7 +183,7 @@ export function AIChatView() {
                         <div className="flex items-center gap-2 mb-3 flex-wrap">
                           <span className="flex h-2 w-2 rounded-full bg-green-500" />
                           <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">
-                            Confidence
+                            {t("aiChat.confidenceLabel")}
                           </span>
                           <span className="font-label-sm text-label-sm font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                             {Math.round(message.confidence * 100)}%
@@ -213,7 +213,7 @@ export function AIChatView() {
                       ) : null}
                     </div>
                     <span className="text-[10px] text-on-surface-variant">
-                      {formatDateTime(message.created_at)}
+                      {formatDateTime(message.created_at, language)}
                     </span>
                   </div>
                 </div>
@@ -237,7 +237,7 @@ export function AIChatView() {
                     e.currentTarget.form?.requestSubmit();
                   }
                 }}
-                placeholder="Ask NeuroDesk anything..."
+                placeholder={t("aiChat.composerPlaceholder")}
                 rows={1}
                 value={prompt}
               />
@@ -247,7 +247,7 @@ export function AIChatView() {
                 type="button"
                 onClick={() => setVoiceOpen(true)}
                 className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors text-on-surface-variant"
-                aria-label="Sesli komut"
+                aria-label={t("aiChat.voiceCommandAria")}
               >
                 <span className="material-symbols-outlined">mic</span>
               </button>
@@ -280,6 +280,7 @@ function VoiceOverlay({
   onSubmitText: (text: string) => Promise<void>;
 }) {
   const { tokens } = useSession();
+  const { t } = useLanguage();
   const [transcript, setTranscript] = useState("");
   const [response, setResponse] = useState<string | null>(null);
   const [actionMeta, setActionMeta] = useState<{ intent: string; actionType: string; requiresApproval: boolean } | null>(
@@ -302,7 +303,7 @@ function VoiceOverlay({
         requiresApproval: result.action.requires_approval,
       });
     } catch (voiceError) {
-      setError(voiceError instanceof Error ? voiceError.message : "Sesli komut yorumlanamadı.");
+      setError(voiceError instanceof Error ? voiceError.message : t("aiChat.errors.voiceInterpretFailed"));
     } finally {
       setBusy(false);
     }
@@ -320,21 +321,21 @@ function VoiceOverlay({
         type="button"
         onClick={onClose}
         className="absolute top-xl right-xl p-3 text-on-surface-variant hover:text-primary transition-colors active:scale-90"
-        aria-label="Kapat"
+        aria-label={t("common.close")}
       >
         <span className="material-symbols-outlined text-[32px]">close</span>
       </button>
 
       <div className="max-w-3xl w-full px-xl mb-auto mt-24 text-center">
         <span className="px-3 py-1 rounded-full bg-primary-container/10 text-primary font-label-sm text-label-sm uppercase tracking-wider mb-4 inline-block">
-          Real-time Transcript
+          {t("aiChat.realTimeTranscript")}
         </span>
         <form id="voice-form" onSubmit={handleVoiceSubmit}>
           <input
             autoFocus
             className="w-full bg-transparent border-b-2 border-primary/20 focus:border-primary text-center font-headline-lg text-headline-lg text-on-surface font-medium leading-relaxed outline-none pb-2"
             onChange={(e) => setTranscript(e.target.value)}
-            placeholder="Söylemek istediğini yaz..."
+            placeholder={t("aiChat.voiceInputPlaceholder")}
             value={transcript}
           />
         </form>
@@ -372,13 +373,13 @@ function VoiceOverlay({
               </div>
               <div className="flex-1">
                 <h4 className="font-label-sm text-label-sm text-primary mb-2 uppercase tracking-tight">
-                  NeuroDesk Response
+                  {t("aiChat.neuroDeskResponse")}
                 </h4>
                 <p className="text-on-surface-variant font-body-lg text-body-lg leading-snug">{response}</p>
                 {actionMeta ? (
                   <p className="text-[11px] text-outline mt-3">
-                    Niyet: {actionMeta.intent} · Tip: {actionMeta.actionType} ·{" "}
-                    {actionMeta.requiresApproval ? "Onay gerekiyor" : "Onay gerekmiyor"}
+                    {t("aiChat.voiceMeta", { intent: actionMeta.intent, actionType: actionMeta.actionType })}{" "}
+                    {actionMeta.requiresApproval ? t("aiChat.requiresApproval") : t("aiChat.noApprovalNeeded")}
                   </p>
                 ) : null}
                 <div className="flex gap-2 mt-6">
@@ -387,14 +388,14 @@ function VoiceOverlay({
                     onClick={handleSendToChat}
                     className="px-4 py-2 bg-primary text-on-primary rounded-lg text-sm font-medium hover:brightness-110 active:scale-95 transition-all"
                   >
-                    Sohbete Ekle
+                    {t("aiChat.addToChat")}
                   </button>
                   {actionMeta?.requiresApproval ? (
                     <a
                       href="/onay-merkezi"
                       className="px-4 py-2 bg-surface-container-high text-on-surface rounded-lg text-sm font-medium hover:bg-surface-container-highest active:scale-95 transition-all"
                     >
-                      Onay Merkezine Git
+                      {t("aiChat.goToApprovalCenter")}
                     </a>
                   ) : null}
                 </div>
@@ -402,9 +403,7 @@ function VoiceOverlay({
             </div>
           </div>
         ) : (
-          <p className="text-center text-body-sm text-on-surface-variant">
-            Komutunu yazıp mikrofon düğmesine bas.
-          </p>
+          <p className="text-center text-body-sm text-on-surface-variant">{t("aiChat.voicePrompt")}</p>
         )}
       </div>
     </div>

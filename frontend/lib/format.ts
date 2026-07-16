@@ -1,3 +1,9 @@
+import type { Language } from "@/lib/i18n/context";
+
+function localeFor(language: Language = "tr"): string {
+  return language === "tr" ? "tr-TR" : "en-US";
+}
+
 export function getInitials(name: string | null | undefined): string {
   if (!name) return "?";
   return (
@@ -11,22 +17,22 @@ export function getInitials(name: string | null | undefined): string {
   );
 }
 
-export function formatTime(value: string): string {
-  return new Intl.DateTimeFormat("tr-TR", {
+export function formatTime(value: string, language?: Language): string {
+  return new Intl.DateTimeFormat(localeFor(language), {
     hour: "2-digit",
     minute: "2-digit",
   }).format(new Date(value));
 }
 
-export function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("tr-TR", {
+export function formatDate(value: string, language?: Language): string {
+  return new Intl.DateTimeFormat(localeFor(language), {
     day: "2-digit",
     month: "long",
   }).format(new Date(value));
 }
 
-export function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat("tr-TR", {
+export function formatDateTime(value: string, language?: Language): string {
+  return new Intl.DateTimeFormat(localeFor(language), {
     day: "2-digit",
     month: "short",
     hour: "2-digit",
@@ -34,20 +40,21 @@ export function formatDateTime(value: string): string {
   }).format(new Date(value));
 }
 
-export function formatRelative(value: string): string {
+export function formatRelative(value: string, language?: Language): string {
   const diffMs = Date.now() - new Date(value).getTime();
   const diffMin = Math.round(diffMs / 60_000);
-  if (diffMin < 1) return "az önce";
-  if (diffMin < 60) return `${diffMin} dk önce`;
+  const isTr = (language ?? "tr") === "tr";
+  if (diffMin < 1) return isTr ? "az önce" : "just now";
+  if (diffMin < 60) return isTr ? `${diffMin} dk önce` : `${diffMin}m ago`;
   const diffHour = Math.round(diffMin / 60);
-  if (diffHour < 24) return `${diffHour} sa önce`;
+  if (diffHour < 24) return isTr ? `${diffHour} sa önce` : `${diffHour}h ago`;
   const diffDay = Math.round(diffHour / 24);
-  return `${diffDay} gün önce`;
+  return isTr ? `${diffDay} gün önce` : `${diffDay}d ago`;
 }
 
-export function formatMoney(value: number | null | undefined, currency = "TRY"): string {
+export function formatMoney(value: number | null | undefined, currency = "TRY", language?: Language): string {
   if (value === null || value === undefined) return "-";
-  return new Intl.NumberFormat("tr-TR", {
+  return new Intl.NumberFormat(localeFor(language), {
     style: "currency",
     currency,
     maximumFractionDigits: 0,

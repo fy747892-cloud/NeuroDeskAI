@@ -79,7 +79,7 @@ async def _complete_connect(
     if _wants_html(request):
         # A real OAuth provider redirected the actual browser here — send it back into
         # the frontend app instead of showing a raw JSON response.
-        return RedirectResponse(f"{settings.frontend_base_url}/mailler?connected={provider}")
+        return RedirectResponse(f"{settings.frontend_base_url}/ayarlar?connected={provider}")
     return account
 
 

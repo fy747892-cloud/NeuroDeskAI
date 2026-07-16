@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   AuditLog,
   BillingPlan,
   CalendarAccount,
-  completeGmailConnect,
-  completeOutlookConnect,
   connectGoogleCalendar,
   EmailAccount,
   getCurrentOrganization,
@@ -28,6 +27,7 @@ import {
   UsageSummary,
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
+import { useLanguage } from "@/lib/i18n/context";
 import { formatDateTime, formatMoney, getInitials } from "@/lib/format";
 
 const INTEGRATION_META: Record<string, { label: string; icon: string; tint: string }> = {
@@ -51,6 +51,9 @@ const DEFAULT_CONSENT: ConsentPreferences = {
 
 export function SettingsView() {
   const { user, tokens } = useSession();
+  const { t, language } = useLanguage();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [plans, setPlans] = useState<BillingPlan[]>([]);
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [members, setMembers] = useState<OrganizationMember[]>([]);
@@ -93,7 +96,7 @@ export function SettingsView() {
       setMembers(nextMembers);
       setAuditLogs(nextAuditLogs);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Ayarlar alınamadı.");
+      setError(loadError instanceof Error ? loadError.message : t("settings.loadError"));
     } finally {
       setLoading(false);
     }
@@ -102,6 +105,14 @@ export function SettingsView() {
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  useEffect(() => {
+    const connected = searchParams.get("connected");
+    if (!connected) return;
+    const label = connected === "gmail" ? "Gmail" : connected === "outlook" ? "Outlook" : connected;
+    setNotice(t("settings.integrations.connectedNotice", { provider: label }));
+    router.replace("/ayarlar");
+  }, [searchParams, router]);
 
   useEffect(() => {
     const stored = window.localStorage.getItem(CONSENT_STORAGE_KEY);
@@ -120,9 +131,9 @@ export function SettingsView() {
     try {
       const updated = await switchPlan(tokens.accessToken, planCode);
       setSubscription(updated);
-      setNotice(`Plan "${updated.plan.name}" olarak güncellendi.`);
+      setNotice(t("settings.billing.planUpdated", { planName: updated.plan.name }));
     } catch (switchError) {
-      setError(switchError instanceof Error ? switchError.message : "Plan değiştirilemedi.");
+      setError(switchError instanceof Error ? switchError.message : t("settings.billing.planUpdateError"));
     } finally {
       setBusyPlanCode(null);
     }
@@ -136,7 +147,7 @@ export function SettingsView() {
       const updated = await updateMemberRole(tokens.accessToken, memberId, role);
       setMembers((current) => current.map((member) => (member.id === updated.id ? updated : member)));
     } catch (roleError) {
-      setError(roleError instanceof Error ? roleError.message : "Rol güncellenemedi.");
+      setError(roleError instanceof Error ? roleError.message : t("settings.team.roleUpdateError"));
     } finally {
       setBusyMemberId(null);
     }
@@ -147,13 +158,16 @@ export function SettingsView() {
     setBusyIntegration(provider);
     setError(null);
     try {
-      const { state } = provider === "gmail" ? await startGmailConnect(tokens.accessToken) : await startOutlookConnect(tokens.accessToken);
-      const account = provider === "gmail" ? await completeGmailConnect(state) : await completeOutlookConnect(state);
-      setEmailAccounts((current) => [account, ...current.filter((item) => item.id !== account.id)]);
-      setNotice(`${provider === "gmail" ? "Gmail" : "Outlook"} bağlandı.`);
+      const { authorize_url } =
+        provider === "gmail"
+          ? await startGmailConnect(tokens.accessToken)
+          : await startOutlookConnect(tokens.accessToken);
+      // Full-page redirect: the provider's consent screen must see the real
+      // top-level navigation, then it redirects the browser back to our
+      // backend callback, which in turn redirects here with ?connected=.
+      window.location.href = authorize_url;
     } catch (connectError) {
-      setError(connectError instanceof Error ? connectError.message : "Bağlantı kurulamadı.");
-    } finally {
+      setError(connectError instanceof Error ? connectError.message : t("settings.integrations.connectError"));
       setBusyIntegration(null);
     }
   }
@@ -166,7 +180,7 @@ export function SettingsView() {
       const updated = await revokeEmailAccount(tokens.accessToken, accountId);
       setEmailAccounts((current) => current.map((item) => (item.id === updated.id ? updated : item)));
     } catch (revokeError) {
-      setError(revokeError instanceof Error ? revokeError.message : "Bağlantı kaldırılamadı.");
+      setError(revokeError instanceof Error ? revokeError.message : t("settings.integrations.disconnectError"));
     } finally {
       setBusyIntegration(null);
     }
@@ -179,9 +193,9 @@ export function SettingsView() {
     try {
       const account = await connectGoogleCalendar(tokens.accessToken);
       setCalendarAccounts((current) => [account, ...current]);
-      setNotice("Google Takvim bağlandı.");
+      setNotice(t("settings.integrations.googleCalendarConnected"));
     } catch (connectError) {
-      setError(connectError instanceof Error ? connectError.message : "Takvim bağlanamadı.");
+      setError(connectError instanceof Error ? connectError.message : t("tasks.calendarConnectError"));
     } finally {
       setBusyIntegration(null);
     }
@@ -191,7 +205,7 @@ export function SettingsView() {
     const next = { ...consent, [key]: value };
     setConsent(next);
     window.localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(next));
-    setNotice("Tercih kaydedildi.");
+    setNotice(t("settings.consent.saved"));
   }
 
   const usagePercent = useMemo(() => {
@@ -212,10 +226,8 @@ export function SettingsView() {
   return (
     <div className="p-xl max-w-[1200px]">
       <header className="mb-xl">
-        <h2 className="font-headline-lg text-headline-lg text-on-surface">Settings &amp; Integrations</h2>
-        <p className="text-body-lg text-on-surface-variant">
-          Manage your workspace, billing, and third-party platform connections.
-        </p>
+        <h2 className="font-headline-lg text-headline-lg text-on-surface">{t("settings.pageTitle")}</h2>
+        <p className="text-body-lg text-on-surface-variant">{t("settings.pageSubtitle")}</p>
       </header>
 
       {error ? <p className="text-error text-body-sm mb-md">{error}</p> : null}
@@ -226,13 +238,13 @@ export function SettingsView() {
           <div className="flex items-center justify-between mb-sm">
             <h3 className="font-headline-md text-headline-md flex items-center gap-2">
               <span className="material-symbols-outlined text-primary">extension</span>
-              Connected Integrations
+              {t("settings.integrations.title")}
             </h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
             <IntegrationCard
               meta={INTEGRATION_META.gmail}
-              detail={gmailAccount?.email_address ?? "Henüz bağlı değil"}
+              detail={gmailAccount?.email_address ?? t("common.notConnected")}
               isConnected={Boolean(gmailAccount)}
               isBusy={busyIntegration === "gmail" || busyIntegration === gmailAccount?.id}
               onConnect={() => handleConnectEmail("gmail")}
@@ -240,7 +252,7 @@ export function SettingsView() {
             />
             <IntegrationCard
               meta={INTEGRATION_META.outlook}
-              detail={outlookAccount?.email_address ?? "Henüz bağlı değil"}
+              detail={outlookAccount?.email_address ?? t("common.notConnected")}
               isConnected={Boolean(outlookAccount)}
               isBusy={busyIntegration === "outlook" || busyIntegration === outlookAccount?.id}
               onConnect={() => handleConnectEmail("outlook")}
@@ -248,7 +260,7 @@ export function SettingsView() {
             />
             <IntegrationCard
               meta={INTEGRATION_META.google}
-              detail={googleCalendarAccount?.external_account_id ?? "Henüz bağlı değil"}
+              detail={googleCalendarAccount?.external_account_id ?? t("common.notConnected")}
               isConnected={Boolean(googleCalendarAccount)}
               isBusy={busyIntegration === "google-calendar"}
               onConnect={handleConnectCalendar}
@@ -257,8 +269,8 @@ export function SettingsView() {
               <div className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center mb-sm">
                 <span className="material-symbols-outlined">add</span>
               </div>
-              <p className="font-label-md text-on-surface-variant">Add New Integration</p>
-              <p className="text-[10px] text-outline text-center mt-xs">Slack, Zoom, Salesforce ve daha fazlası</p>
+              <p className="font-label-md text-on-surface-variant">{t("settings.integrations.addNew")}</p>
+              <p className="text-[10px] text-outline text-center mt-xs">{t("settings.integrations.addNewHint")}</p>
             </div>
           </div>
         </section>
@@ -266,38 +278,43 @@ export function SettingsView() {
         <section className="col-span-12 lg:col-span-4 space-y-md">
           <h3 className="font-headline-md text-headline-md flex items-center gap-2 mb-sm">
             <span className="material-symbols-outlined text-primary">payments</span>
-            Billing &amp; Plan
+            {t("settings.billing.title")}
           </h3>
           <div className="bg-inverse-surface text-on-primary-fixed p-lg rounded-xl relative overflow-hidden shadow-xl">
             <div className="absolute -top-12 -right-12 w-32 h-32 bg-primary/20 blur-3xl rounded-full" />
             <div className="relative z-10">
               <div className="flex justify-between items-center mb-lg">
-                <span className="font-label-sm text-primary-fixed-dim uppercase tracking-widest">Active Plan</span>
+                <span className="font-label-sm text-primary-fixed-dim uppercase tracking-widest">
+                  {t("settings.billing.activePlan")}
+                </span>
                 <span className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-full uppercase">
                   {subscription?.plan.code ?? "--"}
                 </span>
               </div>
               <div className="mb-xl">
                 <h4 className="text-headline-lg font-bold text-white">
-                  {subscription ? formatMoney(subscription.plan.price, "USD") : "--"}{" "}
+                  {subscription ? formatMoney(subscription.plan.price, "USD", language) : "--"}{" "}
                   <span className="text-body-md font-normal text-outline-variant">
                     / {subscription?.plan.billing_period ?? "-"}
                   </span>
                 </h4>
                 <p className="text-body-sm text-outline-variant mt-xs">
                   {subscription
-                    ? `Durum: ${subscription.status} · Dönem sonu: ${formatDateTime(subscription.current_period_end)}`
-                    : "Veri bekleniyor"}
+                    ? t("settings.billing.statusLine", {
+                        status: subscription.status,
+                        periodEnd: formatDateTime(subscription.current_period_end, language),
+                      })
+                    : t("settings.billing.awaitingData")}
                 </p>
               </div>
               <div className="space-y-2 mb-xl max-h-32 overflow-y-auto custom-scrollbar">
                 {plans.map((plan) => (
                   <div key={plan.id} className="flex items-center justify-between text-body-sm text-on-primary-container">
                     <span>
-                      {plan.name} · {formatMoney(plan.price, "USD")}/{plan.billing_period}
+                      {plan.name} · {formatMoney(plan.price, "USD", language)}/{plan.billing_period}
                     </span>
                     {plan.code === subscription?.plan.code ? (
-                      <span className="text-[10px] opacity-70">Mevcut</span>
+                      <span className="text-[10px] opacity-70">{t("settings.billing.currentPlanBadge")}</span>
                     ) : (
                       <button
                         type="button"
@@ -305,7 +322,7 @@ export function SettingsView() {
                         onClick={() => handleSwitchPlan(plan.code)}
                         className="text-[11px] font-bold underline disabled:opacity-60"
                       >
-                        {busyPlanCode === plan.code ? "..." : "Seç"}
+                        {busyPlanCode === plan.code ? "..." : t("settings.billing.selectPlan")}
                       </button>
                     )}
                   </div>
@@ -315,10 +332,12 @@ export function SettingsView() {
           </div>
 
           <div className="glass-card p-lg rounded-xl">
-            <h5 className="font-label-md mb-md">Kullanım</h5>
+            <h5 className="font-label-md mb-md">{t("settings.usage.title")}</h5>
             <div className="space-y-2">
               <div className="flex justify-between text-body-sm">
-                <span className="text-on-surface-variant">{usage?.quota_type ?? "quota"}</span>
+                <span className="text-on-surface-variant">
+                  {usage?.quota_type ?? t("settings.usage.fallbackQuotaType")}
+                </span>
                 <span className="font-bold">
                   {usage?.used ?? 0}/{usage?.limit_value ?? 0}
                 </span>
@@ -334,21 +353,31 @@ export function SettingsView() {
           <div className="flex items-center justify-between mb-sm">
             <h3 className="font-headline-md text-headline-md flex items-center gap-2">
               <span className="material-symbols-outlined text-primary">groups</span>
-              Team Management
+              {t("settings.team.title")}
             </h3>
-            <span className="text-body-sm text-on-surface-variant">{members.length} üye</span>
+            <span className="text-body-sm text-on-surface-variant">
+              {t("settings.team.memberCount", { count: members.length })}
+            </span>
           </div>
           <div className="glass-card rounded-xl overflow-hidden">
             {members.length === 0 ? (
-              <p className="p-lg text-body-sm text-on-surface-variant">Üye bulunmuyor.</p>
+              <p className="p-lg text-body-sm text-on-surface-variant">{t("settings.team.noMembers")}</p>
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-surface-container-high border-b border-outline-variant">
-                    <th className="px-lg py-md text-label-sm uppercase tracking-wider text-on-surface-variant">Üye</th>
-                    <th className="px-lg py-md text-label-sm uppercase tracking-wider text-on-surface-variant">Durum</th>
-                    <th className="px-lg py-md text-label-sm uppercase tracking-wider text-on-surface-variant">Rol</th>
-                    <th className="px-lg py-md text-label-sm uppercase tracking-wider text-on-surface-variant">Katılım</th>
+                    <th className="px-lg py-md text-label-sm uppercase tracking-wider text-on-surface-variant">
+                      {t("settings.team.memberColumn")}
+                    </th>
+                    <th className="px-lg py-md text-label-sm uppercase tracking-wider text-on-surface-variant">
+                      {t("common.status")}
+                    </th>
+                    <th className="px-lg py-md text-label-sm uppercase tracking-wider text-on-surface-variant">
+                      {t("settings.team.roleColumn")}
+                    </th>
+                    <th className="px-lg py-md text-label-sm uppercase tracking-wider text-on-surface-variant">
+                      {t("settings.team.joinedColumn")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant">
@@ -370,13 +399,15 @@ export function SettingsView() {
                           onChange={(e) => handleRoleChange(member.id, e.target.value)}
                           value={member.role}
                         >
-                          <option value="owner">Owner</option>
-                          <option value="admin">Admin</option>
-                          <option value="member">Member</option>
-                          <option value="viewer">Viewer</option>
+                          <option value="owner">{t("settings.team.roles.owner")}</option>
+                          <option value="admin">{t("settings.team.roles.admin")}</option>
+                          <option value="member">{t("settings.team.roles.member")}</option>
+                          <option value="viewer">{t("settings.team.roles.viewer")}</option>
                         </select>
                       </td>
-                      <td className="px-lg py-md text-body-sm text-outline">{formatDateTime(member.created_at)}</td>
+                      <td className="px-lg py-md text-body-sm text-outline">
+                        {formatDateTime(member.created_at, language)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -388,33 +419,33 @@ export function SettingsView() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-lg mt-lg">
         <section className="glass-card p-lg rounded-xl">
-          <h3 className="font-headline-md text-headline-md mb-md">Hesap</h3>
+          <h3 className="font-headline-md text-headline-md mb-md">{t("settings.account.title")}</h3>
           <div className="space-y-2">
-            <MetricLine label="Email" value={user?.email ?? "--"} />
-            <MetricLine label="Kullanıcı durumu" value={user?.status ?? "--"} />
-            <MetricLine label="Organizasyon adı" value={organization?.name ?? "--"} />
+            <MetricLine label={t("common.email")} value={user?.email ?? "--"} />
+            <MetricLine label={t("settings.account.userStatus")} value={user?.status ?? "--"} />
+            <MetricLine label={t("settings.account.organizationName")} value={organization?.name ?? "--"} />
           </div>
         </section>
 
         <section className="glass-card p-lg rounded-xl">
-          <h3 className="font-headline-md text-headline-md mb-md">Rıza ve Tercihler</h3>
+          <h3 className="font-headline-md text-headline-md mb-md">{t("settings.consent.title")}</h3>
           <div className="space-y-3">
             <ConsentToggle
               checked={consent.aiProcessing}
-              description="AI chat, özetleme ve öneriler için çalışma alanı verilerinin işlenmesine izin verir."
-              label="AI veri işleme"
+              description={t("settings.consent.aiProcessingDescription")}
+              label={t("settings.consent.aiProcessingLabel")}
               onChange={(value) => updateConsent("aiProcessing", value)}
             />
             <ConsentToggle
               checked={consent.contactMemory}
-              description="Kişi hafızası ve CRM bağlamının arama/chat sonuçlarında kullanılmasına izin verir."
-              label="Kişi hafızası"
+              description={t("settings.consent.contactMemoryDescription")}
+              label={t("settings.consent.contactMemoryLabel")}
               onChange={(value) => updateConsent("contactMemory", value)}
             />
             <ConsentToggle
               checked={consent.operationalReminders}
-              description="Görev, randevu ve bildirim hatırlatmalarının kullanılmasına izin verir."
-              label="Operasyonel hatırlatmalar"
+              description={t("settings.consent.operationalRemindersDescription")}
+              label={t("settings.consent.operationalRemindersLabel")}
               onChange={(value) => updateConsent("operationalReminders", value)}
             />
           </div>
@@ -423,19 +454,19 @@ export function SettingsView() {
 
       <section className="glass-card rounded-xl overflow-hidden mt-lg">
         <div className="px-lg py-md border-b border-outline-variant/30">
-          <h3 className="font-headline-md text-headline-md">Audit Logs</h3>
+          <h3 className="font-headline-md text-headline-md">{t("settings.audit.title")}</h3>
         </div>
-        {isLoading ? <p className="p-lg text-body-sm text-on-surface-variant">Yükleniyor...</p> : null}
+        {isLoading ? <p className="p-lg text-body-sm text-on-surface-variant">{t("common.loading")}</p> : null}
         {!isLoading && auditLogs.length === 0 ? (
-          <p className="p-lg text-body-sm text-on-surface-variant">Audit log bulunmuyor.</p>
+          <p className="p-lg text-body-sm text-on-surface-variant">{t("settings.audit.empty")}</p>
         ) : null}
         {auditLogs.length > 0 ? (
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-surface-container text-outline font-label-sm uppercase tracking-wider">
-                <th className="px-lg py-3">Aksiyon</th>
-                <th className="px-lg py-3">Varlık</th>
-                <th className="px-lg py-3 text-right">Zaman</th>
+                <th className="px-lg py-3">{t("settings.audit.actionColumn")}</th>
+                <th className="px-lg py-3">{t("settings.audit.entityColumn")}</th>
+                <th className="px-lg py-3 text-right">{t("settings.audit.timeColumn")}</th>
               </tr>
             </thead>
             <tbody className="text-body-sm">
@@ -443,7 +474,9 @@ export function SettingsView() {
                 <tr key={log.id} className="border-b border-outline-variant/10">
                   <td className="px-lg py-3">{log.action}</td>
                   <td className="px-lg py-3">{log.entity_type}</td>
-                  <td className="px-lg py-3 text-right text-outline">{formatDateTime(log.created_at)}</td>
+                  <td className="px-lg py-3 text-right text-outline">
+                    {formatDateTime(log.created_at, language)}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -469,6 +502,7 @@ function IntegrationCard({
   onConnect: () => void;
   onDisconnect?: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="glass-card p-lg rounded-xl flex flex-col justify-between">
       <div className="flex justify-between items-start mb-lg">
@@ -484,7 +518,7 @@ function IntegrationCard({
                 (isConnected ? "bg-green-100 text-green-700" : "bg-surface-container-high text-on-surface-variant")
               }
             >
-              {isConnected ? "Connected" : "Not connected"}
+              {isConnected ? t("common.connected") : t("common.notConnected")}
             </span>
           </div>
         </div>
@@ -496,7 +530,7 @@ function IntegrationCard({
         onClick={isConnected ? onDisconnect : onConnect}
         className="w-full py-2 border border-outline-variant rounded-lg text-on-surface-variant font-label-sm hover:bg-surface-container-high transition-colors active:scale-[0.98] disabled:opacity-60"
       >
-        {isBusy ? "İşleniyor..." : isConnected ? "Disconnect" : "Connect"}
+        {isBusy ? t("auth.submitting") : isConnected ? t("common.disconnect") : t("common.connect")}
       </button>
     </div>
   );

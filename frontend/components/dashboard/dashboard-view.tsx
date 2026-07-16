@@ -11,10 +11,12 @@ import {
   rejectAction,
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
+import { useLanguage } from "@/lib/i18n/context";
 import { formatTime } from "@/lib/format";
 
 export function DashboardView() {
   const { tokens, user } = useSession();
+  const { t, language } = useLanguage();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
@@ -27,7 +29,7 @@ export function DashboardView() {
     try {
       setDashboard(await getDashboard(tokens.accessToken));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Dashboard verisi alınamadı.");
+      setError(loadError instanceof Error ? loadError.message : t("dashboard.loadError"));
     } finally {
       setLoading(false);
     }
@@ -44,7 +46,7 @@ export function DashboardView() {
       await completeTask(tokens.accessToken, taskId);
       await loadDashboard();
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Görev tamamlanamadı.");
+      setError(actionError instanceof Error ? actionError.message : t("dashboard.taskCompleteError"));
     } finally {
       setBusyId(null);
     }
@@ -57,7 +59,7 @@ export function DashboardView() {
       await approveAction(tokens.accessToken, approvalId);
       await loadDashboard();
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Öneri onaylanamadı.");
+      setError(actionError instanceof Error ? actionError.message : t("dashboard.approveError"));
     } finally {
       setBusyId(null);
     }
@@ -70,7 +72,7 @@ export function DashboardView() {
       await rejectAction(tokens.accessToken, approvalId);
       await loadDashboard();
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Öneri reddedilemedi.");
+      setError(actionError instanceof Error ? actionError.message : t("dashboard.rejectError"));
     } finally {
       setBusyId(null);
     }
@@ -103,20 +105,25 @@ export function DashboardView() {
               auto_awesome
             </span>
             <span className="font-label-sm text-label-sm text-secondary uppercase tracking-widest">
-              Intelligent Overview
+              {t("dashboard.intelligentOverview")}
             </span>
           </div>
           <h2 className="font-headline-lg text-headline-lg text-on-background leading-tight">
-            Günaydın, {firstName}! Bugün{" "}
-            <span className="text-primary font-bold">{appointments.length} randevun</span>,{" "}
+            {t("dashboard.greetingPrefix", { name: firstName })}{" "}
             <span className="text-primary font-bold">
-              {dashboard?.summary.pending_ai_approvals_count ?? 0} bekleyen AI önerin
-            </span>{" "}
-            ve{" "}
+              {t("dashboard.appointmentsCount", { count: appointments.length })}
+            </span>
+            ,{" "}
             <span className="text-primary font-bold">
-              {dashboard?.summary.open_tasks_count ?? 0} açık görevin
+              {t("dashboard.pendingApprovalsCount", {
+                count: dashboard?.summary.pending_ai_approvals_count ?? 0,
+              })}
             </span>{" "}
-            var.
+            {t("common.and")}{" "}
+            <span className="text-primary font-bold">
+              {t("dashboard.openTasksCount", { count: dashboard?.summary.open_tasks_count ?? 0 })}
+            </span>{" "}
+            {t("dashboard.greetingSuffix")}
           </h2>
           <div className="mt-xl flex gap-md">
             <button
@@ -126,13 +133,13 @@ export function DashboardView() {
               className="bg-primary text-on-primary px-lg py-sm rounded-full font-label-md flex items-center gap-2 hover:shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-60"
             >
               <span className="material-symbols-outlined text-[18px]">bolt</span>
-              {isLoading ? "Yükleniyor..." : "Özeti Yenile"}
+              {isLoading ? t("dashboard.refreshing") : t("dashboard.refreshSummary")}
             </button>
             <Link
               href="/gorevler"
               className="bg-white/50 border border-outline-variant text-on-surface px-lg py-sm rounded-full font-label-md hover:bg-white transition-colors"
             >
-              Tüm Takvimi Gör
+              {t("dashboard.viewFullCalendar")}
             </Link>
           </div>
         </div>
@@ -143,15 +150,15 @@ export function DashboardView() {
           <div className="flex items-center justify-between">
             <h3 className="font-headline-md text-headline-md flex items-center gap-2">
               <span className="material-symbols-outlined text-primary">calendar_today</span>
-              Bugünün Randevuları
+              {t("dashboard.todaysAppointments")}
             </h3>
             <Link href="/gorevler" className="text-primary font-label-sm text-label-sm hover:underline">
-              Tümünü Gör
+              {t("common.viewAll")}
             </Link>
           </div>
           <div className="space-y-md">
             {appointments.length === 0 ? (
-              <p className="text-body-sm text-on-surface-variant">Yaklaşan randevu bulunmuyor.</p>
+              <p className="text-body-sm text-on-surface-variant">{t("dashboard.noUpcomingAppointments")}</p>
             ) : (
               appointments.map((appt) => (
                 <article
@@ -161,7 +168,7 @@ export function DashboardView() {
                   <div className="flex gap-md">
                     <div className="flex flex-col items-center justify-center w-14 py-2 bg-primary-container/10 rounded-lg shrink-0">
                       <span className="font-label-sm text-label-sm text-primary">
-                        {formatTime(appt.start_at)}
+                        {formatTime(appt.start_at, language)}
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
@@ -169,7 +176,7 @@ export function DashboardView() {
                         {appt.title}
                       </p>
                       <p className="font-body-sm text-body-sm text-on-surface-variant truncate">
-                        {appt.location ?? appt.description ?? "Detay yok"}
+                        {appt.location ?? appt.description ?? t("common.noDetail")}
                       </p>
                     </div>
                   </div>
@@ -183,17 +190,17 @@ export function DashboardView() {
           <div className="flex items-center justify-between">
             <h3 className="font-headline-md text-headline-md flex items-center gap-2">
               <span className="material-symbols-outlined text-error">warning</span>
-              Kritik Görevler
+              {t("dashboard.criticalTasks")}
             </h3>
             {overdueCount > 0 ? (
               <div className="bg-error-container text-on-error-container text-[10px] px-2 py-0.5 rounded font-bold">
-                {overdueCount} OVERDUE
+                {overdueCount} {t("dashboard.overdueBadge")}
               </div>
             ) : null}
           </div>
           <div className="bg-white rounded-2xl border border-outline-variant/30 overflow-hidden">
             {criticalTasks.length === 0 ? (
-              <p className="p-md text-body-sm text-on-surface-variant">Bekleyen kritik görev yok.</p>
+              <p className="p-md text-body-sm text-on-surface-variant">{t("dashboard.noCriticalTasks")}</p>
             ) : (
               <div className="divide-y divide-outline-variant/20">
                 {criticalTasks.map((task) => (
@@ -212,7 +219,7 @@ export function DashboardView() {
                 className="text-primary font-label-sm text-label-sm flex items-center justify-center w-full gap-2"
               >
                 <span className="material-symbols-outlined text-[18px]">add</span>
-                Yeni Görev Oluştur
+                {t("dashboard.createNewTask")}
               </Link>
             </div>
           </div>
@@ -224,15 +231,15 @@ export function DashboardView() {
               <span className="material-symbols-outlined text-secondary" style={{ fontVariationSettings: "'FILL' 1" }}>
                 smart_toy
               </span>
-              AI Suggestions
+              {t("dashboard.aiSuggestions")}
             </h3>
             <Link href="/onay-merkezi" className="text-on-surface-variant text-[11px] hover:text-primary">
-              Tümünü Gör
+              {t("common.viewAll")}
             </Link>
           </div>
           <div className="space-y-md">
             {approvals.length === 0 ? (
-              <p className="text-body-sm text-on-surface-variant">Onay bekleyen AI önerisi yok.</p>
+              <p className="text-body-sm text-on-surface-variant">{t("dashboard.noApprovals")}</p>
             ) : (
               approvals.map((approval) => (
                 <div
@@ -250,11 +257,13 @@ export function DashboardView() {
                       </span>
                     </div>
                     <p className="font-label-md text-label-md mb-sm text-on-surface">
-                      {approval.source_type} kaynağından üretildi
+                      {t("dashboard.generatedFrom", { source: approval.source_type })}
                     </p>
                     {approval.confidence_score !== null ? (
                       <p className="text-[11px] text-primary font-bold mb-md">
-                        %{Math.round(approval.confidence_score * 100)} güven skoru
+                        {t("dashboard.confidenceScore", {
+                          percent: Math.round(approval.confidence_score * 100),
+                        })}
                       </p>
                     ) : null}
                     <div className="flex gap-2">
@@ -264,7 +273,7 @@ export function DashboardView() {
                         onClick={() => handleApprove(approval.id)}
                         className="flex-1 py-1.5 bg-primary text-on-primary rounded-lg text-[12px] font-bold active:scale-95 transition-transform disabled:opacity-60"
                       >
-                        Onayla
+                        {t("common.confirm")}
                       </button>
                       <button
                         type="button"
@@ -272,7 +281,7 @@ export function DashboardView() {
                         onClick={() => handleReject(approval.id)}
                         className="flex-1 py-1.5 bg-white border border-outline-variant rounded-lg text-[12px] font-bold text-on-surface active:scale-95 transition-transform disabled:opacity-60"
                       >
-                        Reddet
+                        {t("common.reject")}
                       </button>
                     </div>
                   </div>
@@ -295,13 +304,14 @@ function TaskRow({
   isBusy: boolean;
   onComplete: () => void;
 }) {
+  const { t } = useLanguage();
   return (
     <div className="p-md flex gap-md items-start hover:bg-surface-container-low transition-colors group">
       <button
         type="button"
         disabled={isBusy}
         onClick={onComplete}
-        aria-label="Görevi tamamla"
+        aria-label={t("dashboard.completeTaskAria")}
         className="mt-1 w-5 h-5 rounded border-2 border-outline-variant flex items-center justify-center group-hover:border-primary transition-colors shrink-0 disabled:opacity-60"
       >
         <span className="material-symbols-outlined text-[16px] text-transparent">check</span>
@@ -316,7 +326,7 @@ function TaskRow({
         {task.overdue ? (
           <p className="font-body-sm text-body-sm text-error mt-xs flex items-center gap-1">
             <span className="material-symbols-outlined text-[14px]">schedule</span>
-            Süresi geçti
+            {t("dashboard.overdueLabel")}
           </p>
         ) : (
           <p className="font-body-sm text-body-sm text-on-surface-variant mt-xs truncate">

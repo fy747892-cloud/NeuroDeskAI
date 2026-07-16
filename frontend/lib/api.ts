@@ -1161,31 +1161,6 @@ export async function startEmailConnect(
   });
 }
 
-export async function completeGmailConnect(
-  state: string,
-  code = "mock-code",
-): Promise<EmailAccount> {
-  return completeEmailConnect("gmail", state, code);
-}
-
-export async function completeOutlookConnect(
-  state: string,
-  code = "mock-code",
-): Promise<EmailAccount> {
-  return completeEmailConnect("outlook", state, code);
-}
-
-export async function completeEmailConnect(
-  provider: EmailProvider,
-  state: string,
-  code = "mock-code",
-): Promise<EmailAccount> {
-  const searchParams = new URLSearchParams({ code, state });
-  return request<EmailAccount>(`/api/v1/email/${provider}/callback?${searchParams.toString()}`, {
-    cache: "no-store",
-  });
-}
-
 export async function revokeEmailAccount(
   accessToken: string,
   accountId: string,

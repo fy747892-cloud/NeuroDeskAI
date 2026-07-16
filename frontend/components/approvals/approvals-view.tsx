@@ -11,31 +11,33 @@ import {
   rejectAction,
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
+import { useLanguage } from "@/lib/i18n/context";
 import { formatDateTime } from "@/lib/format";
 
-const ACTION_META: Record<string, { icon: string; label: string; confirmLabel: string; confirmIcon: string }> = {
+const ACTION_META: Record<string, { icon: string; labelKey: string; confirmLabelKey: string; confirmIcon: string }> = {
   appointment: {
     icon: "calendar_today",
-    label: "MEETING SUGGESTION",
-    confirmLabel: "Approve & Schedule",
+    labelKey: "approvals.actionMeta.appointment.label",
+    confirmLabelKey: "approvals.actionMeta.appointment.confirmLabel",
     confirmIcon: "check_circle",
   },
   deal: {
     icon: "payments",
-    label: "NEW OPPORTUNITY",
-    confirmLabel: "Create Opportunity",
+    labelKey: "approvals.actionMeta.deal.label",
+    confirmLabelKey: "approvals.actionMeta.deal.confirmLabel",
     confirmIcon: "rocket_launch",
   },
   task: {
     icon: "checklist",
-    label: "ACTION ITEM",
-    confirmLabel: "Add to My Tasks",
+    labelKey: "approvals.actionMeta.task.label",
+    confirmLabelKey: "approvals.actionMeta.task.confirmLabel",
     confirmIcon: "add_task",
   },
 };
 
 export function ApprovalsView() {
   const { tokens } = useSession();
+  const { t, language } = useLanguage();
   const [approvals, setApprovals] = useState<AIActionApproval[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
@@ -48,7 +50,7 @@ export function ApprovalsView() {
     try {
       setApprovals(await listApprovals(tokens.accessToken));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "AI onayları alınamadı.");
+      setError(loadError instanceof Error ? loadError.message : t("approvals.errors.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -84,7 +86,7 @@ export function ApprovalsView() {
       }
       await load();
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Öneri onaylanamadı.");
+      setError(actionError instanceof Error ? actionError.message : t("approvals.errors.approveFailed"));
     } finally {
       setBusyId(null);
     }
@@ -98,7 +100,7 @@ export function ApprovalsView() {
       await rejectAction(tokens.accessToken, approvalId);
       await load();
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Öneri reddedilemedi.");
+      setError(actionError instanceof Error ? actionError.message : t("approvals.errors.rejectFailed"));
     } finally {
       setBusyId(null);
     }
@@ -116,22 +118,20 @@ export function ApprovalsView() {
                 auto_awesome
               </span>
               <span className="text-primary font-label-sm uppercase tracking-wider">
-                AI Intelligent Processing
+                {t("approvals.aiIntelligentProcessing")}
               </span>
             </div>
-            <h2 className="font-headline-lg text-headline-lg text-on-surface">AI Action Center</h2>
-            <p className="font-body-md text-on-surface-variant mt-1">
-              Review and approve suggested tasks and actions identified from your recent activity.
-            </p>
+            <h2 className="font-headline-lg text-headline-lg text-on-surface">{t("approvals.title")}</h2>
+            <p className="font-body-md text-on-surface-variant mt-1">{t("approvals.subtitle")}</p>
           </div>
           <div className="flex gap-2">
             <div className="bg-primary-container/10 border border-primary/20 px-4 py-2 rounded-xl flex flex-col items-center min-w-[80px]">
               <span className="text-primary font-bold text-lg">{summary.pending}</span>
-              <span className="text-[10px] text-primary/70 uppercase font-bold">Pending</span>
+              <span className="text-[10px] text-primary/70 uppercase font-bold">{t("approvals.pending")}</span>
             </div>
             <div className="bg-surface-container-high px-4 py-2 rounded-xl flex flex-col items-center min-w-[80px]">
               <span className="text-on-surface-variant font-bold text-lg">{summary.resolved}</span>
-              <span className="text-[10px] text-on-surface-variant/70 uppercase font-bold">Resolved</span>
+              <span className="text-[10px] text-on-surface-variant/70 uppercase font-bold">{t("approvals.resolved")}</span>
             </div>
           </div>
         </div>
@@ -139,15 +139,15 @@ export function ApprovalsView() {
         {error ? <p className="text-error text-body-sm mb-md">{error}</p> : null}
 
         <div className="max-w-4xl space-y-md">
-          {isLoading ? <p className="text-body-md text-on-surface-variant">Yükleniyor...</p> : null}
+          {isLoading ? <p className="text-body-md text-on-surface-variant">{t("common.loading")}</p> : null}
           {!isLoading && pendingApprovals.length === 0 ? (
             <div className="max-w-4xl flex flex-col items-center justify-center py-xl border-2 border-dashed border-outline-variant/30 rounded-2xl opacity-50">
               <span className="material-symbols-outlined text-[48px] text-outline-variant mb-md">
                 auto_awesome
               </span>
-              <p className="font-headline-md text-on-surface-variant">Bekleyen öneri yok.</p>
+              <p className="font-headline-md text-on-surface-variant">{t("approvals.emptyTitle")}</p>
               <p className="font-body-md text-on-surface-variant mt-2 text-center max-w-sm">
-                NeuroDesk AI, aksiyon alınabilir öneriler bulmak için verilerini işlemeye devam ediyor.
+                {t("approvals.emptySubtitle")}
               </p>
             </div>
           ) : null}
@@ -166,7 +166,7 @@ export function ApprovalsView() {
       <aside className="w-[320px] bg-white border-l border-outline-variant/20 flex flex-col p-xl shrink-0">
         <div className="mb-xl">
           <h4 className="font-label-md text-on-surface uppercase tracking-widest text-[11px] font-black mb-md opacity-40">
-            Intelligence Velocity
+            {t("approvals.intelligenceVelocity")}
           </h4>
           <div className="space-y-md">
             <div className="flex items-end justify-between">
@@ -174,7 +174,7 @@ export function ApprovalsView() {
                 <p className="text-[24px] font-bold text-on-surface">
                   {summary.acceptanceRate !== null ? `${summary.acceptanceRate}%` : "--"}
                 </p>
-                <p className="text-[12px] text-on-surface-variant">Acceptance Rate</p>
+                <p className="text-[12px] text-on-surface-variant">{t("approvals.acceptanceRate")}</p>
               </div>
               <div className="w-32 h-2 bg-surface-container-high rounded-full overflow-hidden">
                 <div
@@ -188,9 +188,9 @@ export function ApprovalsView() {
         <div className="mt-auto">
           <div className="bg-primary-container/10 p-lg rounded-2xl relative overflow-hidden border border-primary/10">
             <div className="relative z-10">
-              <p className="font-label-md text-primary font-bold mb-1">AI Assistant</p>
+              <p className="font-label-md text-primary font-bold mb-1">{t("approvals.aiAssistant")}</p>
               <p className="text-[12px] text-primary/80 leading-snug">
-                {summary.resolved} öneri şu ana kadar karara bağlandı.
+                {t("approvals.resolvedSummary", { count: summary.resolved })}
               </p>
             </div>
             <span
@@ -217,13 +217,16 @@ function ActionCard({
   onApprove: () => void;
   onReject: () => void;
 }) {
+  const { t, language } = useLanguage();
   const meta = ACTION_META[approval.action_type] ?? {
     icon: "auto_awesome",
-    label: approval.action_type.toUpperCase(),
-    confirmLabel: "Approve",
+    labelKey: null,
+    confirmLabelKey: "approvals.actionMeta.default.confirmLabel",
     confirmIcon: "check_circle",
   };
-  const title = summarizePayload(approval.suggested_payload);
+  const metaLabel = meta.labelKey ? t(meta.labelKey) : approval.action_type.toUpperCase();
+  const confirmLabel = t(meta.confirmLabelKey);
+  const title = summarizePayload(approval.suggested_payload, t);
   const fields = payloadFields(approval.suggested_payload);
   const confidence = approval.confidence_score;
   const confidenceTier = confidence === null ? "low" : confidence >= 0.9 ? "high" : confidence >= 0.7 ? "mid" : "low";
@@ -239,10 +242,10 @@ function ActionCard({
           <div>
             <div className="flex items-center gap-2 mb-1 flex-wrap">
               <span className="bg-surface-container-highest text-primary font-label-sm px-2 py-0.5 rounded text-[10px]">
-                {meta.label}
+                {metaLabel}
               </span>
               <span className="text-on-surface-variant text-[11px] font-medium opacity-60">
-                Source: {approval.source_type}
+                {t("approvals.sourceLabel", { type: approval.source_type })}
               </span>
             </div>
             <h3 className="font-headline-md text-on-surface">{title}</h3>
@@ -257,9 +260,13 @@ function ActionCard({
             <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>
               {confidenceIcon}
             </span>
-            <span className="font-label-sm text-[12px] font-bold">{formatConfidence(confidence)} CONFIDENCE</span>
+            <span className="font-label-sm text-[12px] font-bold">
+              {t("approvals.confidenceLabel", { value: formatConfidence(confidence) })}
+            </span>
           </div>
-          <span className="text-[11px] text-on-surface-variant opacity-50">{formatDateTime(approval.created_at)}</span>
+          <span className="text-[11px] text-on-surface-variant opacity-50">
+            {formatDateTime(approval.created_at, language)}
+          </span>
         </div>
       </div>
 
@@ -284,7 +291,7 @@ function ActionCard({
           className="flex-1 py-3.5 bg-primary text-on-primary rounded-xl font-label-md flex items-center justify-center gap-2 hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-60"
         >
           <span className="material-symbols-outlined text-[20px]">{meta.confirmIcon}</span>
-          <span>{isBusy ? "İşleniyor..." : meta.confirmLabel}</span>
+          <span>{isBusy ? t("approvals.processing") : confirmLabel}</span>
         </button>
         <button
           type="button"
@@ -299,12 +306,12 @@ function ActionCard({
   );
 }
 
-function summarizePayload(payload: Record<string, unknown>): string {
+function summarizePayload(payload: Record<string, unknown>, t: (path: string) => string): string {
   const title = payload.title ?? payload.summary ?? payload.description ?? payload.body;
   if (typeof title === "string" && title.trim()) {
     return title;
   }
-  return "AI tarafından üretilen aksiyon onay bekliyor.";
+  return t("approvals.defaultTitle");
 }
 
 function payloadFields(payload: Record<string, unknown>): [string, string][] {

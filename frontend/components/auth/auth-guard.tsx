@@ -4,10 +4,12 @@ import { useRouter } from "next/navigation";
 import type { Route } from "next";
 import { ReactNode, useEffect } from "react";
 import { useSession } from "@/lib/session";
+import { useLanguage } from "@/lib/i18n/context";
 
 export function AuthGuard({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { isAuthenticated, isInitializing } = useSession();
+  const { t } = useLanguage();
 
   useEffect(() => {
     if (!isInitializing && !isAuthenticated) {
@@ -23,12 +25,10 @@ export function AuthGuard({ children }: { children: ReactNode }) {
             NeuroDeskAI
           </p>
           <h1 className="font-headline-md text-headline-md text-on-surface mb-2">
-            Oturum kontrol ediliyor
+            {t("auth.guard.checkingSession")}
           </h1>
           <p className="text-body-md text-on-surface-variant">
-            {isInitializing
-              ? "Oturum bilgin doğrulanıyor..."
-              : "Devam etmek için giriş sayfasına yönlendiriliyorsun."}
+            {isInitializing ? t("auth.guard.verifying") : t("auth.guard.redirecting")}
           </p>
         </section>
       </main>

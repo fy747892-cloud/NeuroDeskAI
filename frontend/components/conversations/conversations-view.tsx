@@ -14,6 +14,7 @@ import {
   requestConversationAnalysis,
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
+import { useLanguage } from "@/lib/i18n/context";
 import { formatDateTime, formatTime } from "@/lib/format";
 
 const EXTRACT_ICON: Record<string, string> = {
@@ -24,6 +25,7 @@ const EXTRACT_ICON: Record<string, string> = {
 
 export function ConversationsView() {
   const { tokens } = useSession();
+  const { t, language } = useLanguage();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [analysisJobs, setAnalysisJobs] = useState<AIAnalysisJob[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -51,7 +53,7 @@ export function ConversationsView() {
       setAnalysisJobs(nextJobs);
       setSelectedId((current) => current ?? nextConversations[0]?.id ?? null);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Görüşmeler alınamadı.");
+      setError(loadError instanceof Error ? loadError.message : t("conversations.errors.loadFailed"));
     } finally {
       setLoading(false);
     }
@@ -71,7 +73,7 @@ export function ConversationsView() {
       try {
         setDetail(await getConversation(tokens.accessToken, selectedId));
       } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : "Görüşme detayı alınamadı.");
+        setError(loadError instanceof Error ? loadError.message : t("conversations.errors.loadDetailFailed"));
       } finally {
         setDetailLoading(false);
       }
@@ -96,10 +98,10 @@ export function ConversationsView() {
       setConversations((current) => [result.conversation, ...current]);
       setSelectedId(result.conversation.id);
       setNewCall({ participants: "", phone: "", title: "", transcript: "" });
-      setNotice("Metin görüşmesi oluşturuldu.");
+      setNotice(t("conversations.notices.callCreated"));
       setShowCreateForm(false);
     } catch (createError) {
-      setError(createError instanceof Error ? createError.message : "Görüşme oluşturulamadı.");
+      setError(createError instanceof Error ? createError.message : t("conversations.errors.createFailed"));
     } finally {
       setCreating(false);
     }
@@ -115,7 +117,7 @@ export function ConversationsView() {
         current ? { ...current, calls: current.calls.filter((call) => call.id !== callId) } : current,
       );
     } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : "Çağrı silinemedi.");
+      setError(deleteError instanceof Error ? deleteError.message : t("conversations.errors.deleteFailed"));
     } finally {
       setActiveCallId(null);
     }
@@ -129,7 +131,7 @@ export function ConversationsView() {
       const job = await requestConversationAnalysis(tokens.accessToken, selectedId);
       setAnalysisJobs((current) => [job, ...current.filter((item) => item.id !== job.id)]);
     } catch (analyzeError) {
-      setError(analyzeError instanceof Error ? analyzeError.message : "AI analizi başlatılamadı.");
+      setError(analyzeError instanceof Error ? analyzeError.message : t("conversations.errors.analyzeFailed"));
     } finally {
       setAnalyzing(false);
     }
@@ -143,12 +145,12 @@ export function ConversationsView() {
     <div className="flex h-[calc(100vh-64px)] overflow-hidden">
       <section className="w-80 bg-surface border-r border-surface-container-highest flex flex-col shrink-0">
         <div className="px-lg py-md border-b border-surface-container-highest flex justify-between items-center">
-          <h2 className="font-headline-md text-headline-md text-on-surface">Recent Calls</h2>
+          <h2 className="font-headline-md text-headline-md text-on-surface">{t("conversations.recentCalls")}</h2>
           <button
             type="button"
             onClick={() => setShowCreateForm((value) => !value)}
             className="text-primary hover:bg-primary/5 p-1 rounded transition-colors"
-            aria-label="Yeni metin görüşmesi"
+            aria-label={t("conversations.newTextCallAria")}
           >
             <span className="material-symbols-outlined">add_circle</span>
           </button>
@@ -160,19 +162,19 @@ export function ConversationsView() {
             <input
               className="w-full bg-surface-container-low rounded-lg px-3 py-2 text-body-sm"
               onChange={(e) => setNewCall((c) => ({ ...c, title: e.target.value }))}
-              placeholder="Başlık"
+              placeholder={t("conversations.form.titlePlaceholder")}
               value={newCall.title}
             />
             <input
               className="w-full bg-surface-container-low rounded-lg px-3 py-2 text-body-sm"
               onChange={(e) => setNewCall((c) => ({ ...c, participants: e.target.value }))}
-              placeholder="Katılımcılar (virgülle)"
+              placeholder={t("conversations.form.participantsPlaceholder")}
               value={newCall.participants}
             />
             <textarea
               className="w-full bg-surface-container-low rounded-lg px-3 py-2 text-body-sm"
               onChange={(e) => setNewCall((c) => ({ ...c, transcript: e.target.value }))}
-              placeholder={"Alex: Merhaba...\nJordan: Selam..."}
+              placeholder={t("conversations.form.transcriptPlaceholder")}
               rows={3}
               value={newCall.transcript}
             />
@@ -181,15 +183,15 @@ export function ConversationsView() {
               disabled={isCreating || !newCall.title.trim() || !newCall.transcript.trim()}
               className="w-full py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
             >
-              {isCreating ? "Oluşturuluyor..." : "Oluştur"}
+              {isCreating ? t("conversations.form.submitting") : t("conversations.form.submit")}
             </button>
           </form>
         ) : null}
 
         <div className="flex-1 overflow-y-auto custom-scrollbar">
-          {isLoading ? <p className="p-lg text-body-sm text-on-surface-variant">Yükleniyor...</p> : null}
+          {isLoading ? <p className="p-lg text-body-sm text-on-surface-variant">{t("common.loading")}</p> : null}
           {!isLoading && conversations.length === 0 ? (
-            <p className="p-lg text-body-sm text-on-surface-variant">Henüz görüşme kaydı yok.</p>
+            <p className="p-lg text-body-sm text-on-surface-variant">{t("conversations.emptyList")}</p>
           ) : null}
           {conversations.map((conversation) => {
             const active = conversation.id === selectedId;
@@ -210,7 +212,7 @@ export function ConversationsView() {
                     {conversation.title}
                   </p>
                   <span className="font-body-sm text-body-sm text-on-surface-variant shrink-0">
-                    {formatTime(conversation.created_at)}
+                    {formatTime(conversation.created_at, language)}
                   </span>
                 </div>
                 <div
@@ -233,11 +235,9 @@ export function ConversationsView() {
       </section>
 
       <section className="flex-1 flex flex-col bg-surface-container-lowest overflow-hidden">
-        {isDetailLoading ? <p className="p-xl text-body-md text-on-surface-variant">Yükleniyor...</p> : null}
+        {isDetailLoading ? <p className="p-xl text-body-md text-on-surface-variant">{t("common.loading")}</p> : null}
         {!isDetailLoading && !detail ? (
-          <p className="p-xl text-body-md text-on-surface-variant">
-            Detayları görmek için soldan bir görüşme seç.
-          </p>
+          <p className="p-xl text-body-md text-on-surface-variant">{t("conversations.selectPrompt")}</p>
         ) : null}
         {!isDetailLoading && detail ? (
           <>
@@ -248,7 +248,7 @@ export function ConversationsView() {
                   <div className="flex items-center gap-4 text-on-surface-variant font-label-md text-label-md flex-wrap">
                     <div className="flex items-center gap-1.5">
                       <span className="material-symbols-outlined text-[18px]">calendar_today</span>
-                      {formatDateTime(detail.created_at)}
+                      {formatDateTime(detail.created_at, language)}
                     </div>
                     {detail.participants.length > 0 ? (
                       <div className="flex items-center gap-1.5">
@@ -268,7 +268,7 @@ export function ConversationsView() {
                   className="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-lg font-label-md text-label-md hover:opacity-90 active:scale-95 transition-all disabled:opacity-60 shrink-0"
                 >
                   <span className="material-symbols-outlined text-[20px]">auto_awesome</span>
-                  {isAnalyzing ? "Analiz ediliyor..." : "AI ile Analiz Et"}
+                  {isAnalyzing ? t("conversations.analyzing") : t("conversations.analyzeButton")}
                 </button>
               </div>
 
@@ -282,7 +282,7 @@ export function ConversationsView() {
                       smart_toy
                     </span>
                     <p className="font-label-sm text-label-sm uppercase tracking-widest text-primary">
-                      AI Insight Summary
+                      {t("conversations.aiInsightSummary")}
                     </p>
                   </div>
                   <p className="font-body-lg text-body-lg text-on-surface leading-relaxed max-w-4xl">
@@ -290,15 +290,13 @@ export function ConversationsView() {
                   </p>
                 </div>
               ) : (
-                <p className="text-body-sm text-on-surface-variant">
-                  Bu görüşme için henüz AI analizi yapılmadı. &quot;AI ile Analiz Et&quot; butonuna tıkla.
-                </p>
+                <p className="text-body-sm text-on-surface-variant">{t("conversations.noAnalysisYet")}</p>
               )}
 
               {extractedItems.length > 0 ? (
                 <div className="mt-xl">
                   <p className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface-variant mb-4">
-                    Extracted Action Items &amp; Data
+                    {t("conversations.extractedItemsTitle")}
                   </p>
                   <div className="flex flex-wrap gap-3">
                     {extractedItems.map((item, index) => (
@@ -320,7 +318,7 @@ export function ConversationsView() {
             <div className="flex-1 overflow-y-auto custom-scrollbar p-xl transcript-container">
               <div className="max-w-4xl mx-auto space-y-8 pb-16">
                 {detail.calls.length === 0 ? (
-                  <p className="text-body-sm text-on-surface-variant">Bu görüşmede çağrı yok.</p>
+                  <p className="text-body-sm text-on-surface-variant">{t("conversations.noCallsInConversation")}</p>
                 ) : null}
                 {detail.calls.map((call) => (
                   <CallBlock
@@ -340,6 +338,7 @@ export function ConversationsView() {
 }
 
 function CallBlock({ call, isBusy, onDelete }: { call: Call; isBusy: boolean; onDelete: () => void }) {
+  const { t } = useLanguage();
   const transcriptText = call.transcriptions[0]?.transcript_text ?? null;
   const turns = transcriptText ? parseTranscript(transcriptText) : [];
 
@@ -347,7 +346,7 @@ function CallBlock({ call, isBusy, onDelete }: { call: Call; isBusy: boolean; on
     <div>
       <div className="flex items-center justify-between mb-3">
         <span className="px-2 py-0.5 bg-surface-container-high rounded text-[11px] text-on-surface-variant">
-          {call.phone_number ?? "Metin görüşmesi"} · {call.status}
+          {call.phone_number ?? t("conversations.textCallFallback")} · {call.status}
         </span>
         <button
           type="button"
@@ -355,7 +354,7 @@ function CallBlock({ call, isBusy, onDelete }: { call: Call; isBusy: boolean; on
           onClick={onDelete}
           className="text-error text-[11px] font-bold hover:underline disabled:opacity-60"
         >
-          {isBusy ? "Siliniyor..." : "Çağrıyı Sil"}
+          {isBusy ? t("conversations.deleting") : t("conversations.deleteCallButton")}
         </button>
       </div>
       {turns.length > 0 ? (
@@ -375,7 +374,7 @@ function CallBlock({ call, isBusy, onDelete }: { call: Call; isBusy: boolean; on
           ))}
         </div>
       ) : (
-        <p className="text-body-sm text-on-surface-variant">Transkript yok.</p>
+        <p className="text-body-sm text-on-surface-variant">{t("conversations.noTranscript")}</p>
       )}
     </div>
   );

@@ -15,6 +15,7 @@ import {
   listDeals,
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
+import { useLanguage } from "@/lib/i18n/context";
 import { formatDate, formatDateTime, formatMoney, getInitials } from "@/lib/format";
 
 const EVENT_ICON: Record<string, string> = {
@@ -27,15 +28,16 @@ const EVENT_ICON: Record<string, string> = {
   note: "sticky_note_2",
 };
 
-const EVENT_LABEL: Record<string, string> = {
-  call: "Görüşmeler",
-  email: "E-postalar",
-  appointment: "Randevular",
-  task: "Görevler",
+const EVENT_LABEL_KEY: Record<string, string> = {
+  call: "contactDetail.eventType.call",
+  email: "contactDetail.eventType.email",
+  appointment: "contactDetail.eventType.appointment",
+  task: "contactDetail.eventType.task",
 };
 
 export function ContactDetailView({ contactId }: { contactId: string }) {
   const { tokens } = useSession();
+  const { t, language } = useLanguage();
   const [contact, setContact] = useState<ContactDetail | null>(null);
   const [memory, setMemory] = useState<ContactMemory | null>(null);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -61,7 +63,7 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
       setMemory(contactMemory);
       setDeals(allDeals.filter((deal) => deal.contact_id === contactId));
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Kişi bilgisi alınamadı.");
+      setError(loadError instanceof Error ? loadError.message : t("contactDetail.loadError"));
     } finally {
       setLoading(false);
     }
@@ -81,7 +83,7 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
       setNotes((current) => [note, ...current]);
       setNewNote("");
     } catch (noteError) {
-      setError(noteError instanceof Error ? noteError.message : "Not eklenemedi.");
+      setError(noteError instanceof Error ? noteError.message : t("contactDetail.noteAddError"));
     } finally {
       setAddingNote(false);
     }
@@ -104,18 +106,18 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
   const openDeals = useMemo(() => deals.filter((deal) => deal.stage !== "won" && deal.stage !== "lost"), [deals]);
 
   if (isLoading && !contact) {
-    return <p className="p-xl text-body-md text-on-surface-variant">Kişi bilgisi yükleniyor.</p>;
+    return <p className="p-xl text-body-md text-on-surface-variant">{t("contactDetail.loadingContact")}</p>;
   }
 
   if (!contact) {
-    return <p className="p-xl text-error text-body-md">{error ?? "Kişi bulunamadı."}</p>;
+    return <p className="p-xl text-error text-body-md">{error ?? t("contactDetail.notFound")}</p>;
   }
 
   return (
     <div className="p-xl max-w-[1440px] mx-auto">
       <Link href="/kisiler" className="inline-flex items-center gap-1 text-primary text-body-sm mb-lg hover:underline">
         <span className="material-symbols-outlined text-[16px]">arrow_back</span>
-        Kişi listesi
+        {t("contactDetail.backToList")}
       </Link>
 
       {error ? <p className="text-error text-body-sm mb-md">{error}</p> : null}
@@ -129,24 +131,28 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
           </div>
           <div className="flex-1 min-w-[240px]">
             <h3 className="font-headline-md text-label-md text-primary mb-1 uppercase tracking-wider">
-              AI Quick Recap
+              {t("contactDetail.aiQuickRecap")}
             </h3>
             <p className="font-body-md text-on-surface-variant max-w-4xl leading-relaxed">
               {memory?.last_topic ? (
                 <>
-                  Son konu: <span className="font-bold text-on-surface">{memory.last_topic}</span>.{" "}
+                  {t("contactDetail.lastTopicPrefix")}
+                  <span className="font-bold text-on-surface">{memory.last_topic}</span>.{" "}
                 </>
               ) : null}
               {memory?.next_appointment ? (
                 <>
-                  Sıradaki randevu: {memory.next_appointment.title} ({formatDate(memory.next_appointment.start_at)}).{" "}
+                  {t("contactDetail.nextAppointmentSummary", {
+                    title: memory.next_appointment.title,
+                    date: formatDate(memory.next_appointment.start_at, language),
+                  })}
                 </>
               ) : null}
               {memory && memory.pending_items_count > 0 ? (
-                <>{memory.pending_items_count} bekleyen iş var.</>
+                <>{t("contactDetail.pendingItemsSummary", { count: memory.pending_items_count })}</>
               ) : null}
               {!memory?.last_topic && !memory?.next_appointment && !memory?.pending_items_count
-                ? "Bu kişi için henüz bir AI özeti oluşturulmadı."
+                ? t("contactDetail.noAiSummary")
                 : null}
             </p>
           </div>
@@ -178,18 +184,21 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
               ) : null}
               <div className="flex items-center gap-3">
                 <span className="material-symbols-outlined text-outline">calendar_today</span>
-                <span className="text-body-md">Kayıt: {formatDate(contact.created_at)}</span>
+                <span className="text-body-md">
+                  {t("contactDetail.registeredPrefix")}
+                  {formatDate(contact.created_at, language)}
+                </span>
               </div>
             </div>
             <div className="w-full flex gap-2 mt-xl">
               {contact.email ? (
                 <a href={`mailto:${contact.email}`} className="flex-1 bg-primary text-on-primary py-2 rounded-lg font-label-sm active:scale-95 transition-transform">
-                  Email
+                  {t("common.email")}
                 </a>
               ) : null}
               {contact.phone ? (
                 <a href={`tel:${contact.phone}`} className="flex-1 border border-outline-variant text-on-surface-variant py-2 rounded-lg font-label-sm active:scale-95 transition-transform">
-                  Call
+                  {t("contactDetail.callAction")}
                 </a>
               ) : null}
             </div>
@@ -197,16 +206,16 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
 
           <div className="bg-surface-container-lowest border border-outline-variant p-lg rounded-2xl">
             <h4 className="font-label-sm text-label-sm uppercase tracking-widest text-outline mb-md">
-              Personal Notes
+              {t("contactDetail.personalNotes")}
             </h4>
             <div className="space-y-2 mb-md max-h-48 overflow-y-auto custom-scrollbar">
               {notes.length === 0 ? (
-                <p className="text-body-sm text-on-surface-variant">Henüz not eklenmemiş.</p>
+                <p className="text-body-sm text-on-surface-variant">{t("contactDetail.noNotesYet")}</p>
               ) : null}
               {notes.map((note) => (
                 <div key={note.id} className="bg-surface-container-low p-3 rounded-xl text-body-sm text-on-surface-variant border-l-4 border-secondary">
                   {note.note_text}
-                  <p className="text-[10px] text-outline mt-1">{formatDateTime(note.created_at)}</p>
+                  <p className="text-[10px] text-outline mt-1">{formatDateTime(note.created_at, language)}</p>
                 </div>
               ))}
             </div>
@@ -214,7 +223,7 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
               <textarea
                 className="w-full bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
                 onChange={(e) => setNewNote(e.target.value)}
-                placeholder="Bu kişiyle ilgili bir not ekle"
+                placeholder={t("contactDetail.addNotePlaceholder")}
                 rows={2}
                 value={newNote}
               />
@@ -223,7 +232,7 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
                 disabled={isAddingNote || !newNote.trim()}
                 className="w-full py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
               >
-                {isAddingNote ? "Ekleniyor..." : "Not Ekle"}
+                {isAddingNote ? t("contactDetail.addingNote") : t("contactDetail.addNote")}
               </button>
             </form>
           </div>
@@ -232,7 +241,7 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
         <div className="col-span-12 lg:col-span-6 space-y-lg">
           <div className="bg-surface-container-lowest border border-outline-variant p-xl rounded-2xl min-h-[600px]">
             <div className="flex justify-between items-center mb-xl flex-wrap gap-2">
-              <h3 className="font-headline-md text-headline-md">Unified Timeline</h3>
+              <h3 className="font-headline-md text-headline-md">{t("contactDetail.unifiedTimeline")}</h3>
               <div className="flex gap-2 flex-wrap">
                 <button
                   type="button"
@@ -244,7 +253,7 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
                       : "text-on-surface-variant border-transparent hover:bg-surface-container-high")
                   }
                 >
-                  All
+                  {t("common.all")}
                 </button>
                 {eventTypes.map((type) => (
                   <button
@@ -258,14 +267,14 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
                         : "text-on-surface-variant border-transparent hover:bg-surface-container-high")
                     }
                   >
-                    {EVENT_LABEL[type] ?? type}
+                    {EVENT_LABEL_KEY[type] ? t(EVENT_LABEL_KEY[type]) : type}
                   </button>
                 ))}
               </div>
             </div>
 
             {filteredTimeline.length === 0 ? (
-              <p className="text-body-sm text-on-surface-variant">Bu kişi için zaman çizelgesi kaydı yok.</p>
+              <p className="text-body-sm text-on-surface-variant">{t("contactDetail.noTimelineRecords")}</p>
             ) : (
               <div className="space-y-8 relative before:content-[''] before:absolute before:left-[19px] before:top-2 before:bottom-2 before:w-px before:bg-outline-variant">
                 {filteredTimeline.map((event) => (
@@ -280,12 +289,14 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
           <div className="bg-primary text-on-primary p-xl rounded-2xl shadow-lg relative overflow-hidden">
             <div className="relative z-10">
               <h4 className="font-label-sm text-label-sm uppercase tracking-widest opacity-80 mb-2">
-                Açık Fırsat Değeri
+                {t("contactDetail.openDealValue")}
               </h4>
               <div className="text-3xl font-bold tracking-tight mb-2">
-                {memory ? formatMoney(memory.open_deals_total_value) : "--"}
+                {memory ? formatMoney(memory.open_deals_total_value, "TRY", language) : "--"}
               </div>
-              <p className="text-body-sm opacity-80">{memory ? `${memory.open_deals_count} açık fırsat` : "--"}</p>
+              <p className="text-body-sm opacity-80">
+                {memory ? t("contactDetail.openDealsCountShort", { count: memory.open_deals_count }) : "--"}
+              </p>
             </div>
             <span className="material-symbols-outlined absolute -right-8 -bottom-8 opacity-20 text-9xl">
               monetization_on
@@ -293,9 +304,9 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
           </div>
 
           <div className="bg-surface-container-lowest border border-outline-variant p-xl rounded-2xl">
-            <h3 className="font-headline-md text-label-md mb-lg">Active Deals</h3>
+            <h3 className="font-headline-md text-label-md mb-lg">{t("contactDetail.activeDeals")}</h3>
             {openDeals.length === 0 ? (
-              <p className="text-body-sm text-on-surface-variant">Açık fırsat yok.</p>
+              <p className="text-body-sm text-on-surface-variant">{t("contactDetail.noOpenDeals")}</p>
             ) : (
               <div className="space-y-6">
                 {openDeals.map((deal) => {
@@ -306,7 +317,7 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
                       <div className="flex justify-between mb-2">
                         <span className="font-label-md text-on-surface truncate">{deal.title}</span>
                         <span className="font-bold text-on-surface shrink-0 ml-2">
-                          {formatMoney(deal.value, deal.currency)}
+                          {formatMoney(deal.value, deal.currency, language)}
                         </span>
                       </div>
                       <div className="w-full bg-surface-container-high h-2 rounded-full mb-2">
@@ -322,26 +333,26 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
 
           <div className="bg-surface-container-lowest border border-outline-variant p-lg rounded-2xl">
             <h4 className="font-label-sm text-label-sm uppercase tracking-widest text-outline mb-md">
-              Müşteri Hafızası
+              {t("contactDetail.customerMemory")}
             </h4>
             <div className="space-y-4">
-              <MemoryRow icon="forum" label="Son görüşme">
+              <MemoryRow icon="forum" label={t("contactDetail.memory.lastConversation")}>
                 {memory?.last_conversation
-                  ? `${memory.last_conversation.title} · ${formatDate(memory.last_conversation.occurred_at)}`
-                  : "Kayıt yok"}
+                  ? `${memory.last_conversation.title} · ${formatDate(memory.last_conversation.occurred_at, language)}`
+                  : t("contactDetail.memory.noRecord")}
               </MemoryRow>
-              <MemoryRow icon="mail" label="Son e-posta">
+              <MemoryRow icon="mail" label={t("contactDetail.memory.lastEmail")}>
                 {memory?.last_email
-                  ? `${memory.last_email.subject ?? "Konu yok"}${memory.last_email.received_at ? " · " + formatDate(memory.last_email.received_at) : ""}`
-                  : "Kayıt yok"}
+                  ? `${memory.last_email.subject ?? t("contactDetail.memory.noSubject")}${memory.last_email.received_at ? " · " + formatDate(memory.last_email.received_at, language) : ""}`
+                  : t("contactDetail.memory.noRecord")}
               </MemoryRow>
-              <MemoryRow icon="event" label="Sonraki randevu">
+              <MemoryRow icon="event" label={t("contactDetail.memory.nextAppointment")}>
                 {memory?.next_appointment
-                  ? `${memory.next_appointment.title} · ${formatDate(memory.next_appointment.start_at)}`
-                  : "Planlanmış randevu yok"}
+                  ? `${memory.next_appointment.title} · ${formatDate(memory.next_appointment.start_at, language)}`
+                  : t("contactDetail.memory.noPlannedAppointment")}
               </MemoryRow>
-              <MemoryRow icon="task_alt" label="Bekleyen iş">
-                {memory ? `${memory.pending_items_count} açık görev` : "--"}
+              <MemoryRow icon="task_alt" label={t("contactDetail.memory.pendingWork")}>
+                {memory ? t("contactDetail.memory.openTasksCount", { count: memory.pending_items_count }) : "--"}
               </MemoryRow>
             </div>
           </div>
@@ -364,6 +375,7 @@ function MemoryRow({ icon, label, children }: { icon: string; label: string; chi
 }
 
 function TimelineRow({ event }: { event: ContactTimelineEvent }) {
+  const { t, language } = useLanguage();
   const icon = EVENT_ICON[event.event_type] ?? "history";
   const title = typeof event.event_metadata?.title === "string" ? event.event_metadata.title : event.event_type;
   const detail =
@@ -380,11 +392,14 @@ function TimelineRow({ event }: { event: ContactTimelineEvent }) {
       </div>
       <div className="flex justify-between mb-1 flex-wrap gap-1">
         <span className="font-label-md text-on-surface">{title}</span>
-        <span className="text-body-sm text-outline">{formatDateTime(event.occurred_at)}</span>
+        <span className="text-body-sm text-outline">{formatDateTime(event.occurred_at, language)}</span>
       </div>
       {detail ? <p className="text-body-md text-on-surface-variant">{detail}</p> : null}
       {event.source_type ? (
-        <p className="text-[11px] text-outline mt-1">Kaynak: {event.source_type}</p>
+        <p className="text-[11px] text-outline mt-1">
+          {t("contactDetail.sourcePrefix")}
+          {event.source_type}
+        </p>
       ) : null}
     </div>
   );
