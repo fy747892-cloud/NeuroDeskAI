@@ -35,7 +35,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         Text('Arama', style: theme.textTheme.headlineMedium),
         const SizedBox(height: 6),
         Text(
-          'Gorev, randevu, gorusme ve kisiler arasinda anlamsal arama yap.',
+          'Görev, randevu, görüşme ve kişiler arasında anlamsal arama yap.',
           style: theme.textTheme.bodyMedium,
         ),
         const SizedBox(height: 16),
@@ -80,7 +80,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       setState(() => _results = results);
     } catch (error) {
       setState(() {
-        _errorMessage = readableApiError(error, 'Arama tamamlanamadi.');
+        _errorMessage = readableApiError(error, 'Arama tamamlanamadı.');
       });
     } finally {
       if (mounted) {
@@ -188,7 +188,7 @@ class _SearchSummary extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: _SummaryMetric(
-              label: 'Gorev/Kisi',
+              label: 'Görev/Kişi',
               value: '${taskCount + contactCount}',
               icon: Icons.hub_outlined,
             ),
@@ -296,10 +296,10 @@ class _ResultCard extends StatelessWidget {
 
   String _sourceLabel(String value) {
     return switch (value) {
-      'task' => 'Gorev',
+      'task' => 'Görev',
       'appointment' => 'Randevu',
-      'conversation' => 'Gorusme',
-      'contact' => 'Kisi',
+      'conversation' => 'Görüşme',
+      'contact' => 'Kişi',
       'email' => 'E-posta',
       _ => value,
     };
@@ -340,7 +340,7 @@ class _EmptySearch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const _PageMessage(
-      message: 'Arama sonucu yok. Bir sorgu yazip aramayi baslat.',
+      message: 'Arama sonucu yok. Bir sorgu yazıp aramayı başlat.',
     );
   }
 }

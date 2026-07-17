@@ -35,7 +35,7 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
 - Dashboard summary
 - Task list with complete action
 - Appointment list
-- Calls module with manual call transcript capture and AI analysis trigger
+- Calls module with manual call transcript capture, TXT transcript import, and AI analysis trigger
 - AI approval list with approve/reject actions and approval materialization through `tasks/from-approval`, `appointments/from-approval`, or `deals/from-approval`
 - Manual conversation transcript capture
 - AI analysis request from conversations
@@ -48,7 +48,9 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
 - Priority queue
 - Analytics overview
 - Files list/analyze/delete and native file picker upload
+- File upload pre-check for the backend 25 MB size limit
 - Email accounts/messages/sync surface with native browser connect launch
+- Email OAuth mobile callback return screen
 - Settings profile/API/account screen
 
 ## Local smoke checklist
@@ -61,4 +63,47 @@ flutter build apk --debug --dart-define=API_BASE_URL=http://10.0.2.2:8000
 
 Backend must answer `GET http://localhost:8000/health`, and Android emulator builds must use `http://10.0.2.2:8000`.
 
-Current MVP excludes offline outbox/cache, push notifications/FCM, production App/Universal Link association files, full OAuth app callback routing, crash reporting, product analytics events, store signing, tablet/foldable polish, production release automation, and large-file offline upload queueing.
+## Android release signing
+
+Release builds read signing secrets from `mobile/android/key.properties` or environment variables. Keep the keystore and passwords out of git.
+
+`mobile/android/key.properties` format:
+
+```properties
+storeFile=C:\\path\\to\\neurodesk-release.jks
+storePassword=...
+keyAlias=...
+keyPassword=...
+```
+
+Equivalent environment variables:
+
+```bash
+ANDROID_KEYSTORE_PATH=C:\\path\\to\\neurodesk-release.jks
+ANDROID_KEYSTORE_PASSWORD=...
+ANDROID_KEY_ALIAS=...
+ANDROID_KEY_PASSWORD=...
+```
+
+If release signing is not configured, local release builds fall back to debug signing so the build command remains usable during development.
+
+## Deep link production setup
+
+The app is wired for:
+
+- Android custom scheme: `neurodesk://app/...`
+- Android App Links: `https://app.neurodesk.ai/...`
+- iOS custom scheme: `neurodesk://app/...`
+- iOS Universal Links entitlement: `applinks:app.neurodesk.ai`
+
+Before production, publish the Android `assetlinks.json` and iOS `apple-app-site-association` files on `app.neurodesk.ai`, then verify the Android SHA-256 certificate fingerprint and Apple Team/App ID values.
+
+Templates are in `mobile/release/app-links/`.
+
+## Platform readiness
+
+- Android release builds include `INTERNET` for backend API access and `USE_BIOMETRIC` for saved-session unlock.
+- iOS includes `NSFaceIDUsageDescription` for biometric unlock review compliance.
+- iOS Associated Domains are configured through `Runner.entitlements`.
+
+Current MVP excludes offline outbox/cache, push notifications/FCM, production domain publishing/verification for App/Universal Link association files, crash reporting, product analytics events, tablet/foldable polish, production release automation, and offline upload queueing for large files.

@@ -5,7 +5,7 @@
 /*
   Shared non-utility CSS ported from the Stitch project's 11 screens.
   Every screen repeats near-identical versions of these blocks (custom
-  scrollbar, glass cards, AI glow/shimmer, calendar/kanban helpers) —
+  scrollbar, glass cards, AI glow/shimmer, calendar/kanban helpers) -
   consolidated here once instead of per-component.
 */
 
@@ -32,24 +32,25 @@ body {
   font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
 }
 
-/* Custom scrollbar, used via .custom-scrollbar on any overflow container */
 .custom-scrollbar::-webkit-scrollbar,
 .no-scrollbar::-webkit-scrollbar {
   width: 4px;
   height: 4px;
 }
+
 .custom-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: #c7c4d8;
   border-radius: 10px;
 }
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
 
-/* Glass cards, used across dashboard / analytics / contacts / settings */
 .glass-card,
 .glass-panel {
   background: rgba(255, 255, 255, 0.75);
@@ -66,11 +67,11 @@ body {
   backdrop-filter: blur(12px);
 }
 
-/* AI emphasis affordances */
 .ai-glow {
   box-shadow: 0 0 15px -3px rgba(53, 37, 205, 0.2);
   border: 1px solid rgba(53, 37, 205, 0.15);
 }
+
 .ai-glow:hover {
   box-shadow: 0 0 20px -2px rgba(53, 37, 205, 0.25);
 }
@@ -85,6 +86,7 @@ body {
   background-size: 200% 100%;
   animation: shimmer 3s infinite linear;
 }
+
 @keyframes shimmer {
   0% {
     background-position: 200% 0;
@@ -103,25 +105,24 @@ body {
     opacity: 0.7;
   }
 }
+
 .animate-pulse-subtle {
   animation: pulse-subtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
-/* Bento-style hover lift, used in contact/analytics cards */
 .bento-card {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 .bento-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
 }
 
-/* Conversations transcript fade-out mask */
 .transcript-container {
   mask-image: linear-gradient(to bottom, black 90%, transparent 100%);
 }
 
-/* Tasks & Appointments calendar view */
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -131,6 +132,7 @@ body {
   border-radius: 0.75rem;
   overflow: hidden;
 }
+
 .calendar-day {
   background-color: white;
   aspect-ratio: 1 / 1;
@@ -138,33 +140,36 @@ body {
   position: relative;
   transition: background-color 0.2s;
 }
+
 .calendar-day:hover {
   background-color: #f2f3ff;
 }
+
 .conflict-glow {
   box-shadow: 0 0 12px rgba(186, 26, 26, 0.2);
   border: 1px solid #ba1a1a !important;
 }
 
-/* Deals kanban */
 .kanban-column {
   min-width: 280px;
   max-width: 320px;
 }
+
 .drag-handle {
   cursor: grab;
 }
+
 .drag-handle:active {
   cursor: grabbing;
 }
 
-/* AI Chat + voice mode waveform / mic affordances */
 .wave-bar {
   width: 4px;
   background: theme("colors.primary");
   border-radius: 2px;
   animation: wave 1.2s ease-in-out infinite;
 }
+
 @keyframes wave {
   0%,
   100% {
@@ -174,9 +179,11 @@ body {
     height: 32px;
   }
 }
+
 .mic-glow {
   animation: pulse-glow 2s infinite;
 }
+
 @keyframes pulse-glow {
   0% {
     box-shadow: 0 0 0 0 rgba(53, 37, 205, 0.7);

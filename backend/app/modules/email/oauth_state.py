@@ -15,7 +15,12 @@ class OAuthStateStore:
         self._redis = redis
 
     async def generate(
-        self, *, user_id: uuid.UUID, tenant_id: uuid.UUID, organization_id: uuid.UUID
+        self,
+        *,
+        user_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        organization_id: uuid.UUID,
+        return_to: str | None = None,
     ) -> str:
         state = secrets.token_urlsafe(32)
         payload = json.dumps(
@@ -23,6 +28,7 @@ class OAuthStateStore:
                 "user_id": str(user_id),
                 "tenant_id": str(tenant_id),
                 "organization_id": str(organization_id),
+                "return_to": return_to,
             }
         )
         await self._redis.set(f"{STATE_KEY_PREFIX}{state}", payload, ex=STATE_TTL_SECONDS)

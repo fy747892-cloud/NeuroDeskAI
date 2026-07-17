@@ -610,9 +610,9 @@ Tamamlanan mobil MVP yuzeyleri:
 - Conversations: manuel gorusme/transkript ekleme, katilimci girisi ve AI analiz baslatma.
 - AI Approval Center: pending onay listesi, confidence/kaynak/son tarih metasi, approve/reject ve onay sonrasi task/appointment/deal materyalizasyonu.
 - Notifications: bildirim listesi, okunmamis sayaci, okundu isaretleme ve source metadata ile ilgili modulu acma.
-- Deep links: `neurodesk://app/...` custom scheme, Android `https://app.neurodesk.ai/...` App Link intent filter ve liste/detay route alias'lari.
+- Deep links: `neurodesk://app/...` custom scheme, Android `https://app.neurodesk.ai/...` App Link intent filter, iOS `applinks:app.neurodesk.ai` Associated Domains entitlement ve liste/detay route alias'lari.
 
-MVP icin bilincli olarak ertelenen mobil parcalar: offline outbox/Isar cache, push notification/FCM, production App/Universal Link association dosyalari, tam OAuth app callback routing, crash reporting, product analytics eventleri, tablet/foldable polish, store signing ve buyuk dosyalar icin offline upload kuyrugu.
+MVP icin bilincli olarak ertelenen mobil parcalar: offline outbox/Isar cache, push notification/FCM, production App/Universal Link association dosyalarinin domain uzerinde yayinlanmasi ve provider dogrulamasi, crash reporting, product analytics eventleri, tablet/foldable polish ve buyuk dosyalar icin offline upload kuyrugu. Association dosyasi sablonlari `mobile/release/app-links/` altinda hazirlandi.
 
 # Sprint 15-18 Mobil Guncel Uygulama Notu
 
@@ -627,17 +627,18 @@ Tamamlanan ek mobil yuzeyler:
 - Priority Queue: gorev/randevu oncelik skoru ve faktor chipleri.
 - Analytics: son 7 gun overview, gorev/cagri/AI metrikleri ve bugunu hesapla aksiyonu.
 - Files: dosya listesi, native dosya secici ile upload, analiz tetikleme ve silme.
-- Calls: Cilt 7 kisitlarina uygun manuel cagri metni ekleme ve AI analiz baslatma.
+- Calls: Cilt 7 kisitlarina uygun manuel cagri metni ekleme, TXT transkript dosyasi ice aktarma ve AI analiz baslatma.
 - Email: hesap listesi, mesaj listesi, senkronizasyon, connect-start ve revoke yuzeyi.
 - Email OAuth: Gmail/Outlook connect-start sonrasi sistem tarayicisini acma ve uygulamaya donuste hesap listesini yenileme.
+- Email OAuth callback: backend OAuth state mobil return URL tasir; callback tamamlaninca `neurodesk://app/oauth/email/{provider}` deep link'ine doner ve mobilde sonuc ekrani hesaplari yeniler.
 - Settings: profil guncelleme, hesap/API durumu ve cikis aksiyonu.
 - API hardening: emulator varsayilan base URL, transient read retry, daha okunur hata mesajlari ve global API health bandi.
 
 Kalan mobil backlog:
 
 - Offline outbox/cache ve sync engine.
-- Push notification/FCM, production App/Universal Link association ve detay ekranlarinda secili kaydi vurgulama.
-- Buyuk dosya on kontrolu ve offline upload kuyrugu.
-- Tam OAuth app callback/deep link routing ile Gmail/Outlook baglantisini uygulama icinde son durum ekranina dusurme.
+- Push notification/FCM, production App/Universal Link association dosyalarinin domain uzerinde yayinlanmasi/dogrulanmasi ve detay ekranlarinda secili kaydi vurgulama.
+- Buyuk dosya on kontrolu mobilde backend 25 MB limitiyle uyumlu olarak eklendi; offline upload kuyrugu sonraki fazdadir.
+- OAuth provider production credential/redirect URI dogrulamasi.
 - Crash reporting ve product analytics eventleri.
-- Store signing, CI release ve TestFlight/Play Internal Testing hazirligi.
+- CI release ve TestFlight/Play Internal Testing hazirligi; Android release signing Gradle tarafinda `key.properties` veya ortam degiskenleri ile calisacak sekilde hazirlandi.

@@ -22,7 +22,7 @@ class NotificationsPage extends ConsumerWidget {
           Text('Bildirimler', style: theme.textTheme.headlineMedium),
           const SizedBox(height: 6),
           Text(
-            'Operasyon akisindaki yeni uyari ve hatirlatmalari takip et.',
+            'Operasyon akışındaki yeni uyarı ve hatırlatmaları takip et.',
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),
@@ -40,7 +40,7 @@ class NotificationsPage extends ConsumerWidget {
                     ],
                   ),
             error: (error, stackTrace) => _PageMessage(
-              message: readableApiError(error, 'Bildirimler alinamadi.'),
+              message: readableApiError(error, 'Bildirimler alınamadı.'),
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
@@ -241,7 +241,7 @@ class _NotificationTileState extends ConsumerState<_NotificationTile> {
 
   String _typeLabel(String type) {
     return switch (type.toLowerCase()) {
-      'task' => 'Gorev',
+      'task' => 'Görev',
       'appointment' => 'Takvim',
       'approval' => 'Onay',
       _ => type,

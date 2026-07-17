@@ -29,7 +29,7 @@ class SettingsPage extends ConsumerWidget {
           Text('Ayarlar', style: theme.textTheme.headlineMedium),
           const SizedBox(height: 6),
           Text(
-            'Hesap, profil ve mobil baglanti durumunu yonet.',
+            'Hesap, profil ve mobil bağlantı durumunu yönet.',
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),
@@ -48,12 +48,12 @@ class SettingsPage extends ConsumerWidget {
                     ref.read(authControllerProvider.notifier).logout();
                   },
                   icon: const Icon(Icons.logout),
-                  label: const Text('Cikis yap'),
+                  label: const Text('Çıkış yap'),
                 ),
               ],
             ),
             error: (error, stackTrace) => _PageMessage(
-              message: readableApiError(error, 'Ayarlar alinamadi.'),
+              message: readableApiError(error, 'Ayarlar alınamadı.'),
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
@@ -157,10 +157,10 @@ class _ProfileCardState extends ConsumerState<_ProfileCard> {
             title: _titleController.text,
           );
       ref.invalidate(currentUserProvider);
-      setState(() => _message = 'Profil guncellendi.');
+      setState(() => _message = 'Profil güncellendi.');
     } catch (error) {
       setState(() {
-        _message = readableApiError(error, 'Profil guncellenemedi.');
+        _message = readableApiError(error, 'Profil güncellenemedi.');
       });
     } finally {
       if (mounted) {
@@ -178,8 +178,8 @@ class _ApiCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final statusLabel = apiStatus.when(
-      data: (status) => status.isOk ? 'Saglikli' : status.status,
-      error: (error, stackTrace) => 'Baglanti hatasi',
+      data: (status) => status.displayLabel,
+      error: (error, stackTrace) => 'Bağlantı hatası',
       loading: () => 'Kontrol ediliyor',
     );
 
@@ -189,7 +189,7 @@ class _ApiCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('API baglantisi',
+            Text('API bağlantısı',
                 style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 10),
             _MetricLine(label: 'Durum', value: statusLabel),

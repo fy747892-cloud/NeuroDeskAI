@@ -21,13 +21,13 @@ class AiApprovalsPage extends ConsumerWidget {
           Text('AI Onay', style: theme.textTheme.headlineMedium),
           const SizedBox(height: 6),
           Text(
-            'AI tarafindan hazirlanan aksiyonlari insan onayindan gecir.',
+            'AI tarafından hazırlanan aksiyonları insan onayından geçir.',
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),
           approvals.when(
             data: (items) => items.isEmpty
-                ? const _PageMessage(message: 'Bekleyen AI onayi yok.')
+                ? const _PageMessage(message: 'Bekleyen AI onayı yok.')
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -39,7 +39,7 @@ class AiApprovalsPage extends ConsumerWidget {
                     ],
                   ),
             error: (error, stackTrace) => _PageMessage(
-              message: readableApiError(error, 'AI onaylari alinamadi.'),
+              message: readableApiError(error, 'AI onayları alınamadı.'),
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
@@ -242,7 +242,7 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
                   child: FilledButton.icon(
                     onPressed: _isSubmitting ? null : () => _approve(approval),
                     icon: const Icon(Icons.check),
-                    label: Text(_isSubmitting ? 'Isleniyor' : 'Onayla'),
+                    label: Text(_isSubmitting ? 'İşleniyor' : 'Onayla'),
                   ),
                 ),
               ],
@@ -275,7 +275,7 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
       ref.invalidate(pendingAiApprovalsProvider);
     } catch (error) {
       setState(() {
-        _errorMessage = readableApiError(error, 'Islem tamamlanamadi.');
+        _errorMessage = readableApiError(error, 'İşlem tamamlanamadı.');
       });
     } finally {
       if (mounted) {

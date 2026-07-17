@@ -25,7 +25,7 @@ class BiometricAuthService {
     }
     try {
       return _localAuth.authenticate(
-        localizedReason: 'NeuroDesk AI oturumunu acmak icin dogrula.',
+        localizedReason: 'NeuroDesk AI oturumunu açmak için doğrula.',
         options: const AuthenticationOptions(
           biometricOnly: false,
           stickyAuth: true,

@@ -30,7 +30,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
 
     return Scaffold(
       floatingActionButton: FloatingActionButton(
-        tooltip: 'Kisi ekle',
+        tooltip: 'Kişi ekle',
         onPressed: () => _showCreateContactSheet(context),
         child: const Icon(Icons.person_add_alt_1),
       ),
@@ -39,10 +39,10 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text('Kisiler', style: theme.textTheme.headlineMedium),
+            Text('Kişiler', style: theme.textTheme.headlineMedium),
             const SizedBox(height: 6),
             Text(
-              'Musteri hafizasina, notlara ve son temaslara mobil erisim.',
+              'Müşteri hafızasına, notlara ve son temaslara mobil erişim.',
               style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: 16),
@@ -55,7 +55,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
             const SizedBox(height: 16),
             contacts.when(
               data: (items) => items.isEmpty
-                  ? const _PageMessage(message: 'Kisi kaydi yok.')
+                  ? const _PageMessage(message: 'Kişi kaydı yok.')
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -66,7 +66,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                       ],
                     ),
               error: (error, stackTrace) => _PageMessage(
-                message: readableApiError(error, 'Kisiler alinamadi.'),
+                message: readableApiError(error, 'Kişiler alınamadı.'),
               ),
               loading: () => const Center(child: CircularProgressIndicator()),
             ),
@@ -104,7 +104,7 @@ class _SearchBar extends StatelessWidget {
             onSubmitted: (_) => onSearch(),
             decoration: const InputDecoration(
               prefixIcon: Icon(Icons.search),
-              hintText: 'Kisi, sirket veya email ara',
+              hintText: 'Kişi, şirket veya email ara',
             ),
           ),
         ),
@@ -142,7 +142,7 @@ class _ContactsSummary extends StatelessWidget {
         children: [
           Expanded(
             child: _SummaryMetric(
-              label: 'Kisi',
+              label: 'Kişi',
               value: contacts.length.toString(),
               icon: Icons.people_alt_outlined,
             ),
@@ -267,7 +267,7 @@ class _ContactCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      contact.email ?? contact.phone ?? 'Iletisim bilgisi yok',
+                      contact.email ?? contact.phone ?? 'İletişim bilgisi yok',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
@@ -354,7 +354,7 @@ class _CreateContactSheetState extends ConsumerState<_CreateContactSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Kisi ekle', style: Theme.of(context).textTheme.titleLarge),
+            Text('Kişi ekle', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 16),
             TextField(
               controller: _nameController,
@@ -433,7 +433,7 @@ class _CreateContactSheetState extends ConsumerState<_CreateContactSheet> {
       }
     } catch (error) {
       setState(() {
-        _errorMessage = readableApiError(error, 'Kisi kaydedilemedi.');
+        _errorMessage = readableApiError(error, 'Kişi kaydedilemedi.');
       });
     } finally {
       if (mounted) {

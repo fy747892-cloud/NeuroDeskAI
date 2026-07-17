@@ -27,7 +27,7 @@ class DashboardPage extends ConsumerWidget {
                 ),
                 const SizedBox(height: 18),
                 Text(
-                  'Calisma ozeti',
+                  'Çalışma özeti',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
                 const SizedBox(height: 12),
@@ -42,14 +42,14 @@ class DashboardPage extends ConsumerWidget {
                     _MetricCard(
                       icon: Icons.checklist,
                       accent: const Color(0xFF3525CD),
-                      label: 'Acik gorev',
+                      label: 'Açık görev',
                       value: data.summary.openTasksCount,
                       onTap: () => context.go('/app/tasks'),
                     ),
                     _MetricCard(
                       icon: Icons.warning_amber,
                       accent: const Color(0xFFDC6465),
-                      label: 'Gecikmis',
+                      label: 'Gecikmiş',
                       value: data.summary.overdueTasksCount,
                       onTap: () => context.go('/app/tasks'),
                     ),
@@ -63,7 +63,7 @@ class DashboardPage extends ConsumerWidget {
                     _MetricCard(
                       icon: Icons.auto_awesome,
                       accent: const Color(0xFF8B5CF6),
-                      label: 'AI onay',
+                      label: 'AI onayı',
                       value: data.summary.pendingAiApprovalsCount,
                       onTap: () => context.go('/app/approvals'),
                     ),
@@ -72,8 +72,8 @@ class DashboardPage extends ConsumerWidget {
               ],
             ),
             error: (error, stackTrace) => const _PageMessage(
-              title: 'Dashboard alinamadi',
-              body: 'Baglantiyi kontrol edip tekrar dene.',
+              title: 'Dashboard alınamadı',
+              body: 'Bağlantıyı kontrol edip tekrar dene.',
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
@@ -144,14 +144,14 @@ class _HeroSummary extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Bugun $appointments randevun, $approvals bekleyen AI onayin ve $openTasks acik gorevin var.',
+            'Bugün $appointments randevun, $approvals bekleyen AI onayın ve $openTasks açık görevin var.',
             style: theme.textTheme.headlineMedium,
           ),
           const SizedBox(height: 14),
           FilledButton.icon(
             onPressed: () => context.go('/app/conversations'),
             icon: const Icon(Icons.bolt),
-            label: const Text('Gorusme ekle'),
+            label: const Text('Görüşme ekle'),
           ),
         ],
       ),

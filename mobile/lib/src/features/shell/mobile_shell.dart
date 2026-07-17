@@ -20,25 +20,13 @@ class MobileShell extends ConsumerWidget {
         titleSpacing: 16,
         title: Row(
           children: [
-            Container(
-              width: 34,
-              height: 34,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF3525CD), Color(0xFF6B38D4)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-              ),
-              child: const Center(
-                child: Text(
-                  'N',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.asset(
+                'assets/brand/neurodesk_mark.png',
+                width: 34,
+                height: 34,
+                fit: BoxFit.cover,
               ),
             ),
             const SizedBox(width: 10),
@@ -65,7 +53,7 @@ class MobileShell extends ConsumerWidget {
             onPressed: () => context.go('/app/notifications'),
           ),
           PopupMenuButton<_ShellAction>(
-            tooltip: 'Diger',
+            tooltip: 'Diğer',
             icon: const Icon(Icons.more_vert),
             onSelected: (action) {
               switch (action) {
@@ -94,7 +82,7 @@ class MobileShell extends ConsumerWidget {
                 value: _ShellAction.contacts,
                 child: ListTile(
                   leading: Icon(Icons.people_alt_outlined),
-                  title: Text('Kisiler'),
+                  title: Text('Kişiler'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -102,7 +90,7 @@ class MobileShell extends ConsumerWidget {
                 value: _ShellAction.conversations,
                 child: ListTile(
                   leading: Icon(Icons.forum_outlined),
-                  title: Text('Gorusmeler'),
+                  title: Text('Görüşmeler'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -110,7 +98,7 @@ class MobileShell extends ConsumerWidget {
                 value: _ShellAction.deals,
                 child: ListTile(
                   leading: Icon(Icons.account_tree_outlined),
-                  title: Text('Firsatlar'),
+                  title: Text('Fırsatlar'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -118,7 +106,7 @@ class MobileShell extends ConsumerWidget {
                 value: _ShellAction.priority,
                 child: ListTile(
                   leading: Icon(Icons.priority_high),
-                  title: Text('Oncelik'),
+                  title: Text('Öncelik'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -158,7 +146,7 @@ class MobileShell extends ConsumerWidget {
                 value: _ShellAction.logout,
                 child: ListTile(
                   leading: Icon(Icons.logout),
-                  title: Text('Cikis yap'),
+                  title: Text('Çıkış yap'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -171,8 +159,12 @@ class MobileShell extends ConsumerWidget {
           apiStatus.when(
             data: (status) => status.isOk
                 ? const SizedBox.shrink()
-                : const _ApiStatusBanner(),
+                : _ApiStatusBanner(
+                    statusLabel: status.displayLabel,
+                    onRetry: () => ref.invalidate(apiStatusProvider),
+                  ),
             error: (error, stackTrace) => _ApiStatusBanner(
+              statusLabel: 'Bağlantı hatası',
               onRetry: () => ref.invalidate(apiStatusProvider),
             ),
             loading: () => const SizedBox.shrink(),
@@ -187,17 +179,17 @@ class MobileShell extends ConsumerWidget {
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined),
             selectedIcon: Icon(Icons.dashboard),
-            label: 'Ozet',
+            label: 'Özet',
           ),
           NavigationDestination(
             icon: Icon(Icons.checklist_outlined),
             selectedIcon: Icon(Icons.checklist),
-            label: 'Gorevler',
+            label: 'Görevler',
           ),
           NavigationDestination(
             icon: Icon(Icons.call_outlined),
             selectedIcon: Icon(Icons.call),
-            label: 'Cagri',
+            label: 'Çağrı',
           ),
           NavigationDestination(
             icon: Icon(Icons.calendar_today_outlined),
@@ -257,8 +249,9 @@ enum _ShellAction {
 }
 
 class _ApiStatusBanner extends StatelessWidget {
-  const _ApiStatusBanner({this.onRetry});
+  const _ApiStatusBanner({this.statusLabel, this.onRetry});
 
+  final String? statusLabel;
   final VoidCallback? onRetry;
 
   @override
@@ -279,7 +272,9 @@ class _ApiStatusBanner extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'API baglantisi zayif. Backend ve ag durumunu kontrol edin.',
+                  statusLabel == null
+                      ? 'API bağlantısı zayıf. Backend ve ağ durumunu kontrol edin.'
+                      : 'API bağlantısı zayıf: $statusLabel. Backend ve ağ durumunu kontrol edin.',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(

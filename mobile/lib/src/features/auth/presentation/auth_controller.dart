@@ -49,7 +49,7 @@ class AuthController extends AsyncNotifier<AuthState> {
       return const AuthState(
         tokens: null,
         hasLockedSession: true,
-        errorMessage: 'Kayitli oturum biyometrik dogrulama bekliyor.',
+        errorMessage: 'Kayıtlı oturum biyometrik doğrulama bekliyor.',
       );
     }
     return AuthState(tokens: tokens);
@@ -64,7 +64,7 @@ class AuthController extends AsyncNotifier<AuthState> {
         AuthState(
           tokens: null,
           hasLockedSession: true,
-          errorMessage: 'Biyometrik dogrulama tamamlanamadi.',
+          errorMessage: 'Biyometrik doğrulama tamamlanamadı.',
         ),
       );
       return;
@@ -74,7 +74,7 @@ class AuthController extends AsyncNotifier<AuthState> {
       AuthState(
         tokens: tokens,
         hasLockedSession: tokens != null,
-        errorMessage: tokens == null ? 'Kayitli oturum bulunamadi.' : null,
+        errorMessage: tokens == null ? 'Kayıtlı oturum bulunamadı.' : null,
       ),
     );
   }
@@ -100,7 +100,7 @@ class AuthController extends AsyncNotifier<AuthState> {
       state = AsyncData(
         AuthState(
           tokens: null,
-          errorMessage: readableApiError(error, 'Giris tamamlanamadi.'),
+          errorMessage: readableApiError(error, 'Giriş tamamlanamadı.'),
         ),
       );
     }
@@ -124,7 +124,7 @@ class AuthController extends AsyncNotifier<AuthState> {
       state = AsyncData(
         AuthState(
           tokens: null,
-          errorMessage: readableApiError(error, 'Kayit tamamlanamadi.'),
+          errorMessage: readableApiError(error, 'Kayıt tamamlanamadı.'),
         ),
       );
     }

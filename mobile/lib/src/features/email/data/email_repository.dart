@@ -44,9 +44,13 @@ class EmailRepository {
         .toList(growable: false);
   }
 
-  Future<EmailConnectStart> startConnect(String provider) async {
+  Future<EmailConnectStart> startConnect(
+    String provider, {
+    String? returnTo,
+  }) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/v1/email/$provider/connect',
+      queryParameters: returnTo == null ? null : {'return_to': returnTo},
     );
     return EmailConnectStart.fromJson(response.data!);
   }

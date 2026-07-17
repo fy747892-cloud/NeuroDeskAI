@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../../../core/api/api_error.dart';
 import '../../conversations/data/conversations_repository.dart';
@@ -27,10 +28,10 @@ class _CallsPageState extends ConsumerState<CallsPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text('Cagrilar', style: theme.textTheme.headlineMedium),
+            Text('Çağrılar', style: theme.textTheme.headlineMedium),
             const SizedBox(height: 6),
             Text(
-              'Telefon kaydi otomatik alinmaz; gorusme metnini bilincli olarak ekle.',
+              'Telefon kaydı otomatik alınmaz; görüşme metnini bilinçli olarak ekle.',
               style: theme.textTheme.bodyMedium,
             ),
             if (_notice != null) ...[
@@ -40,7 +41,7 @@ class _CallsPageState extends ConsumerState<CallsPage> {
             const SizedBox(height: 16),
             calls.when(
               data: (items) => items.isEmpty
-                  ? const _PageMessage(message: 'Henuz cagri kaydi yok.')
+                  ? const _PageMessage(message: 'Henüz çağrı kaydı yok.')
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -50,7 +51,7 @@ class _CallsPageState extends ConsumerState<CallsPage> {
                       ],
                     ),
               error: (error, stackTrace) => _PageMessage(
-                message: readableApiError(error, 'Cagrilar alinamadi.'),
+                message: readableApiError(error, 'Çağrılar alınamadı.'),
               ),
               loading: () => const Center(child: CircularProgressIndicator()),
             ),
@@ -58,7 +59,7 @@ class _CallsPageState extends ConsumerState<CallsPage> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        tooltip: 'Cagri metni ekle',
+        tooltip: 'Çağrı metni ekle',
         onPressed: _showCreateSheet,
         child: const Icon(Icons.add_call),
       ),
@@ -73,7 +74,7 @@ class _CallsPageState extends ConsumerState<CallsPage> {
       builder: (context) => const _CreateCallSheet(),
     );
     if (saved == true) {
-      setState(() => _notice = 'Cagri kaydedildi ve AI analiz baslatildi.');
+      setState(() => _notice = 'Çağrı kaydedildi ve AI analizi başlatıldı.');
       ref.invalidate(callsProvider);
       ref.invalidate(conversationsProvider);
     }
@@ -100,7 +101,7 @@ class _CallsSummary extends StatelessWidget {
         children: [
           Expanded(
             child: _SummaryMetric(
-              label: 'Cagri',
+              label: 'Çağrı',
               value: calls.length.toString(),
               icon: Icons.call_outlined,
             ),
@@ -154,7 +155,7 @@ class _CallCard extends StatelessWidget {
                   child: Text(
                     call.phoneNumber?.isNotEmpty == true
                         ? call.phoneNumber!
-                        : 'Manuel cagri',
+                        : 'Manuel çağrı',
                     style: theme.textTheme.titleMedium,
                   ),
                 ),
@@ -233,14 +234,14 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Cagri metni ekle',
+            Text('Çağrı metni ekle',
                 style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 14),
             TextField(
               controller: _titleController,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
-                labelText: 'Baslik',
+                labelText: 'Başlık',
                 prefixIcon: Icon(Icons.title),
               ),
             ),
@@ -285,6 +286,12 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
                 prefixIcon: Icon(Icons.notes_outlined),
               ),
             ),
+            const SizedBox(height: 10),
+            OutlinedButton.icon(
+              onPressed: _isSaving ? null : _importTranscriptFile,
+              icon: const Icon(Icons.text_snippet_outlined),
+              label: const Text('TXT transkript dosyası içe aktar'),
+            ),
             if (_errorMessage != null) ...[
               const SizedBox(height: 10),
               Text(
@@ -319,7 +326,7 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
         .toList(growable: false);
 
     if (title.isEmpty || transcript.isEmpty) {
-      setState(() => _errorMessage = 'Baslik ve transkript zorunlu.');
+      setState(() => _errorMessage = 'Başlık ve transkript zorunlu.');
       return;
     }
 
@@ -344,12 +351,44 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
       }
     } catch (error) {
       setState(() {
-        _errorMessage = readableApiError(error, 'Cagri kaydedilemedi.');
+        _errorMessage = readableApiError(error, 'Çağrı kaydedilemedi.');
       });
     } finally {
       if (mounted) {
         setState(() => _isSaving = false);
       }
+    }
+  }
+
+  Future<void> _importTranscriptFile() async {
+    setState(() => _errorMessage = null);
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: const ['txt'],
+        allowMultiple: false,
+        withData: true,
+      );
+      final file = result?.files.single;
+      final bytes = file?.bytes;
+      if (file == null || bytes == null) {
+        return;
+      }
+      final text = String.fromCharCodes(bytes).trim();
+      if (text.isEmpty) {
+        setState(() => _errorMessage = 'Seçilen transkript dosyası boş.');
+        return;
+      }
+      _transcriptController.text = text;
+      if (_titleController.text.trim().isEmpty) {
+        final name =
+            file.name.replaceAll(RegExp(r'\.txt$', caseSensitive: false), '');
+        _titleController.text = name.isEmpty ? 'Görüşme transkripti' : name;
+      }
+    } catch (error) {
+      setState(() {
+        _errorMessage = 'Transkript dosyası okunamadı.';
+      });
     }
   }
 }
@@ -437,7 +476,7 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = switch (status.toLowerCase()) {
-      'uploaded' => 'Yuklendi',
+      'uploaded' => 'Yüklendi',
       'processed' => 'Islendi',
       'failed' => 'Hata',
       _ => status,

@@ -45,7 +45,7 @@ class _EmailPageState extends ConsumerState<EmailPage>
     }
     setState(() {
       _notice =
-          '${_providerLabel(provider)} yetkilendirmesinden donuldu. Hesap durumu yenileniyor.';
+          '${_providerLabel(provider)} yetkilendirmesinden dönüldü. Hesap durumu yenileniyor.';
     });
   }
 
@@ -69,21 +69,21 @@ class _EmailPageState extends ConsumerState<EmailPage>
                     Text('E-posta', style: theme.textTheme.headlineMedium),
                     const SizedBox(height: 6),
                     Text(
-                      'Gmail ve Outlook hesaplarini takip et, mesajlari senkronize et.',
+                      'Gmail ve Outlook hesaplarını takip et, mesajları senkronize et.',
                       style: theme.textTheme.bodyMedium,
                     ),
                   ],
                 ),
               ),
               PopupMenuButton<String>(
-                tooltip: 'Bagla',
+                tooltip: 'Bağla',
                 icon: const Icon(Icons.add_link),
                 onSelected: _startConnect,
                 itemBuilder: (context) => const [
-                  PopupMenuItem(value: 'gmail', child: Text('Gmail bagla')),
+                  PopupMenuItem(value: 'gmail', child: Text('Gmail bağla')),
                   PopupMenuItem(
                     value: 'outlook',
-                    child: Text('Outlook bagla'),
+                    child: Text('Outlook bağla'),
                   ),
                 ],
               ),
@@ -109,7 +109,7 @@ class _EmailPageState extends ConsumerState<EmailPage>
                   _EmailSummary(accounts: accounts),
                   const SizedBox(height: 14),
                   if (accounts.isEmpty)
-                    const _PageMessage(message: 'Bagli e-posta hesabi yok.')
+                    const _PageMessage(message: 'Bağlı e-posta hesabı yok.')
                   else
                     ...accounts.map(
                       (account) => _AccountCard(
@@ -131,7 +131,7 @@ class _EmailPageState extends ConsumerState<EmailPage>
               );
             },
             error: (error, stackTrace) => _PageMessage(
-              message: readableApiError(error, 'E-posta hesaplari alinamadi.'),
+              message: readableApiError(error, 'E-posta hesapları alınamadı.'),
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
@@ -149,6 +149,7 @@ class _EmailPageState extends ConsumerState<EmailPage>
     try {
       final result = await ref.read(emailRepositoryProvider).startConnect(
             provider,
+            returnTo: 'neurodesk://app/oauth/email/$provider',
           );
       final opened = await launchUrl(
         Uri.parse(result.authorizeUrl),
@@ -157,12 +158,12 @@ class _EmailPageState extends ConsumerState<EmailPage>
       setState(() {
         _pendingOAuthProvider = opened ? provider : null;
         _notice = opened
-            ? '${_providerLabel(provider)} yetkilendirmesi tarayicida acildi. Islemi tamamlayip uygulamaya don.'
-            : '${_providerLabel(provider)} yetki URL hazir: ${result.authorizeUrl}';
+            ? '${_providerLabel(provider)} yetkilendirmesi tarayıcıda açıldı. İşlemi tamamlayıp uygulamaya dön.'
+            : '${_providerLabel(provider)} yetki URL hazır: ${result.authorizeUrl}';
       });
     } catch (error) {
       setState(() {
-        _notice = readableApiError(error, 'E-posta baglantisi baslatilamadi.');
+        _notice = readableApiError(error, 'E-posta bağlantısı başlatılamadı.');
       });
     } finally {
       if (mounted) {
@@ -181,8 +182,8 @@ class _EmailPageState extends ConsumerState<EmailPage>
       final summary =
           await ref.read(emailRepositoryProvider).syncAccount(account.id);
       setState(() {
-        _notice = 'Senkron tamam: ${summary.fetched} alindi, '
-            '${summary.created} eklendi, ${summary.skipped} atlandi.';
+        _notice = 'Senkron tamam: ${summary.fetched} alındı, '
+            '${summary.created} eklendi, ${summary.skipped} atlandı.';
       });
       ref.invalidate(emailAccountsProvider);
       ref.invalidate(emailMessagesProvider(account.id));
@@ -205,11 +206,11 @@ class _EmailPageState extends ConsumerState<EmailPage>
 
     try {
       await ref.read(emailRepositoryProvider).revokeAccount(account.id);
-      setState(() => _notice = 'E-posta baglantisi kaldirildi.');
+      setState(() => _notice = 'E-posta bağlantısı kaldırıldı.');
       ref.invalidate(emailAccountsProvider);
     } catch (error) {
       setState(() {
-        _notice = readableApiError(error, 'E-posta baglantisi kaldirilamadi.');
+        _notice = readableApiError(error, 'E-posta bağlantısı kaldırılamadı.');
       });
     } finally {
       if (mounted) {
@@ -247,7 +248,7 @@ class _EmailSummary extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: _SummaryMetric(
-              label: 'Bagli',
+              label: 'Bağlı',
               value: connected.toString(),
               icon: Icons.link,
             ),
@@ -338,7 +339,7 @@ class _AccountCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 10),
                   IconButton.outlined(
-                    tooltip: 'Baglantiyi kaldir',
+                    tooltip: 'Bağlantıyı kaldır',
                     onPressed: isActive || account.status == 'revoked'
                         ? null
                         : onRevoke,
@@ -370,13 +371,13 @@ class _MessagesPanel extends ConsumerWidget {
           Text('Mesajlar', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 10),
           if (items.isEmpty)
-            const _PageMessage(message: 'Secili hesapta mesaj yok.')
+            const _PageMessage(message: 'Seçili hesapta mesaj yok.')
           else
             ...items.map((message) => _MessageCard(message: message)),
         ],
       ),
       error: (error, stackTrace) => _PageMessage(
-        message: readableApiError(error, 'Mesajlar alinamadi.'),
+        message: readableApiError(error, 'Mesajlar alınamadı.'),
       ),
       loading: () => const LinearProgressIndicator(),
     );
@@ -402,14 +403,14 @@ class _MessageCard extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 6),
-            Text(message.snippet ?? 'On izleme yok.'),
+            Text(message.snippet ?? 'Ön izleme yok.'),
             const SizedBox(height: 8),
             Wrap(
               spacing: 10,
               runSpacing: 6,
               children: [
                 Text(
-                  message.fromAddress ?? 'Gonderen yok',
+                  message.fromAddress ?? 'Gönderen yok',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
                 if (message.receivedAt != null)

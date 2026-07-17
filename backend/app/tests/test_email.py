@@ -54,6 +54,27 @@ async def test_connect_returns_minimal_scope_authorize_url_and_state(client: Asy
     assert start["state"]
 
 
+async def test_mobile_callback_redirects_to_safe_return_url(client: AsyncClient):
+    headers = await _auth_headers(client, "email-mobile-return@example.com")
+    start_response = await client.post(
+        "/api/v1/email/gmail/connect",
+        headers=headers,
+        params={"return_to": "neurodesk://app/oauth/email/gmail"},
+    )
+    assert start_response.status_code == 200
+    start = start_response.json()
+
+    callback = await client.get(
+        "/api/v1/email/gmail/callback",
+        params={"code": "mock-code", "state": start["state"]},
+    )
+
+    assert callback.status_code in {302, 307}
+    assert callback.headers["location"].startswith(
+        "neurodesk://app/oauth/email/gmail?provider=gmail&status=connected"
+    )
+
+
 async def test_callback_with_invalid_state_is_rejected(client: AsyncClient):
     response = await client.get(
         "/api/v1/email/gmail/callback", params={"code": "mock-code", "state": "bogus-state"}
@@ -131,16 +152,12 @@ async def test_sync_dedups_messages_on_repeat_calls(client: AsyncClient):
     headers = await _auth_headers(client, "email-sync-dedup@example.com")
     account = await _connect(client, headers)
 
-    first_sync = await client.post(
-        f"/api/v1/email/accounts/{account['id']}/sync", headers=headers
-    )
+    first_sync = await client.post(f"/api/v1/email/accounts/{account['id']}/sync", headers=headers)
     assert first_sync.status_code == 200
     assert first_sync.json()["created"] > 0
     assert first_sync.json()["skipped"] == 0
 
-    second_sync = await client.post(
-        f"/api/v1/email/accounts/{account['id']}/sync", headers=headers
-    )
+    second_sync = await client.post(f"/api/v1/email/accounts/{account['id']}/sync", headers=headers)
     assert second_sync.status_code == 200
     assert second_sync.json()["created"] == 0
     assert second_sync.json()["skipped"] == first_sync.json()["fetched"]

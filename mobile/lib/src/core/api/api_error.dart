@@ -5,10 +5,10 @@ String readableApiError(Object error, String fallback) {
     if (error.type == DioExceptionType.connectionTimeout ||
         error.type == DioExceptionType.receiveTimeout ||
         error.type == DioExceptionType.sendTimeout) {
-      return 'Sunucu gec yanit verdi. Baglantiyi kontrol edip tekrar deneyin.';
+      return 'Sunucu geç yanıt verdi. Bağlantıyı kontrol edip tekrar deneyin.';
     }
     if (error.type == DioExceptionType.connectionError) {
-      return 'API baglantisi kurulamadi. Backend adresi ve ag baglantisini kontrol edin.';
+      return 'API bağlantısı kurulamadı. Backend adresi ve ağ bağlantısını kontrol edin.';
     }
 
     final data = error.response?.data;
@@ -21,16 +21,16 @@ String readableApiError(Object error, String fallback) {
 
     final statusCode = error.response?.statusCode;
     if (statusCode == 401) {
-      return 'Oturum suresi doldu. Tekrar giris yapin.';
+      return 'Oturum süresi doldu. Tekrar giriş yapın.';
     }
     if (statusCode == 403) {
-      return 'Bu islem icin yetkiniz yok.';
+      return 'Bu işlem için yetkiniz yok.';
     }
     if (statusCode == 404) {
-      return 'Istenen kayit bulunamadi.';
+      return 'İstenen kayıt bulunamadı.';
     }
     if (statusCode == 429) {
-      return 'Cok fazla istek gonderildi. Biraz bekleyip tekrar deneyin.';
+      return 'Çok fazla istek gönderildi. Biraz bekleyip tekrar deneyin.';
     }
     if (statusCode != null && statusCode >= 500) {
       return 'Sunucu tarafinda gecici bir sorun olustu. Tekrar deneyin.';
