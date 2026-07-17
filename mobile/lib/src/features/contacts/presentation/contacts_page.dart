@@ -150,7 +150,7 @@ class _ContactsSummary extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: _SummaryMetric(
-              label: 'Sirket',
+              label: 'Şirket',
               value: companyCount.toString(),
               icon: Icons.business_outlined,
             ),
@@ -258,7 +258,7 @@ class _ContactCard extends StatelessWidget {
                               .join(' - ')
                               .trim()
                               .isEmpty
-                          ? 'Profil detayi yok'
+                          ? 'Profil detayı yok'
                           : [contact.title, contact.company]
                               .where(
                                   (value) => value != null && value.isNotEmpty)
@@ -379,7 +379,7 @@ class _CreateContactSheetState extends ConsumerState<_CreateContactSheet> {
             TextField(
               controller: _companyController,
               textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(labelText: 'Sirket'),
+              decoration: const InputDecoration(labelText: 'Şirket'),
             ),
             const SizedBox(height: 12),
             TextField(

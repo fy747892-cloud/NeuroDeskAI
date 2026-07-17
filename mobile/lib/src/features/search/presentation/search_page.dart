@@ -180,7 +180,7 @@ class _SearchSummary extends StatelessWidget {
         children: [
           Expanded(
             child: _SummaryMetric(
-              label: 'Sonuc',
+              label: 'Sonuç',
               value: results.length.toString(),
               icon: Icons.search,
             ),

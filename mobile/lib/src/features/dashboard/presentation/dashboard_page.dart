@@ -132,7 +132,7 @@ class _HeroSummary extends StatelessWidget {
                 Icon(Icons.auto_awesome, size: 16, color: Color(0xFF3525CD)),
                 SizedBox(width: 7),
                 Text(
-                  'AKILLI OZET',
+                  'AKILLI ÖZET',
                   style: TextStyle(
                     color: Color(0xFF3525CD),
                     fontSize: 12,

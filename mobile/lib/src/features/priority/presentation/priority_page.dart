@@ -107,7 +107,7 @@ class _PrioritySummary extends StatelessWidget {
               const SizedBox(width: 12),
               Expanded(
                 child: _SummaryMetric(
-                  label: 'Acil/Yuksek',
+                  label: 'Acil/Yüksek',
                   value: '${urgentCount + highCount}',
                   icon: Icons.priority_high,
                 ),
@@ -369,9 +369,9 @@ String _factorLabel(PriorityFactor factor) {
     'explicit_priority' => 'Öncelik +${factor.weight}',
     'status' => 'Durum +${factor.weight}',
     'overdue' => 'Gecikti +${factor.weight}',
-    'due_soon' => 'Yaklasan +${factor.weight}',
+    'due_soon' => 'Yaklaşan +${factor.weight}',
     'upcoming' => '3 gün +${factor.weight}',
-    'planned' => 'Planli +${factor.weight}',
+    'planned' => 'Planlı +${factor.weight}',
     'contact_linked' => 'Kişi +${factor.weight}',
     'urgent_language' => 'Acil dil +${factor.weight}',
     _ => '+${factor.weight}',

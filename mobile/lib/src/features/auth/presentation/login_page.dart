@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/demo_mode.dart';
 import 'auth_controller.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -109,6 +110,18 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                   .unlockSavedSession(),
                           icon: const Icon(Icons.fingerprint),
                           label: const Text('Biyometrik ile devam et'),
+                        ),
+                      ],
+                      if (testerLoginEnabled) ...[
+                        const SizedBox(height: 10),
+                        OutlinedButton.icon(
+                          onPressed: isLoading
+                              ? null
+                              : () => ref
+                                  .read(authControllerProvider.notifier)
+                                  .loginAsTester(rememberMe: _rememberMe),
+                          icon: const Icon(Icons.science_outlined),
+                          label: const Text('Tester olarak gir'),
                         ),
                       ],
                       const SizedBox(height: 10),

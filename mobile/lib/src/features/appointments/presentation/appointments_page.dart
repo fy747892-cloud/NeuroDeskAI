@@ -73,7 +73,7 @@ class _CalendarSummary extends StatelessWidget {
         children: [
           Expanded(
             child: _SummaryMetric(
-              label: 'Yaklasan',
+              label: 'Yaklaşan',
               value: appointments.length.toString(),
               icon: Icons.event_available,
             ),
@@ -254,13 +254,13 @@ class _DateBadge extends StatelessWidget {
   String _monthLabel(int month) {
     return const [
       'Oca',
-      'Sub',
+      'Şub',
       'Mar',
       'Nis',
       'May',
       'Haz',
       'Tem',
-      'Agu',
+      'Ağu',
       'Eyl',
       'Eki',
       'Kas',
@@ -302,7 +302,7 @@ class _StatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final label = switch (status.toLowerCase()) {
       'confirmed' => 'Onaylı',
-      'scheduled' => 'Planli',
+      'scheduled' => 'Planlı',
       'cancelled' => 'Iptal',
       'completed' => 'Bitti',
       _ => status,

@@ -78,7 +78,7 @@ class _NotificationsSummary extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: _SummaryMetric(
-              label: 'Okunmamis',
+              label: 'Okunmamış',
               value: unreadCount.toString(),
               icon: Icons.mark_email_unread_outlined,
             ),

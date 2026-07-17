@@ -93,7 +93,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                       TextButton(
                         onPressed:
                             isLoading ? null : () => context.go('/auth/login'),
-                        child: const Text('Zaten hesabim var'),
+                        child: const Text('Zaten hesabım var'),
                       ),
                       if (errorMessage != null) ...[
                         const SizedBox(height: 12),
