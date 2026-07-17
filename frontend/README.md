@@ -44,7 +44,8 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 - `/gorevler` tasks
 - `/takvim` appointments and calendar accounts
 - `/oncelik` priority queue
-- `/kisiler` contacts
+- `/kisiler` contacts, `/kisiler/[id]` contact detail (Customer Memory)
+- `/firsatlar` deals pipeline (kanban)
 - `/dosyalar` files and document analysis actions
 - `/mailler` email accounts, messages, sync
 - `/bildirimler` notifications
@@ -52,6 +53,6 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 - `/analitik` analytics overview
 - `/ayarlar` account, subscription, usage
 
-## Current Session Note
+## Session Persistence
 
-The frontend keeps auth tokens in memory for now. A browser refresh intentionally returns the user to `/giris`; this avoids persistent token storage until a cookie/refresh-token session strategy is added.
+The refresh token is persisted to `localStorage` (`neurodesk-refresh-token`); the access token stays in memory only. On load, `SessionProvider` uses the stored refresh token to silently restore the session (calling `/auth/refresh` then `/users/me`) before `AuthGuard` decides whether to redirect to `/giris`, so a browser refresh no longer logs the user out. Access tokens are proactively refreshed ~60s before their 15-minute expiry (decoded from the JWT `exp` claim) and the rotated refresh token is re-persisted each time.

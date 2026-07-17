@@ -1,4 +1,4 @@
-import { DealsView } from "@/components/deals-view";
+import { DealsView } from "@/components/deals/deals-view";
 
 export default function DealsPage() {
   return <DealsView />;

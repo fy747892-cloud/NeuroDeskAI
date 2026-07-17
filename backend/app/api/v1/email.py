@@ -1,5 +1,5 @@
 import uuid
-from urllib.parse import urlencode, urlparse, urlunparse, parse_qsl
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import RedirectResponse
@@ -7,6 +7,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import require_permission
+from app.core.config import settings
 from app.core.errors import NotFoundError
 from app.core.permissions import Permission
 from app.core.rate_limit import RateLimiter
@@ -25,6 +26,10 @@ from app.modules.email.service import EmailIntegrationService
 from app.modules.users.models import User
 
 router = APIRouter(prefix="/email", tags=["email"])
+
+
+def _wants_html(request: Request) -> bool:
+    return "text/html" in request.headers.get("accept", "")
 
 
 async def _start_connect(
@@ -98,6 +103,19 @@ def _append_callback_query(return_to: str, *, provider: str, account: EmailAccou
     return urlunparse(parsed._replace(query=urlencode(query)))
 
 
+def _callback_response(
+    provider: str,
+    request: Request,
+    account: EmailAccount,
+    return_to: str | None,
+) -> EmailAccount | RedirectResponse:
+    if return_to:
+        return RedirectResponse(_append_callback_query(return_to, provider=provider, account=account))
+    if _wants_html(request):
+        return RedirectResponse(f"{settings.frontend_base_url}/ayarlar?connected={provider}")
+    return account
+
+
 @router.post("/gmail/connect", response_model=ConnectStartOut)
 async def start_gmail_connect(
     return_to: str | None = Query(default=None),
@@ -115,13 +133,9 @@ async def gmail_callback(
     state: str = Query(...),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
-):
+) -> EmailAccount | RedirectResponse:
     account, return_to = await _complete_connect("gmail", request, code, state, db, redis)
-    if return_to:
-        return RedirectResponse(
-            _append_callback_query(return_to, provider="gmail", account=account)
-        )
-    return account
+    return _callback_response("gmail", request, account, return_to)
 
 
 @router.post("/outlook/connect", response_model=ConnectStartOut)
@@ -141,13 +155,9 @@ async def outlook_callback(
     state: str = Query(...),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
-):
+) -> EmailAccount | RedirectResponse:
     account, return_to = await _complete_connect("outlook", request, code, state, db, redis)
-    if return_to:
-        return RedirectResponse(
-            _append_callback_query(return_to, provider="outlook", account=account)
-        )
-    return account
+    return _callback_response("outlook", request, account, return_to)
 
 
 @router.get("/accounts", response_model=list[EmailAccountOut])

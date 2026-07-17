@@ -1,4 +1,4 @@
-import { ContactDetailView } from "@/components/contact-detail-view";
+import { ContactDetailView } from "@/components/contacts/contact-detail-view";
 
 export default async function ContactDetailPage({
   params,

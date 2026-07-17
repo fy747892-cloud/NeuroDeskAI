@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
+import httpx
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,7 +9,7 @@ from app.core.crypto import decrypt_token, encrypt_token
 from app.core.errors import AuthError, NotFoundError, ProviderError, ValidationAppError
 from app.modules.email.models import EmailAccount
 from app.modules.email.oauth_state import OAuthStateStore
-from app.modules.email.provider import MAIL_PROVIDERS, OAUTH_PROVIDERS
+from app.modules.email.provider import get_mail_provider, get_oauth_provider
 from app.modules.email.repository import (
     EmailAccountRepository,
     EmailMessageRepository,
@@ -49,7 +50,7 @@ class EmailIntegrationService:
             organization_id=organization_id,
             return_to=return_to,
         )
-        oauth_provider = OAUTH_PROVIDERS[provider]()
+        oauth_provider = get_oauth_provider(provider)
         authorize_url = oauth_provider.build_authorize_url(state=state)
         return {"authorize_url": authorize_url, "state": state}
 
@@ -70,7 +71,7 @@ class EmailIntegrationService:
         if account is None:
             raise NotFoundError("No pending email connection found for this state.")
 
-        oauth_provider = OAUTH_PROVIDERS[provider]()
+        oauth_provider = get_oauth_provider(provider)
         try:
             token_payload = await oauth_provider.exchange_code(code)
         except RuntimeError as exc:
@@ -103,7 +104,7 @@ class EmailIntegrationService:
         if token_row is None or token_row.refresh_token_encrypted is None:
             raise ValidationAppError("This account has no refresh token to use.")
 
-        oauth_provider = OAUTH_PROVIDERS[account.provider]()
+        oauth_provider = get_oauth_provider(account.provider)
         try:
             refreshed = await oauth_provider.refresh_token(
                 decrypt_token(token_row.refresh_token_encrypted)
@@ -127,8 +128,22 @@ class EmailIntegrationService:
                 "Only a connected email account can be synced (it may be revoked or not yet connected)."
             )
 
-        mail_provider = MAIL_PROVIDERS[account.provider]()
-        fetched_messages = await mail_provider.list_message_metadata()
+        token_row = await self._tokens.get_by_account(email_account_id=account.id)
+        if token_row is None:
+            raise ValidationAppError("This account has no stored access token.")
+
+        if token_row.expires_at is not None and token_row.expires_at <= datetime.now(timezone.utc):
+            account = await self.refresh_access_token(account=account)
+            token_row = await self._tokens.get_by_account(email_account_id=account.id)
+            if token_row is None:
+                raise ValidationAppError("This account has no stored access token.")
+
+        access_token = decrypt_token(token_row.access_token_encrypted)
+        mail_provider = get_mail_provider(account.provider)
+        try:
+            fetched_messages = await mail_provider.list_message_metadata(access_token=access_token)
+        except httpx.HTTPStatusError as exc:
+            raise ProviderError(f"Mail provider request failed: {exc}") from exc
 
         created = 0
         skipped = 0

@@ -18,7 +18,11 @@ class Settings(BaseSettings):
 
     token_encryption_key: str
     google_client_id: str = ""
+    google_client_secret: str = ""
     microsoft_client_id: str = ""
+    microsoft_client_secret: str = ""
+    oauth_redirect_base_url: str = "http://localhost:8000"
+    frontend_base_url: str = "http://localhost:3000"
 
     minio_endpoint_url: str = "http://localhost:9000"
     minio_public_endpoint_url: str | None = None
@@ -36,6 +40,14 @@ class Settings(BaseSettings):
     llm_tts_model: str = "tts-1"
     llm_tts_voice: str = "alloy"
     llm_timeout_seconds: float = 30.0
+
+    email_provider: str = "mock"
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_address: str = ""
+    smtp_use_tls: bool = True
 
     @property
     def cors_origin_list(self) -> list[str]:

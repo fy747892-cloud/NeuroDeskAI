@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import ConflictError, ValidationAppError
 from app.modules.notifications.models import Notification
-from app.modules.notifications.provider import MockEmailProvider
+from app.modules.notifications.provider import get_email_provider
 from app.modules.notifications.repository import NotificationRepository
 
 RETRY_BACKOFF_MINUTES = 5
@@ -15,7 +15,7 @@ class NotificationService:
     def __init__(self, db: AsyncSession):
         self._db = db
         self._notifications = NotificationRepository(db)
-        self._email_provider = MockEmailProvider()
+        self._email_provider = get_email_provider()
 
     async def create_reminder(
         self,

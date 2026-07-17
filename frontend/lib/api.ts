@@ -375,6 +375,7 @@ export type EmailMessage = {
   from_address: string | null;
   snippet: string | null;
   received_at: string | null;
+  is_replied: boolean;
 };
 
 export type EmailSyncSummary = {
@@ -982,6 +983,42 @@ export async function rejectAction(
   });
 }
 
+// Approving an AIActionApproval only flips its status — it does not create the
+// real record. A separate materialize call against the matching from-approval
+// endpoint is required to turn it into a real task/appointment/deal.
+export async function createTaskFromApproval(accessToken: string, approvalId: string): Promise<Task> {
+  return request<Task>("/api/v1/tasks/from-approval", {
+    method: "POST",
+    body: JSON.stringify({ approval_id: approvalId }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function createAppointmentFromApproval(
+  accessToken: string,
+  approvalId: string,
+): Promise<Appointment> {
+  return request<Appointment>("/api/v1/appointments/from-approval", {
+    method: "POST",
+    body: JSON.stringify({ approval_id: approvalId }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function createDealFromApproval(accessToken: string, approvalId: string): Promise<Deal> {
+  return request<Deal>("/api/v1/deals/from-approval", {
+    method: "POST",
+    body: JSON.stringify({ approval_id: approvalId }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
 export async function listChatSessions(accessToken: string): Promise<ChatSession[]> {
   return request<ChatSession[]>("/api/v1/ai/chat/sessions", {
     cache: "no-store",
@@ -1124,31 +1161,6 @@ export async function startEmailConnect(
   });
 }
 
-export async function completeGmailConnect(
-  state: string,
-  code = "mock-code",
-): Promise<EmailAccount> {
-  return completeEmailConnect("gmail", state, code);
-}
-
-export async function completeOutlookConnect(
-  state: string,
-  code = "mock-code",
-): Promise<EmailAccount> {
-  return completeEmailConnect("outlook", state, code);
-}
-
-export async function completeEmailConnect(
-  provider: EmailProvider,
-  state: string,
-  code = "mock-code",
-): Promise<EmailAccount> {
-  const searchParams = new URLSearchParams({ code, state });
-  return request<EmailAccount>(`/api/v1/email/${provider}/callback?${searchParams.toString()}`, {
-    cache: "no-store",
-  });
-}
-
 export async function revokeEmailAccount(
   accessToken: string,
   accountId: string,
@@ -1179,6 +1191,15 @@ export async function listEmailMessages(
 ): Promise<EmailMessage[]> {
   return request<EmailMessage[]>(`/api/v1/email/accounts/${accountId}/messages`, {
     cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function markEmailReplied(accessToken: string, messageId: string): Promise<EmailMessage> {
+  return request<EmailMessage>(`/api/v1/email/messages/${messageId}/mark-replied`, {
+    method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -1419,6 +1440,13 @@ export async function listAuditLogs(accessToken: string, limit = 50): Promise<Au
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
+  });
+}
+
+export async function refreshAccessToken(refreshToken: string): Promise<TokenResponse> {
+  return request<TokenResponse>("/api/v1/auth/refresh", {
+    method: "POST",
+    body: JSON.stringify({ refresh_token: refreshToken }),
   });
 }
 
