@@ -5,6 +5,11 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "NeuroDeskAI",
   description: "AI workspace dashboard for NeuroDeskAI operations.",
+  icons: {
+    icon: "/brand/neurodesk-mark.svg",
+    shortcut: "/brand/neurodesk-mark.svg",
+    apple: "/brand/neurodesk-mark.svg",
+  },
 };
 
 export default function RootLayout({

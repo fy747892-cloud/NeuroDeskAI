@@ -17,7 +17,19 @@ class ApiStatus {
 
   final String status;
 
-  bool get isOk => status == 'ok';
+  String get normalizedStatus => status.trim().toLowerCase();
+
+  bool get isOk => normalizedStatus == 'ok';
+
+  String get displayLabel {
+    return switch (normalizedStatus) {
+      'ok' => 'Sağlıklı',
+      'degraded' => 'Zayıf',
+      'maintenance' => 'Bakımda',
+      'unknown' => 'Bilinmiyor',
+      _ => status.isEmpty ? 'Bilinmiyor' : status,
+    };
+  }
 
   factory ApiStatus.fromJson(Map<String, dynamic> json) {
     return ApiStatus(status: json['status'] as String? ?? 'unknown');

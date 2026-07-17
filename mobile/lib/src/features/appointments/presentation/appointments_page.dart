@@ -20,13 +20,13 @@ class AppointmentsPage extends ConsumerWidget {
           Text('Takvim', style: theme.textTheme.headlineMedium),
           const SizedBox(height: 6),
           Text(
-            'Yaklasan gorusme, toplanti ve takipleri tek akis halinde izle.',
+            'Yaklaşan görüşme, toplantı ve takipleri tek akış halinde izle.',
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),
           appointments.when(
             data: (items) => items.isEmpty
-                ? const _EmptyList(message: 'Yaklasan randevu yok.')
+                ? const _EmptyList(message: 'Yaklaşan randevu yok.')
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -39,7 +39,7 @@ class AppointmentsPage extends ConsumerWidget {
                     ],
                   ),
             error: (error, stackTrace) =>
-                const _EmptyList(message: 'Randevular alinamadi.'),
+                const _EmptyList(message: 'Randevular alınamadı.'),
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
         ],
@@ -81,7 +81,7 @@ class _CalendarSummary extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: _SummaryMetric(
-              label: 'Bugun',
+              label: 'Bugün',
               value: todayCount.toString(),
               icon: Icons.today,
             ),
@@ -301,7 +301,7 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = switch (status.toLowerCase()) {
-      'confirmed' => 'Onayli',
+      'confirmed' => 'Onaylı',
       'scheduled' => 'Planli',
       'cancelled' => 'Iptal',
       'completed' => 'Bitti',

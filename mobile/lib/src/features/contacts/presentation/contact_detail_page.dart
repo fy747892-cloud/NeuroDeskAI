@@ -44,7 +44,7 @@ class _ContactDetailPageState extends ConsumerState<ContactDetailPage> {
             child: TextButton.icon(
               onPressed: () => context.go('/app/contacts'),
               icon: const Icon(Icons.arrow_back),
-              label: const Text('Kisi listesi'),
+              label: const Text('Kişi listesi'),
             ),
           ),
           detail.when(
@@ -56,7 +56,7 @@ class _ContactDetailPageState extends ConsumerState<ContactDetailPage> {
                 memory.when(
                   data: (value) => _MemoryCard(memory: value),
                   error: (error, stackTrace) => _PageMessage(
-                    message: readableApiError(error, 'Hafiza alinamadi.'),
+                    message: readableApiError(error, 'Hafıza alınamadı.'),
                   ),
                   loading: () =>
                       const Center(child: CircularProgressIndicator()),
@@ -74,7 +74,7 @@ class _ContactDetailPageState extends ConsumerState<ContactDetailPage> {
               ],
             ),
             error: (error, stackTrace) => _PageMessage(
-              message: readableApiError(error, 'Kisi bilgisi alinamadi.'),
+              message: readableApiError(error, 'Kişi bilgisi alınamadı.'),
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
@@ -191,7 +191,7 @@ class _MemoryCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Musteri Hafizasi',
+            'Müşteri Hafızası',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   color: Colors.white,
                 ),
@@ -201,13 +201,13 @@ class _MemoryCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _MemoryMetric(
-                  label: 'Acik gorev',
+                  label: 'Açık görev',
                   value: memory.pendingItemsCount.toString(),
                 ),
               ),
               Expanded(
                 child: _MemoryMetric(
-                  label: 'Firsat',
+                  label: 'Fırsat',
                   value: memory.openDealsCount.toString(),
                 ),
               ),
@@ -215,8 +215,8 @@ class _MemoryCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           _MemoryLine(
-            label: 'Son gorusme',
-            value: memory.lastConversationTitle ?? 'Kayit yok',
+            label: 'Son görüşme',
+            value: memory.lastConversationTitle ?? 'Kayıt yok',
           ),
           _MemoryLine(
             label: 'Sonraki randevu',
@@ -305,7 +305,7 @@ class _NotesCard extends StatelessWidget {
             Text('Notlar', style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 12),
             if (notes.isEmpty)
-              Text('Henuz not yok.',
+              Text('Henüz not yok.',
                   style: Theme.of(context).textTheme.bodySmall)
             else
               ...notes.map((note) => _NoteItem(note: note)),

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:neurodesk_ai_mobile/src/core/api/api_status.dart';
 import 'package:neurodesk_ai_mobile/src/features/ai_approvals/domain/ai_action_approval.dart';
 import 'package:neurodesk_ai_mobile/src/features/ai_chat/domain/chat_message.dart';
 import 'package:neurodesk_ai_mobile/src/features/analytics/domain/analytics_models.dart';
@@ -15,6 +16,17 @@ import 'package:neurodesk_ai_mobile/src/features/search/domain/search_result.dar
 import 'package:neurodesk_ai_mobile/src/features/settings/domain/user_profile.dart';
 
 void main() {
+  test('labels API health states for mobile display', () {
+    expect(ApiStatus.fromJson({'status': 'ok'}).displayLabel, 'Sağlıklı');
+    expect(ApiStatus.fromJson({'status': 'degraded'}).displayLabel, 'Zayıf');
+    expect(
+      ApiStatus.fromJson({'status': 'maintenance'}).displayLabel,
+      'Bakımda',
+    );
+    expect(ApiStatus.fromJson({}).displayLabel, 'Bilinmiyor');
+    expect(ApiStatus.fromJson({'status': 'custom'}).displayLabel, 'custom');
+  });
+
   test('parses AI action approval payloads from backend schema', () {
     final approval = AiActionApproval.fromJson({
       'id': 'approval-1',
@@ -32,7 +44,7 @@ void main() {
 
     expect(approval.displayTitle, 'Musteriyi ara');
     expect(approval.displayDescription, 'Teklif detaylarini takip et.');
-    expect(approval.actionLabel, 'Gorev');
+    expect(approval.actionLabel, 'Görev');
     expect(approval.confidenceScore, 0.82);
   });
 
@@ -48,7 +60,7 @@ void main() {
       'created_at': '2026-07-14T12:00:00Z',
     });
 
-    expect(approval.displayTitle, 'Randevu onerisi');
+    expect(approval.displayTitle, 'Randevu önerisi');
     expect(approval.actionLabel, 'Randevu');
   });
 

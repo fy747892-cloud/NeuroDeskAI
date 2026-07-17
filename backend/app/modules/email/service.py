@@ -30,6 +30,7 @@ class EmailIntegrationService:
         organization_id: uuid.UUID,
         user_id: uuid.UUID,
         provider: str,
+        return_to: str | None = None,
     ) -> dict:
         account = await self._accounts.get_by_provider(
             tenant_id=tenant_id, organization_id=organization_id, user_id=user_id, provider=provider
@@ -43,13 +44,18 @@ class EmailIntegrationService:
             )
 
         state = await self._states.generate(
-            user_id=user_id, tenant_id=tenant_id, organization_id=organization_id
+            user_id=user_id,
+            tenant_id=tenant_id,
+            organization_id=organization_id,
+            return_to=return_to,
         )
         oauth_provider = OAUTH_PROVIDERS[provider]()
         authorize_url = oauth_provider.build_authorize_url(state=state)
         return {"authorize_url": authorize_url, "state": state}
 
-    async def complete_connect(self, *, provider: str, state: str, code: str) -> EmailAccount:
+    async def complete_connect(
+        self, *, provider: str, state: str, code: str
+    ) -> tuple[EmailAccount, str | None]:
         claims = await self._states.consume(state)
         if claims is None:
             raise AuthError("Invalid or expired OAuth state.")
@@ -83,7 +89,7 @@ class EmailIntegrationService:
             email_address=token_payload["email_address"],
             scope=token_payload["scope"],
         )
-        return account
+        return account, claims.get("return_to")
 
     async def revoke(self, *, account: EmailAccount) -> EmailAccount:
         await self._tokens.delete_for_account(email_account_id=account.id)
@@ -91,9 +97,7 @@ class EmailIntegrationService:
 
     async def refresh_access_token(self, *, account: EmailAccount) -> EmailAccount:
         if account.status != "connected":
-            raise ValidationAppError(
-                "Only a connected email account can have its token refreshed."
-            )
+            raise ValidationAppError("Only a connected email account can have its token refreshed.")
 
         token_row = await self._tokens.get_by_account(email_account_id=account.id)
         if token_row is None or token_row.refresh_token_encrypted is None:

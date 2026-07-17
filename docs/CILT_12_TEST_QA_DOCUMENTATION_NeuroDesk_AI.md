@@ -665,6 +665,9 @@ Zorunlu otomatik kontroller:
 - `flutter test` gecmelidir; model parsing testleri backend response alanlariyla uyumlu kalmalidir.
 - Auth widget testi unauthenticated kullaniciyi login ekranina yonlendirmelidir.
 - AI approval action type testleri backend degerleri olan `task`, `appointment`, `deal` icin label ve materialization uyumunu kapsamalidir.
+- API health status testleri `ok`, `degraded`, `maintenance` ve bilinmeyen durumlar icin mobil etiketlerin okunur kaldigini dogrulamalidir.
+- Debug ve release APK build kapilari calismalidir; release APK manifest'inde `INTERNET` ve biyometrik izinler bulunmalidir.
+- Files ekraninda 25 MB ustu dosya secimi upload baslatmadan kullaniciya okunur hata mesaji gostermelidir.
 
 Zorunlu local smoke kontrolleri:
 
@@ -672,9 +675,11 @@ Zorunlu local smoke kontrolleri:
 2. Android emulator icin backend `0.0.0.0:8000` uzerinden aciktir; mobil `10.0.2.2:8000` ile erisir.
 3. Mobil debug APK build edilir ve Pixel 8 emulator'e kurulur.
 4. Register akisi mobil veya API smoke ile dogrulanir.
-5. Login sonrasi Dashboard, Tasks, Appointments, Conversations, Notifications ve AI Approvals liste endpointleri 200 doner.
+5. Login sonrasi Dashboard, Tasks, Appointments, Conversations, Notifications, AI Approvals, AI Chat, Contacts/CRM, Search, Files, Email, Deals, Priority ve Analytics yuzeyleri acilir.
 6. Manuel gorusme transkripti kaydedilir ve AI analiz baslatma istegi gonderilir.
 7. AI approval approve akisi yalnizca approval status degistirmekle kalmaz; `task`, `appointment` veya `deal` icin ilgili `from-approval` endpoint'ini cagirarak gercek kayit olusturur.
 8. Access token 401 oldugunda mobil refresh token ile yeni token alip istegi bir kez tekrarlar; refresh basarisizsa secure storage temizlenir ve kullanici tekrar auth akisini gorur.
+9. Beni hatirla acikken kayitli oturum secure storage'da saklanir; desteklenen cihazda biometric unlock akisi local_auth ile tetiklenir.
+10. Android release APK `aapt dump permissions` ile kontrol edilir; API erisimi icin `android.permission.INTERNET` paket icinde olmalidir.
 
-Bilinen MVP test disi alanlar: offline outbox, push notification, biometric login, store signing, crash reporting, mobile AI Chat, Contacts/CRM, Search, Files ve Analytics mobil ekranlari. Bu alanlar Sprint 15+ backlog veya hardening fazinda ayri QA kapilari alacaktir.
+Bilinen MVP test disi veya dis sistem dogrulamasi gerektiren alanlar: offline outbox/cache ve sync engine, push notification/FCM, production domain uzerinde App/Universal Link association dosyalarinin yayinlanmasi ve provider dogrulamasi, crash reporting, product analytics eventleri, tablet/foldable polish, production release otomasyonu ve buyuk dosyalar icin offline upload kuyrugu. Android release signing proje tarafinda `key.properties` veya ortam degiskenleri ile hazirdir; gercek store imzasi release keystore saglandiginda dogrulanmalidir.

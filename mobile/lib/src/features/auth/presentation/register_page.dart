@@ -55,12 +55,12 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        'Hesap olustur',
+                        'Hesap oluştur',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Mobil calisma alanini baslat.',
+                        'Mobil çalışma alanını başlat.',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       const SizedBox(height: 18),
@@ -82,12 +82,12 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                         controller: _passwordController,
                         obscureText: true,
                         onSubmitted: (_) => _submit(),
-                        decoration: const InputDecoration(labelText: 'Sifre'),
+                        decoration: const InputDecoration(labelText: 'Şifre'),
                       ),
                       const SizedBox(height: 16),
                       FilledButton(
                         onPressed: isLoading ? null : _submit,
-                        child: Text(isLoading ? 'Kayit yapiliyor' : 'Kayit ol'),
+                        child: Text(isLoading ? 'Kayıt yapılıyor' : 'Kayıt ol'),
                       ),
                       const SizedBox(height: 10),
                       TextButton(
@@ -122,14 +122,14 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
     if (displayName.isEmpty || email.isEmpty || password.isEmpty) {
       setState(() {
-        _validationMessage = 'Ad soyad, email ve sifre zorunlu.';
+        _validationMessage = 'Ad soyad, email ve şifre zorunlu.';
       });
       return;
     }
 
     if (password.length < 8) {
       setState(() {
-        _validationMessage = 'Sifre en az 8 karakter olmali.';
+        _validationMessage = 'Şifre en az 8 karakter olmalı.';
       });
       return;
     }
@@ -148,20 +148,34 @@ class _AuthBrand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'NeuroDesk AI',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 34,
-            fontWeight: FontWeight.w900,
-            height: 1.05,
-          ),
+        Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Image.asset(
+                'assets/brand/neurodesk_mark.png',
+                width: 58,
+                height: 58,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(width: 14),
+            const Text(
+              'NeuroDesk AI',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 32,
+                fontWeight: FontWeight.w900,
+                height: 1.05,
+              ),
+            ),
+          ],
         ),
-        SizedBox(height: 10),
-        Text(
+        const SizedBox(height: 10),
+        const Text(
           'AI destekli operasyon alanin cebinde.',
           style: TextStyle(
             color: Color(0xFFC3C0FF),

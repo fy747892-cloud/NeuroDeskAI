@@ -35,14 +35,14 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
                     Text('Analitik', style: theme.textTheme.headlineMedium),
                     const SizedBox(height: 6),
                     Text(
-                      'Son 7 gun performans ve AI kullanim ozeti.',
+                      'Son 7 gün performans ve AI kullanım özeti.',
                       style: theme.textTheme.bodyMedium,
                     ),
                   ],
                 ),
               ),
               IconButton.filledTonal(
-                tooltip: 'Bugunu hesapla',
+                tooltip: 'Bugünü hesapla',
                 onPressed: _isAggregating ? null : _aggregateToday,
                 icon: _isAggregating
                     ? const SizedBox.square(
@@ -57,7 +57,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
           snapshot.when(
             data: (data) => _AnalyticsContent(snapshot: data),
             error: (error, stackTrace) => _PageMessage(
-              message: readableApiError(error, 'Analitik verisi alinamadi.'),
+              message: readableApiError(error, 'Analitik verisi alınamadı.'),
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
@@ -77,7 +77,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
               content:
-                  Text(readableApiError(error, 'Hesaplama baslatilamadi.'))),
+                  Text(readableApiError(error, 'Hesaplama başlatılamadı.'))),
         );
       }
     } finally {
@@ -127,7 +127,7 @@ class _AnalyticsContent extends StatelessWidget {
               accent: const Color(0xFFD97706),
             ),
             _MetricCard(
-              label: 'Gorusme',
+              label: 'Görüşme',
               value: overview.callsTotal.toString(),
               icon: Icons.call_outlined,
             ),
@@ -142,8 +142,8 @@ class _AnalyticsContent extends StatelessWidget {
         _AiCostBand(overview: overview, avgLatency: avgLatency),
         const SizedBox(height: 14),
         _TrendSection(
-          title: 'Gorev trendi',
-          emptyMessage: 'Gorev metrigi yok.',
+          title: 'Görev trendi',
+          emptyMessage: 'Görev metriği yok.',
           bars: [
             for (final metric in snapshot.taskMetrics)
               _TrendBar(
@@ -155,8 +155,8 @@ class _AnalyticsContent extends StatelessWidget {
         ),
         const SizedBox(height: 14),
         _TrendSection(
-          title: 'Gorusme hacmi',
-          emptyMessage: 'Gorusme metrigi yok.',
+          title: 'Görüşme hacmi',
+          emptyMessage: 'Görüşme metriği yok.',
           bars: [
             for (final metric in snapshot.callMetrics)
               _TrendBar(

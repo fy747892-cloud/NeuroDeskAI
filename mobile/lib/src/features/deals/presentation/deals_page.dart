@@ -36,10 +36,10 @@ class _DealsPageState extends ConsumerState<DealsPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Firsatlar', style: theme.textTheme.headlineMedium),
+                    Text('Fırsatlar', style: theme.textTheme.headlineMedium),
                     const SizedBox(height: 6),
                     Text(
-                      'Pipeline degerini ve asama hareketlerini takip et.',
+                      'Pipeline değerini ve aşama hareketlerini takip et.',
                       style: theme.textTheme.bodyMedium,
                     ),
                   ],
@@ -81,7 +81,7 @@ class _DealsPageState extends ConsumerState<DealsPage> {
                   ),
                   const SizedBox(height: 14),
                   if (visible.isEmpty)
-                    const _PageMessage(message: 'Bu asamada firsat yok.')
+                    const _PageMessage(message: 'Bu aşamada fırsat yok.')
                   else
                     ...visible.map(
                       (deal) => _DealCard(
@@ -95,7 +95,7 @@ class _DealsPageState extends ConsumerState<DealsPage> {
               );
             },
             error: (error, stackTrace) => _PageMessage(
-              message: readableApiError(error, 'Firsatlar alinamadi.'),
+              message: readableApiError(error, 'Fırsatlar alınamadı.'),
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
@@ -124,7 +124,7 @@ class _DealsPageState extends ConsumerState<DealsPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-              content: Text(readableApiError(error, 'Asama guncellenemedi.'))),
+              content: Text(readableApiError(error, 'Aşama güncellenemedi.'))),
         );
       }
     } finally {
@@ -173,7 +173,7 @@ class _PipelineSummary extends StatelessWidget {
         children: [
           Expanded(
             child: _SummaryMetric(
-              label: 'Acik',
+              label: 'Açık',
               value: openDeals.length.toString(),
               icon: Icons.account_tree_outlined,
             ),
@@ -305,7 +305,7 @@ class _DealCard extends StatelessWidget {
               const SizedBox(height: 8),
               _MetaLine(
                 icon: Icons.event_outlined,
-                text: 'Kapanis: ${_formatDate(deal.expectedCloseDate!)}',
+                text: 'Kapanış: ${_formatDate(deal.expectedCloseDate!)}',
               ),
             ],
             const SizedBox(height: 12),
@@ -386,13 +386,13 @@ class _CreateDealSheetState extends ConsumerState<_CreateDealSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('Yeni firsat',
+              Text('Yeni fırsat',
                   style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 14),
               TextField(
                 controller: _titleController,
                 decoration: const InputDecoration(
-                  labelText: 'Baslik',
+                  labelText: 'Başlık',
                   prefixIcon: Icon(Icons.sell_outlined),
                 ),
               ),
@@ -424,7 +424,7 @@ class _CreateDealSheetState extends ConsumerState<_CreateDealSheet> {
                   decoration: const InputDecoration(labelText: 'Ilgili kisi'),
                   items: [
                     const DropdownMenuItem(
-                        value: null, child: Text('Secilmedi')),
+                        value: null, child: Text('Seçilmedi')),
                     for (final contact in items)
                       DropdownMenuItem(
                         value: contact.id,
@@ -434,7 +434,7 @@ class _CreateDealSheetState extends ConsumerState<_CreateDealSheet> {
                   onChanged: (value) => setState(() => _contactId = value),
                 ),
                 error: (error, stackTrace) =>
-                    const _PageMessage(message: 'Kisiler alinamadi.'),
+                    const _PageMessage(message: 'Kişiler alınamadı.'),
                 loading: () => const LinearProgressIndicator(),
               ),
               const SizedBox(height: 10),
@@ -443,7 +443,7 @@ class _CreateDealSheetState extends ConsumerState<_CreateDealSheet> {
                 icon: const Icon(Icons.event_outlined),
                 label: Text(
                   _expectedCloseDate == null
-                      ? 'Kapanis tarihi sec'
+                      ? 'Kapanış tarihi seç'
                       : _formatDate(_expectedCloseDate!),
                 ),
               ),
@@ -485,7 +485,7 @@ class _CreateDealSheetState extends ConsumerState<_CreateDealSheet> {
   Future<void> _save() async {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
-      setState(() => _errorMessage = 'Baslik zorunlu.');
+      setState(() => _errorMessage = 'Başlık zorunlu.');
       return;
     }
 
@@ -507,7 +507,7 @@ class _CreateDealSheetState extends ConsumerState<_CreateDealSheet> {
       }
     } catch (error) {
       setState(() {
-        _errorMessage = readableApiError(error, 'Firsat olusturulamadi.');
+        _errorMessage = readableApiError(error, 'Fırsat oluşturulamadı.');
       });
     } finally {
       if (mounted) {

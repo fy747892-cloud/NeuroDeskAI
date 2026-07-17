@@ -125,14 +125,11 @@ button:disabled {
 }
 
 .brandMark {
-  display: grid;
-  place-items: center;
   width: 42px;
   height: 42px;
   border-radius: 14px;
-  background: var(--primary-gradient);
-  color: white;
-  font-weight: 800;
+  display: block;
+  object-fit: cover;
 }
 
 .brand strong,
@@ -1047,7 +1044,6 @@ h3 {
 }
 
 .authBrandLogo .brandMark {
-  background: rgba(255, 255, 255, 0.14);
   border: 1px solid rgba(255, 255, 255, 0.25);
 }
 

@@ -38,14 +38,14 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                     Text('Dosyalar', style: theme.textTheme.headlineMedium),
                     const SizedBox(height: 6),
                     Text(
-                      'Yuklenen dokumanlari izle, analiz et ve temizle.',
+                      'Yüklenen dokümanları izle, analiz et ve temizle.',
                       style: theme.textTheme.bodyMedium,
                     ),
                   ],
                 ),
               ),
               IconButton.filled(
-                tooltip: 'Dosya yukle',
+                tooltip: 'Dosya yükle',
                 onPressed: _isUploading ? null : _pickAndUpload,
                 icon: _isUploading
                     ? const SizedBox.square(
@@ -80,7 +80,7 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                     ],
                   ),
             error: (error, stackTrace) => _PageMessage(
-              message: readableApiError(error, 'Dosyalar alinamadi.'),
+              message: readableApiError(error, 'Dosyalar alınamadı.'),
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
@@ -139,10 +139,17 @@ class _FilesPageState extends ConsumerState<FilesPage> {
       if (file == null) {
         return;
       }
+      if (file.size > _maxUploadSizeBytes) {
+        setState(() {
+          _notice =
+              '${file.name} yüklenemedi. En fazla ${_formatBytes(_maxUploadSizeBytes)} dosya yükleyebilirsin.';
+        });
+        return;
+      }
       final stream = file.readStream;
       if (stream == null || file.size <= 0) {
         setState(() {
-          _notice = 'Dosya okunamadi.';
+          _notice = 'Dosya okunamadı.';
         });
         return;
       }
@@ -154,12 +161,12 @@ class _FilesPageState extends ConsumerState<FilesPage> {
             bytes: stream,
           );
       setState(() {
-        _notice = '${uploaded.filename} yuklendi.';
+        _notice = '${uploaded.filename} yüklendi.';
       });
       ref.invalidate(filesProvider);
     } catch (error) {
       setState(() {
-        _notice = readableApiError(error, 'Dosya yuklenemedi.');
+        _notice = readableApiError(error, 'Dosya yüklenemedi.');
       });
     } finally {
       if (mounted) {
@@ -172,8 +179,8 @@ class _FilesPageState extends ConsumerState<FilesPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Dosyayi sil'),
-        content: Text('${file.filename} kalici olarak silinsin mi?'),
+        title: const Text('Dosyayı sil'),
+        content: Text('${file.filename} kalıcı olarak silinsin mi?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -214,6 +221,8 @@ class _FilesPageState extends ConsumerState<FilesPage> {
   }
 }
 
+const _maxUploadSizeBytes = 25 * 1024 * 1024;
+
 class _FilesSummary extends StatelessWidget {
   const _FilesSummary({required this.files});
 
@@ -242,7 +251,7 @@ class _FilesSummary extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: _SummaryMetric(
-              label: 'Hazir',
+              label: 'Hazır',
               value: readyCount.toString(),
               icon: Icons.verified_outlined,
             ),
@@ -410,10 +419,10 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = switch (status) {
-      'ready' => 'Hazir',
-      'processing' => 'Islemde',
+      'ready' => 'Hazır',
+      'processing' => 'İşlemde',
       'failed' => 'Hata',
-      'uploaded' => 'Yuklendi',
+      'uploaded' => 'Yüklendi',
       _ => status,
     };
 

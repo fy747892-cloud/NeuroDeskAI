@@ -1,6 +1,6 @@
 # NeuroDeskAI
 
-NeuroDeskAI is an AI-powered workspace project for healthcare-oriented desk operations. This repository is organized as a monorepo with backend services, product and architecture documentation, and a reserved frontend workspace.
+NeuroDeskAI is an AI-powered workspace for calls, conversations, email, files, tasks, appointments, CRM contacts, deals, semantic search and human-approved AI actions. This repository is a working monorepo with FastAPI backend, Next.js web app, Flutter mobile app and product/architecture documentation.
 
 ## Folder Structure
 
@@ -21,18 +21,29 @@ NeuroDeskAI/
 │   ├── uv.lock
 │   ├── .env.example
 │   └── README.md
-├── frontend/
-│   ├── app/
-│   ├── lib/
-│   ├── package.json
-│   └── README.md
+├── frontend/                  # Next.js web app
+├── mobile/                    # Flutter app
+├── scripts/
+│   └── check-all.ps1          # Local release gate
 ├── .gitignore
 └── README.md
 ```
 
-## Documentation
+## Release Gate
 
-The project documentation lives in `docs/`.
+Run the local quality gate from the repository root:
+
+```powershell
+.\scripts\check-all.ps1
+```
+
+For the fuller mobile packaging check:
+
+```powershell
+.\scripts\check-all.ps1 -ReleaseMobile
+```
+
+Production readiness and external-service gates are tracked in `docs/PRODUCTION_READINESS.md`.
 
 ## Backend Setup
 
@@ -94,3 +105,15 @@ Sprint 1 smoke test:
 5. Sign out and confirm `/` redirects to `/giris`.
 
 MinIO note: `http://localhost:9000` is the S3 API endpoint. Use `http://localhost:9001` for the MinIO console.
+
+## Mobile
+
+The mobile app is a Flutter application in `mobile/`.
+
+```powershell
+cd mobile
+flutter pub get
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
+```
+
+Use `http://10.0.2.2:8000` when Android Emulator talks to a backend running on the host machine.

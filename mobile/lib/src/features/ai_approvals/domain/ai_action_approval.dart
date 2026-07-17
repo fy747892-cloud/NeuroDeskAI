@@ -42,11 +42,11 @@ class AiActionApproval {
       return title;
     }
     return switch (actionType) {
-      'task' => 'Gorev onerisi',
-      'create_task' => 'Gorev onerisi',
-      'appointment' => 'Randevu onerisi',
-      'create_appointment' => 'Randevu onerisi',
-      'deal' => 'Firsat onerisi',
+      'task' => 'Görev önerisi',
+      'create_task' => 'Görev önerisi',
+      'appointment' => 'Randevu önerisi',
+      'create_appointment' => 'Randevu önerisi',
+      'deal' => 'Fırsat önerisi',
       _ => 'AI aksiyon onerisi',
     };
   }
@@ -62,11 +62,11 @@ class AiActionApproval {
 
   String get actionLabel {
     return switch (actionType) {
-      'task' => 'Gorev',
-      'create_task' => 'Gorev',
+      'task' => 'Görev',
+      'create_task' => 'Görev',
       'appointment' => 'Randevu',
       'create_appointment' => 'Randevu',
-      'deal' => 'Firsat',
+      'deal' => 'Fırsat',
       'send_email' => 'E-posta',
       _ => actionType,
     };

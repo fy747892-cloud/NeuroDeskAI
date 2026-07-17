@@ -55,12 +55,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        'Giris yap',
+                        'Giriş yap',
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Mobil calisma alanina devam et.',
+                        'Mobil çalışma alanına devam et.',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       const SizedBox(height: 18),
@@ -75,7 +75,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         controller: _passwordController,
                         obscureText: true,
                         onSubmitted: (_) => _submit(),
-                        decoration: const InputDecoration(labelText: 'Sifre'),
+                        decoration: const InputDecoration(labelText: 'Şifre'),
                       ),
                       const SizedBox(height: 8),
                       CheckboxListTile(
@@ -87,7 +87,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                                   _rememberMe = value ?? true;
                                 });
                               },
-                        title: const Text('Beni hatirla'),
+                        title: const Text('Beni hatırla'),
                         subtitle: const Text('Oturumu bu cihazda sakla'),
                         controlAffinity: ListTileControlAffinity.leading,
                         contentPadding: EdgeInsets.zero,
@@ -97,7 +97,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       FilledButton(
                         onPressed: isLoading ? null : _submit,
                         child:
-                            Text(isLoading ? 'Giris yapiliyor' : 'Giris yap'),
+                            Text(isLoading ? 'Giriş yapılıyor' : 'Giriş yap'),
                       ),
                       if (hasLockedSession) ...[
                         const SizedBox(height: 10),
@@ -116,7 +116,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         onPressed: isLoading
                             ? null
                             : () => context.go('/auth/register'),
-                        child: const Text('Yeni hesap olustur'),
+                        child: const Text('Yeni hesap oluştur'),
                       ),
                       if (errorMessage != null) ...[
                         const SizedBox(height: 12),
@@ -144,7 +144,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     if (email.isEmpty || password.isEmpty) {
       setState(() {
-        _validationMessage = 'Email ve sifre zorunlu.';
+        _validationMessage = 'Email ve şifre zorunlu.';
       });
       return;
     }
@@ -163,20 +163,34 @@ class _AuthBrand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'NeuroDesk AI',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 34,
-            fontWeight: FontWeight.w900,
-            height: 1.05,
-          ),
+        Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: Image.asset(
+                'assets/brand/neurodesk_mark.png',
+                width: 58,
+                height: 58,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(width: 14),
+            const Text(
+              'NeuroDesk AI',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 32,
+                fontWeight: FontWeight.w900,
+                height: 1.05,
+              ),
+            ),
+          ],
         ),
-        SizedBox(height: 10),
-        Text(
+        const SizedBox(height: 10),
+        const Text(
           'AI destekli operasyon alanin cebinde.',
           style: TextStyle(
             color: Color(0xFFC3C0FF),

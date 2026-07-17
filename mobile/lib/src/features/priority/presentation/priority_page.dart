@@ -32,10 +32,10 @@ class _PriorityPageState extends ConsumerState<PriorityPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Oncelik', style: theme.textTheme.headlineMedium),
+                    Text('Öncelik', style: theme.textTheme.headlineMedium),
                     const SizedBox(height: 6),
                     Text(
-                      'Gorev ve randevulari skorlayip siraya al.',
+                      'Görev ve randevuları skorlayıp sıraya al.',
                       style: theme.textTheme.bodyMedium,
                     ),
                   ],
@@ -46,9 +46,9 @@ class _PriorityPageState extends ConsumerState<PriorityPage> {
                 icon: const Icon(Icons.tune),
                 onSelected: (value) => setState(() => _limit = value),
                 itemBuilder: (context) => const [
-                  PopupMenuItem(value: 10, child: Text('10 kayit')),
-                  PopupMenuItem(value: 25, child: Text('25 kayit')),
-                  PopupMenuItem(value: 50, child: Text('50 kayit')),
+                  PopupMenuItem(value: 10, child: Text('10 kayıt')),
+                  PopupMenuItem(value: 25, child: Text('25 kayıt')),
+                  PopupMenuItem(value: 50, child: Text('50 kayıt')),
                 ],
               ),
             ],
@@ -56,7 +56,7 @@ class _PriorityPageState extends ConsumerState<PriorityPage> {
           const SizedBox(height: 16),
           queue.when(
             data: (data) => data.items.isEmpty
-                ? const _PageMessage(message: 'Onceliklendirilecek is yok.')
+                ? const _PageMessage(message: 'Önceliklendirilecek iş yok.')
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -66,7 +66,7 @@ class _PriorityPageState extends ConsumerState<PriorityPage> {
                     ],
                   ),
             error: (error, stackTrace) => _PageMessage(
-              message: readableApiError(error, 'Oncelik kuyrugu alinamadi.'),
+              message: readableApiError(error, 'Öncelik kuyruğu alınamadı.'),
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
@@ -366,13 +366,13 @@ Color _scoreColor(int score) {
 
 String _factorLabel(PriorityFactor factor) {
   return switch (factor.key) {
-    'explicit_priority' => 'Oncelik +${factor.weight}',
+    'explicit_priority' => 'Öncelik +${factor.weight}',
     'status' => 'Durum +${factor.weight}',
     'overdue' => 'Gecikti +${factor.weight}',
     'due_soon' => 'Yaklasan +${factor.weight}',
-    'upcoming' => '3 gun +${factor.weight}',
+    'upcoming' => '3 gün +${factor.weight}',
     'planned' => 'Planli +${factor.weight}',
-    'contact_linked' => 'Kisi +${factor.weight}',
+    'contact_linked' => 'Kişi +${factor.weight}',
     'urgent_language' => 'Acil dil +${factor.weight}',
     _ => '+${factor.weight}',
   };

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="NeuroDesk AI">
+  <defs>
+    <linearGradient id="markGradient" x1="30" y1="20" x2="226" y2="236" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#5548E8"/>
+      <stop offset="1" stop-color="#3525CD"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="24" width="208" height="208" rx="24" fill="url(#markGradient)"/>
+  <path d="M128 42 L151 80 L195 68 L181 111 L218 128 L181 145 L195 188 L151 176 L128 214 L105 176 L61 188 L75 145 L38 128 L75 111 L61 68 L105 80 Z" fill="#F5F6FF"/>
+  <path d="M88 112 L128 147 L169 109" fill="none" stroke="#AEB2C6" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M128 147 L128 190" fill="none" stroke="#AEB2C6" stroke-width="11" stroke-linecap="round"/>
+  <path d="M128 147 L165 171" fill="none" stroke="#AEB2C6" stroke-width="11" stroke-linecap="round"/>
+  <circle cx="128" cy="147" r="18" fill="#4437D6"/>
+  <circle cx="88" cy="112" r="12" fill="#4437D6"/>
+  <circle cx="169" cy="109" r="12" fill="#4437D6"/>
+  <circle cx="128" cy="190" r="11" fill="#4437D6"/>
+  <circle cx="165" cy="171" r="11" fill="#AEB2C6"/>
+  <circle cx="128" cy="67" r="11" fill="#4437D6"/>
+  <circle cx="95" cy="163" r="11" fill="#4437D6"/>
+</svg>

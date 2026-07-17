@@ -93,7 +93,7 @@ String priorityLabel(String value) {
 
 String priorityItemTypeLabel(String value) {
   return switch (value) {
-    'task' => 'Gorev',
+    'task' => 'Görev',
     'appointment' => 'Randevu',
     _ => value,
   };

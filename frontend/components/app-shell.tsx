@@ -93,14 +93,14 @@ const navItems = [
     label: "Analitik",
     href: "/analitik",
   },
-] satisfies Array<{ description: string; icon: string; label: string; href: Route }>;
+] satisfies Array<{ description: string; icon: string; label: string; href: string }>;
 
 const settingsItem = {
   description: "Hesap, organizasyon, abonelik, rıza ve denetim ayarlarını yönet.",
   icon: "settings",
   label: "Ayarlar",
   href: "/ayarlar",
-} satisfies { description: string; icon: string; label: string; href: Route };
+} satisfies { description: string; icon: string; label: string; href: string };
 
 type AppShellProps = {
   children: ReactNode;
@@ -119,7 +119,7 @@ export function AppShell({ children, eyebrow = "Çalışma alanı", health }: Ap
     <main className="shell">
       <aside className="sidebar" aria-label="Ana navigasyon">
         <div className="brand">
-          <div className="brandMark">N</div>
+          <img className="brandMark" src="/brand/neurodesk-mark.svg" alt="" aria-hidden="true" />
           <div>
             <strong>NeuroDesk AI</strong>
             <span>Akıllı operasyon paneli</span>
@@ -131,7 +131,7 @@ export function AppShell({ children, eyebrow = "Çalışma alanı", health }: Ap
             <Link
               aria-current={isActive(pathname, item.href) ? "page" : undefined}
               className={isActive(pathname, item.href) ? "active" : ""}
-              href={item.href}
+              href={item.href as Route}
               key={item.href}
             >
               <span className="material-symbols-outlined navIcon" aria-hidden="true">
@@ -146,7 +146,7 @@ export function AppShell({ children, eyebrow = "Çalışma alanı", health }: Ap
           <Link
             aria-current={isActive(pathname, settingsItem.href) ? "page" : undefined}
             className={isActive(pathname, settingsItem.href) ? "active" : ""}
-            href={settingsItem.href}
+            href={settingsItem.href as Route}
           >
             <span className="material-symbols-outlined navIcon" aria-hidden="true">
               {settingsItem.icon}

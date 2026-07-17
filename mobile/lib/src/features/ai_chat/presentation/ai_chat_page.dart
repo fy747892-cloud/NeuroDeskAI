@@ -49,7 +49,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                'Gorev, randevu ve gorusme hafizasi uzerinden soru sor.',
+                                'Görev, randevu ve görüşme hafızası üzerinden soru sor.',
                                 style: theme.textTheme.bodyMedium,
                               ),
                             ],
@@ -97,7 +97,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
         error: (error, stackTrace) => ListView(
           padding: const EdgeInsets.all(16),
           children: const [
-            _PageMessage(message: 'AI Chat yuklenemedi.'),
+            _PageMessage(message: 'AI Chat yüklenemedi.'),
           ],
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -264,12 +264,12 @@ class _EmptyChat extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             Text(
-              'NeuroDesk hafizasi hazir',
+              'NeuroDesk hafızası hazır',
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 6),
             Text(
-              'Bugunku onceliklerimi sirala, acik gorevleri ozetle veya son gorusmelerden takip aksiyonlarini sor.',
+              'Bugünkü önceliklerimi sırala, açık görevleri özetle veya son görüşmelerden takip aksiyonlarını sor.',
               style: Theme.of(context).textTheme.bodyMedium,
             ),
           ],
@@ -408,7 +408,7 @@ class _TypingBubble extends StatelessWidget {
             dimension: 14,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
-          label: Text('Yanit hazirlaniyor'),
+          label: Text('Yanıt hazırlanıyor'),
         ),
       ),
     );
@@ -446,13 +446,13 @@ class _Composer extends StatelessWidget {
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => onSubmit(),
                 decoration: const InputDecoration(
-                  hintText: 'Bugun neye odaklanmaliyim?',
+                  hintText: 'Bugün neye odaklanmalıyım?',
                 ),
               ),
             ),
             const SizedBox(width: 10),
             IconButton.filled(
-              tooltip: 'Gonder',
+              tooltip: 'Gönder',
               onPressed: isSending ? null : onSubmit,
               icon: const Icon(Icons.send),
             ),

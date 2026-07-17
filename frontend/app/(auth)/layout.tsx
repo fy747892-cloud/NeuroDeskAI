@@ -8,7 +8,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
 
         <div className="authBrandTop">
           <div className="authBrandLogo">
-            <div className="brandMark">N</div>
+            <img className="brandMark" src="/brand/neurodesk-mark.svg" alt="" aria-hidden="true" />
             <span>NeuroDesk AI</span>
           </div>
         </div>

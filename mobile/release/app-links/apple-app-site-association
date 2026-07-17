@@ -1,0 +1,22 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appIDs": [
+          "REPLACE_WITH_APPLE_TEAM_ID.ai.neurodesk.mobile"
+        ],
+        "components": [
+          {
+            "/": "/app/*",
+            "comment": "NeuroDesk AI authenticated app routes"
+          },
+          {
+            "/": "/auth/*",
+            "comment": "NeuroDesk AI auth and OAuth callback routes"
+          }
+        ]
+      }
+    ]
+  }
+}

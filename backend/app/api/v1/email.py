@@ -1,6 +1,8 @@
 import uuid
+from urllib.parse import urlencode, urlparse, urlunparse, parse_qsl
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import RedirectResponse
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,6 +32,7 @@ async def _start_connect(
     current_user: User,
     db: AsyncSession,
     redis: Redis,
+    return_to: str | None = None,
 ) -> ConnectStartOut:
     if current_user.organization_id is None:
         raise NotFoundError("Current organization not found.")
@@ -39,6 +42,7 @@ async def _start_connect(
         organization_id=current_user.organization_id,
         user_id=current_user.id,
         provider=provider,
+        return_to=_safe_mobile_return_to(return_to),
     )
     await db.commit()
     return ConnectStartOut(**result)
@@ -51,8 +55,8 @@ async def _complete_connect(
     state: str,
     db: AsyncSession,
     redis: Redis,
-) -> EmailAccount:
-    account = await EmailIntegrationService(db, redis).complete_connect(
+) -> tuple[EmailAccount, str | None]:
+    account, return_to = await EmailIntegrationService(db, redis).complete_connect(
         provider=provider, state=state, code=code
     )
     await AuditRepository(db).record(
@@ -67,16 +71,41 @@ async def _complete_connect(
         metadata={"provider": account.provider},
     )
     await db.commit()
-    return account
+    return account, return_to
+
+
+def _safe_mobile_return_to(return_to: str | None) -> str | None:
+    if return_to is None:
+        return None
+    parsed = urlparse(return_to)
+    if parsed.scheme != "neurodesk" or parsed.netloc != "app":
+        return None
+    if not parsed.path.startswith("/oauth/email/"):
+        return None
+    return return_to
+
+
+def _append_callback_query(return_to: str, *, provider: str, account: EmailAccount) -> str:
+    parsed = urlparse(return_to)
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    query.update(
+        {
+            "provider": provider,
+            "status": account.status,
+            "account_id": str(account.id),
+        }
+    )
+    return urlunparse(parsed._replace(query=urlencode(query)))
 
 
 @router.post("/gmail/connect", response_model=ConnectStartOut)
 async def start_gmail_connect(
+    return_to: str | None = Query(default=None),
     current_user: User = Depends(require_permission(Permission.EMAIL_CONNECT)),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ) -> ConnectStartOut:
-    return await _start_connect("gmail", current_user, db, redis)
+    return await _start_connect("gmail", current_user, db, redis, return_to=return_to)
 
 
 @router.get("/gmail/callback", response_model=EmailAccountOut)
@@ -86,17 +115,23 @@ async def gmail_callback(
     state: str = Query(...),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
-) -> EmailAccount:
-    return await _complete_connect("gmail", request, code, state, db, redis)
+):
+    account, return_to = await _complete_connect("gmail", request, code, state, db, redis)
+    if return_to:
+        return RedirectResponse(
+            _append_callback_query(return_to, provider="gmail", account=account)
+        )
+    return account
 
 
 @router.post("/outlook/connect", response_model=ConnectStartOut)
 async def start_outlook_connect(
+    return_to: str | None = Query(default=None),
     current_user: User = Depends(require_permission(Permission.EMAIL_CONNECT)),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
 ) -> ConnectStartOut:
-    return await _start_connect("outlook", current_user, db, redis)
+    return await _start_connect("outlook", current_user, db, redis, return_to=return_to)
 
 
 @router.get("/outlook/callback", response_model=EmailAccountOut)
@@ -106,8 +141,13 @@ async def outlook_callback(
     state: str = Query(...),
     db: AsyncSession = Depends(get_db),
     redis: Redis = Depends(get_redis),
-) -> EmailAccount:
-    return await _complete_connect("outlook", request, code, state, db, redis)
+):
+    account, return_to = await _complete_connect("outlook", request, code, state, db, redis)
+    if return_to:
+        return RedirectResponse(
+            _append_callback_query(return_to, provider="outlook", account=account)
+        )
+    return account
 
 
 @router.get("/accounts", response_model=list[EmailAccountOut])

@@ -17,16 +17,16 @@ class TasksPage extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Gorevler', style: theme.textTheme.headlineMedium),
+          Text('Görevler', style: theme.textTheme.headlineMedium),
           const SizedBox(height: 6),
           Text(
-            'Operasyon akisindaki acik isleri, oncelikleri ve teslim tarihlerini takip et.',
+            'Operasyon akışındaki açık işleri, öncelikleri ve teslim tarihlerini takip et.',
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),
           tasks.when(
             data: (items) => items.isEmpty
-                ? const _EmptyList(message: 'Henuz gorev yok.')
+                ? const _EmptyList(message: 'Henüz görev yok.')
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -36,7 +36,7 @@ class TasksPage extends ConsumerWidget {
                     ],
                   ),
             error: (error, stackTrace) =>
-                const _EmptyList(message: 'Gorevler alinamadi.'),
+                const _EmptyList(message: 'Görevler alınamadı.'),
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
         ],
@@ -68,7 +68,7 @@ class _TaskSummary extends StatelessWidget {
         children: [
           Expanded(
             child: _SummaryMetric(
-              label: 'Acik gorev',
+              label: 'Açık görev',
               value: openCount.toString(),
               icon: Icons.pending_actions,
             ),
@@ -76,7 +76,7 @@ class _TaskSummary extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: _SummaryMetric(
-              label: 'Yuksek oncelik',
+              label: 'Yüksek öncelik',
               value: urgentCount.toString(),
               icon: Icons.priority_high,
             ),
@@ -175,7 +175,8 @@ class _TaskTile extends ConsumerWidget {
             ),
             if (task.description != null && task.description!.isNotEmpty) ...[
               const SizedBox(height: 8),
-              Text(task.description!, style: Theme.of(context).textTheme.bodyMedium),
+              Text(task.description!,
+                  style: Theme.of(context).textTheme.bodyMedium),
             ],
             const SizedBox(height: 12),
             Row(
@@ -274,7 +275,7 @@ class _StatusChip extends StatelessWidget {
         isCompleted ? Icons.check_circle : Icons.radio_button_unchecked,
         size: 16,
       ),
-      label: Text(isCompleted ? 'Tamam' : 'Acik'),
+      label: Text(isCompleted ? 'Tamam' : 'Açık'),
       visualDensity: VisualDensity.compact,
     );
   }

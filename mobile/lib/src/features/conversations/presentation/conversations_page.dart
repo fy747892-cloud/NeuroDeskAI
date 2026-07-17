@@ -19,16 +19,16 @@ class ConversationsPage extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text('Gorusmeler', style: theme.textTheme.headlineMedium),
+            Text('Görüşmeler', style: theme.textTheme.headlineMedium),
             const SizedBox(height: 6),
             Text(
-              'Manuel notlari ve cagri transkriptlerini AI analizine hazirla.',
+              'Manuel notları ve çağrı transkriptlerini AI analizine hazırla.',
               style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: 16),
             conversations.when(
               data: (items) => items.isEmpty
-                  ? const _PageMessage(message: 'Henuz gorusme yok.')
+                  ? const _PageMessage(message: 'Henüz görüşme yok.')
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -41,7 +41,7 @@ class ConversationsPage extends ConsumerWidget {
                       ],
                     ),
               error: (error, stackTrace) => _PageMessage(
-                message: readableApiError(error, 'Gorusmeler alinamadi.'),
+                message: readableApiError(error, 'Görüşmeler alınamadı.'),
               ),
               loading: () => const Center(child: CircularProgressIndicator()),
             ),
@@ -49,7 +49,7 @@ class ConversationsPage extends ConsumerWidget {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        tooltip: 'Gorusme ekle',
+        tooltip: 'Görüşme ekle',
         onPressed: () => _showCreateCallSheet(context, ref),
         child: const Icon(Icons.add),
       ),
@@ -85,7 +85,7 @@ class _ConversationSummary extends StatelessWidget {
       color: const Color(0xFF17152F),
       metrics: [
         _SummaryMetricData(
-          label: 'Kayit',
+          label: 'Kayıt',
           value: conversations.length.toString(),
           icon: Icons.forum_outlined,
         ),
@@ -177,7 +177,7 @@ class _ConversationTileState extends ConsumerState<_ConversationTile> {
               child: FilledButton.icon(
                 onPressed: _isSubmitting ? null : _requestAnalysis,
                 icon: const Icon(Icons.auto_awesome),
-                label: Text(_isSubmitting ? 'Baslatiliyor' : 'AI analiz'),
+                label: Text(_isSubmitting ? 'Başlatılıyor' : 'AI analiz'),
               ),
             ),
           ],
@@ -188,7 +188,7 @@ class _ConversationTileState extends ConsumerState<_ConversationTile> {
 
   String _sourceLabel(String sourceType) {
     return switch (sourceType.toLowerCase()) {
-      'call' => 'Cagri',
+      'call' => 'Çağrı',
       'manual' => 'Manuel',
       'email' => 'E-posta',
       _ => sourceType,
@@ -214,12 +214,12 @@ class _ConversationTileState extends ConsumerState<_ConversationTile> {
           .requestAnalysis(widget.conversation.id);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('AI analiz baslatildi.')),
+          const SnackBar(content: Text('AI analiz başlatıldı.')),
         );
       }
     } catch (error) {
       setState(() {
-        _errorMessage = readableApiError(error, 'AI analiz baslatilamadi.');
+        _errorMessage = readableApiError(error, 'AI analiz başlatılamadı.');
       });
     } finally {
       if (mounted) {
@@ -263,14 +263,14 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              'Gorusme metni ekle',
+              'Görüşme metni ekle',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
             TextField(
               controller: _titleController,
               textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(labelText: 'Baslik'),
+              decoration: const InputDecoration(labelText: 'Başlık'),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -321,7 +321,7 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
 
     if (title.isEmpty || transcript.isEmpty) {
       setState(() {
-        _errorMessage = 'Baslik ve transkript zorunlu.';
+        _errorMessage = 'Başlık ve transkript zorunlu.';
       });
       return;
     }
@@ -345,13 +345,13 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Gorusme kaydedildi ve analiz basladi.'),
+            content: Text('Görüşme kaydedildi ve analiz başladı.'),
           ),
         );
       }
     } catch (error) {
       setState(() {
-        _errorMessage = readableApiError(error, 'Gorusme kaydedilemedi.');
+        _errorMessage = readableApiError(error, 'Görüşme kaydedilemedi.');
       });
     } finally {
       if (mounted) {

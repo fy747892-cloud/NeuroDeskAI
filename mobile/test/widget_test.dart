@@ -18,7 +18,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('NeuroDesk AI'), findsOneWidget);
-    expect(find.text('Giris yap'), findsWidgets);
+    expect(find.text('Giriş yap'), findsWidgets);
   });
 }
 
