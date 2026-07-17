@@ -4,7 +4,9 @@ import 'package:file_picker/file_picker.dart';
 
 import '../../../core/api/api_error.dart';
 import '../../conversations/data/conversations_repository.dart';
+import '../data/call_recording_provider.dart';
 import '../data/calls_repository.dart';
+import '../domain/ai_analysis_job.dart';
 import '../domain/call_record.dart';
 
 class CallsPage extends ConsumerStatefulWidget {
@@ -20,20 +22,27 @@ class _CallsPageState extends ConsumerState<CallsPage> {
   @override
   Widget build(BuildContext context) {
     final calls = ref.watch(callsProvider);
+    final jobs = ref.watch(callAnalysisJobsProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
       body: RefreshIndicator(
-        onRefresh: () => ref.refresh(callsProvider.future),
+        onRefresh: () => Future.wait([
+          ref.refresh(callsProvider.future),
+          ref.refresh(callAnalysisJobsProvider.future),
+        ]),
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
             Text('Çağrılar', style: theme.textTheme.headlineMedium),
             const SizedBox(height: 6),
             Text(
-              'Telefon kaydı otomatik alınmaz; görüşme metnini bilinçli olarak ekle.',
+              'Telefon çalarken kayıt otomatik başlar; istersen aşağıdan '
+              'elle de başlatıp durdurabilirsin.',
               style: theme.textTheme.bodyMedium,
             ),
+            const SizedBox(height: 14),
+            const _RecordingControlCard(),
             if (_notice != null) ...[
               const SizedBox(height: 12),
               _PageMessage(message: _notice!),
@@ -47,7 +56,15 @@ class _CallsPageState extends ConsumerState<CallsPage> {
                       children: [
                         _CallsSummary(calls: items),
                         const SizedBox(height: 14),
-                        ...items.map((call) => _CallCard(call: call)),
+                        ...items.map(
+                          (call) => _CallCard(
+                            call: call,
+                            analysisJob: jobs.maybeWhen(
+                              data: (list) => _latestJobFor(list, call),
+                              orElse: () => null,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
               error: (error, stackTrace) => _PageMessage(
@@ -66,18 +83,215 @@ class _CallsPageState extends ConsumerState<CallsPage> {
     );
   }
 
+  AiAnalysisJob? _latestJobFor(List<AiAnalysisJob> jobs, CallRecord call) {
+    final matches = jobs.where(
+      (job) =>
+          job.sourceType.toLowerCase() == 'conversation' &&
+          job.sourceId == call.conversationId,
+    );
+    return matches.isEmpty ? null : matches.last;
+  }
+
   Future<void> _showCreateSheet() async {
-    final saved = await showModalBottomSheet<bool>(
+    final job = await showModalBottomSheet<AiAnalysisJob>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       builder: (context) => const _CreateCallSheet(),
     );
-    if (saved == true) {
-      setState(() => _notice = 'Çağrı kaydedildi ve AI analizi başlatıldı.');
+    if (job != null) {
+      setState(() {
+        _notice = job.isFailed
+            ? 'Çağrı kaydedildi ama AI analizi başarısız oldu: '
+                '${job.errorMessage ?? 'bilinmeyen hata'}. Aşağıdan tekrar deneyebilirsin.'
+            : 'Çağrı kaydedildi ve AI analizi başlatıldı.';
+      });
       ref.invalidate(callsProvider);
+      ref.invalidate(callAnalysisJobsProvider);
       ref.invalidate(conversationsProvider);
     }
+  }
+}
+
+class _RecordingControlCard extends ConsumerWidget {
+  const _RecordingControlCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final rec = ref.watch(callRecordingProvider);
+    final theme = Theme.of(context);
+
+    ref.listen(callRecordingProvider, (previous, next) {
+      if (next.status == CallRecordingStatus.completed &&
+          previous?.status != CallRecordingStatus.completed) {
+        ref.invalidate(callsProvider);
+        ref.invalidate(callAnalysisJobsProvider);
+      }
+    });
+
+    switch (rec.status) {
+      case CallRecordingStatus.idle:
+        return Card(
+          child: ListTile(
+            leading: Icon(Icons.mic_none, color: theme.colorScheme.primary),
+            title: const Text('Görüşme kaydı'),
+            subtitle: const Text(
+              'Aramayı hoparlörden yap; kayıt aramayla otomatik başlamazsa '
+              'buradan elle başlat.',
+            ),
+            trailing: FilledButton.icon(
+              onPressed: () =>
+                  ref.read(callRecordingProvider.notifier).startRecording(),
+              icon: const Icon(Icons.fiber_manual_record),
+              label: const Text('Başlat'),
+            ),
+          ),
+        );
+
+      case CallRecordingStatus.recording:
+        return Card(
+          color: theme.colorScheme.primaryContainer,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.fiber_manual_record,
+                        color: theme.colorScheme.error, size: 16),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Görüşme kaydediliyor',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Aramayı hoparlörden yapın ki mikrofon her iki tarafı da '
+                  'duyabilsin. Bitince "Durdur"a basın.',
+                  style: theme.textTheme.bodySmall,
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: OutlinedButton.icon(
+                    onPressed: () =>
+                        ref.read(callRecordingProvider.notifier).stopAndProcess(),
+                    icon: const Icon(Icons.stop_circle_outlined),
+                    label: const Text('Durdur'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+
+      case CallRecordingStatus.uploading:
+        return const _RecordingStatusCard(message: 'Kayıt yükleniyor...');
+
+      case CallRecordingStatus.analyzing:
+        return const _RecordingStatusCard(
+          message: 'Ses metne çevrilip AI ile analiz ediliyor...',
+        );
+
+      case CallRecordingStatus.completed:
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              children: [
+                Icon(
+                  rec.analysisFailed
+                      ? Icons.error_outline
+                      : Icons.check_circle_outline,
+                  color: rec.analysisFailed
+                      ? theme.colorScheme.error
+                      : theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    rec.analysisFailed
+                        ? 'Kayıt kaydedildi ama AI analizi başarısız oldu. '
+                            'Aşağıdaki çağrı kartından tekrar deneyebilirsin.'
+                        : 'Kayıt tamamlandı ve AI analizi başlatıldı.',
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () =>
+                      ref.read(callRecordingProvider.notifier).reset(),
+                  child: const Text('Kapat'),
+                ),
+              ],
+            ),
+          ),
+        );
+
+      case CallRecordingStatus.error:
+        return Card(
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.error_outline, color: theme.colorScheme.error),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        rec.errorMessage ?? 'Kayıt işlemi başarısız oldu.',
+                        style: TextStyle(color: theme.colorScheme.error),
+                      ),
+                    ),
+                  ],
+                ),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () =>
+                        ref.read(callRecordingProvider.notifier).reset(),
+                    child: const Text('Kapat'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+    }
+  }
+}
+
+class _RecordingStatusCard extends StatelessWidget {
+  const _RecordingStatusCard({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(message, style: Theme.of(context).textTheme.bodyMedium),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -120,14 +334,24 @@ class _CallsSummary extends StatelessWidget {
   }
 }
 
-class _CallCard extends StatelessWidget {
-  const _CallCard({required this.call});
+class _CallCard extends ConsumerStatefulWidget {
+  const _CallCard({required this.call, this.analysisJob});
 
   final CallRecord call;
+  final AiAnalysisJob? analysisJob;
+
+  @override
+  ConsumerState<_CallCard> createState() => _CallCardState();
+}
+
+class _CallCardState extends ConsumerState<_CallCard> {
+  bool _isRetrying = false;
+  String? _retryError;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final call = widget.call;
     final firstTranscript =
         call.transcriptions.isEmpty ? null : call.transcriptions.first;
 
@@ -191,10 +415,110 @@ class _CallCard extends StatelessWidget {
                 style: theme.textTheme.bodyMedium,
               ),
             ],
+            const SizedBox(height: 10),
+            _buildAnalysisStatus(context),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildAnalysisStatus(BuildContext context) {
+    final theme = Theme.of(context);
+    final job = widget.analysisJob;
+
+    if (job == null) {
+      return Row(
+        children: [
+          Icon(Icons.hourglass_empty,
+              size: 16, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(width: 6),
+          Text(
+            'AI analizi henüz başlatılmadı.',
+            style: theme.textTheme.bodySmall
+                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+        ],
+      );
+    }
+
+    if (job.isPending) {
+      return Row(
+        children: [
+          const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          const SizedBox(width: 8),
+          Text('AI analizi işleniyor...', style: theme.textTheme.bodySmall),
+        ],
+      );
+    }
+
+    if (job.isFailed) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.error_outline, size: 16, color: theme.colorScheme.error),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  job.errorMessage?.isNotEmpty == true
+                      ? 'AI analizi başarısız: ${job.errorMessage}'
+                      : 'AI analizi başarısız oldu.',
+                  style: theme.textTheme.bodySmall
+                      ?.copyWith(color: theme.colorScheme.error),
+                ),
+              ),
+            ],
+          ),
+          if (_retryError != null) ...[
+            const SizedBox(height: 4),
+            Text(_retryError!,
+                style: theme.textTheme.bodySmall
+                    ?.copyWith(color: theme.colorScheme.error)),
+          ],
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: _isRetrying ? null : () => _retry(job),
+              icon: const Icon(Icons.refresh, size: 16),
+              label: Text(_isRetrying ? 'Deneniyor...' : 'Tekrar dene'),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Row(
+      children: [
+        Icon(Icons.check_circle_outline, size: 16, color: theme.colorScheme.primary),
+        const SizedBox(width: 6),
+        Text('AI analizi tamamlandı.', style: theme.textTheme.bodySmall),
+      ],
+    );
+  }
+
+  Future<void> _retry(AiAnalysisJob job) async {
+    setState(() {
+      _isRetrying = true;
+      _retryError = null;
+    });
+    try {
+      await ref.read(callsRepositoryProvider).retryAnalysisJob(job.id);
+      ref.invalidate(callAnalysisJobsProvider);
+    } catch (error) {
+      setState(() {
+        _retryError = readableApiError(error, 'Tekrar deneme başarısız.');
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isRetrying = false);
+      }
+    }
   }
 }
 
@@ -343,11 +667,11 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
             callDirection: _direction,
             phoneNumber: _phoneController.text,
           );
-      await ref
+      final job = await ref
           .read(callsRepositoryProvider)
           .requestAnalysis(result.conversationId);
       if (mounted) {
-        Navigator.of(context).pop(true);
+        Navigator.of(context).pop(job);
       }
     } catch (error) {
       setState(() {

@@ -24,6 +24,14 @@ MockAnalysisOutput = AnalysisOutput
 class MockAIProvider:
     provider_name = "mock"
     model_name = "mock-analysis-v1"
+    stt_model_name = "mock-stt-v1"
+
+    async def transcribe_audio(
+        self, *, audio_bytes: bytes, filename: str, content_type: str, language: str | None
+    ) -> str:
+        if not audio_bytes:
+            raise RuntimeError("Mock provider received empty audio.")
+        return f"[mock transcript for {filename}, {len(audio_bytes)} bytes]"
 
     async def analyze_conversation(self, *, title: str, transcript_text: str) -> AnalysisOutput:
         if "[mock-fail]" in transcript_text.lower():
@@ -82,9 +90,47 @@ class OpenAICompatibleAIProvider:
 
     def __init__(self) -> None:
         self.model_name = settings.llm_analysis_model
+        self.stt_model_name = settings.llm_stt_model
         self._base_url = settings.llm_base_url.rstrip("/")
         self._api_key = settings.llm_api_key
         self._timeout = settings.llm_timeout_seconds
+
+    async def transcribe_audio(
+        self, *, audio_bytes: bytes, filename: str, content_type: str, language: str | None
+    ) -> str:
+        if not self._api_key:
+            raise RuntimeError("LLM_API_KEY is required when LLM_PROVIDER is openai.")
+
+        transcript = await with_retry(
+            lambda: self._post_transcription(
+                audio_bytes=audio_bytes,
+                filename=filename,
+                content_type=content_type,
+                language=language,
+            )
+        )
+        transcript = transcript.strip()
+        if not transcript:
+            raise RuntimeError("Transcription returned empty text.")
+        return transcript
+
+    async def _post_transcription(
+        self, *, audio_bytes: bytes, filename: str, content_type: str, language: str | None
+    ) -> str:
+        headers = {"Authorization": f"Bearer {self._api_key}"}
+        data = {"model": self.stt_model_name, "response_format": "text"}
+        if language:
+            data["language"] = language
+        files = {"file": (filename, audio_bytes, content_type)}
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            response = await client.post(
+                f"{self._base_url}/audio/transcriptions",
+                headers=headers,
+                data=data,
+                files=files,
+            )
+        response.raise_for_status()
+        return response.text
 
     async def analyze_conversation(self, *, title: str, transcript_text: str) -> AnalysisOutput:
         if not self._api_key:
