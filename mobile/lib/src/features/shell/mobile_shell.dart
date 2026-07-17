@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_status.dart';
 import '../auth/presentation/auth_controller.dart';
+import '../calls/data/call_state_listener.dart';
 
 class MobileShell extends ConsumerWidget {
   const MobileShell({required this.child, super.key});
@@ -14,6 +15,9 @@ class MobileShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).uri.path;
     final apiStatus = ref.watch(apiStatusProvider);
+    // Activates the auto phone-state → call-recording listener for as long
+    // as the authenticated app shell is mounted; see call_state_listener.dart.
+    ref.watch(callAutoRecordListenerProvider);
 
     return Scaffold(
       appBar: AppBar(
