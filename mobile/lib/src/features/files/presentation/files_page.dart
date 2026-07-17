@@ -184,7 +184,7 @@ class _FilesPageState extends ConsumerState<FilesPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Vazgec'),
+            child: const Text('Vazgeç'),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),

@@ -210,7 +210,7 @@ class _StageFilter extends StatelessWidget {
       child: Row(
         children: [
           _StageChip(
-            label: 'Tum',
+            label: 'Tüm',
             count: deals.length,
             selected: selectedStage == 'all',
             onSelected: () => onChanged('all'),
@@ -401,7 +401,7 @@ class _CreateDealSheetState extends ConsumerState<_CreateDealSheet> {
                 controller: _valueController,
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
-                  labelText: 'Deger',
+                  labelText: 'Değer',
                   prefixIcon: Icon(Icons.payments_outlined),
                 ),
               ),
@@ -421,7 +421,7 @@ class _CreateDealSheetState extends ConsumerState<_CreateDealSheet> {
               contacts.when(
                 data: (items) => DropdownButtonFormField<String>(
                   initialValue: _contactId,
-                  decoration: const InputDecoration(labelText: 'Ilgili kisi'),
+                  decoration: const InputDecoration(labelText: 'İlgili kişi'),
                   items: [
                     const DropdownMenuItem(
                         value: null, child: Text('Seçilmedi')),
@@ -460,7 +460,7 @@ class _CreateDealSheetState extends ConsumerState<_CreateDealSheet> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.check),
-                label: const Text('Olustur'),
+                label: const Text('Oluştur'),
               ),
             ],
           ),

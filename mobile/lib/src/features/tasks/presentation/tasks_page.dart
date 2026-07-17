@@ -230,9 +230,9 @@ class _TaskTile extends ConsumerWidget {
   String _priorityLabel(String priority) {
     return switch (priority.toLowerCase()) {
       'urgent' => 'Acil',
-      'high' => 'Yuksek',
+      'high' => 'Yüksek',
       'medium' => 'Orta',
-      'low' => 'Dusuk',
+      'low' => 'Düşük',
       _ => priority,
     };
   }

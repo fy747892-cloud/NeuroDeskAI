@@ -84,9 +84,9 @@ class PriorityFactor {
 String priorityLabel(String value) {
   return switch (value) {
     'urgent' => 'Acil',
-    'high' => 'Yuksek',
+    'high' => 'Yüksek',
     'medium' => 'Orta',
-    'low' => 'Dusuk',
+    'low' => 'Düşük',
     _ => value,
   };
 }

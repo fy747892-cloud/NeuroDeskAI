@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../../core/demo_mode.dart';
 import '../data/auth_repository.dart';
 import '../data/biometric_auth_service.dart';
 import '../data/secure_token_store.dart';
@@ -104,6 +105,31 @@ class AuthController extends AsyncNotifier<AuthState> {
         ),
       );
     }
+  }
+
+  Future<void> loginAsTester({bool rememberMe = false}) async {
+    state = const AsyncLoading();
+    if (!testerLoginEnabled) {
+      state = const AsyncData(
+        AuthState(
+          tokens: null,
+          errorMessage: 'Tester girişi bu derlemede kapalı.',
+        ),
+      );
+      return;
+    }
+
+    const tokens = AuthTokens(
+      accessToken: testerAccessToken,
+      refreshToken: testerRefreshToken,
+      tokenType: 'bearer',
+    );
+    if (rememberMe) {
+      await ref.read(secureTokenStoreProvider).save(tokens);
+    } else {
+      await ref.read(secureTokenStoreProvider).clear();
+    }
+    state = AsyncData(AuthState(tokens: tokens, hasLockedSession: rememberMe));
   }
 
   Future<void> register({
