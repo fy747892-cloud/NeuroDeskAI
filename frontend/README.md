@@ -25,12 +25,12 @@ The app runs on `http://localhost:3000` by default.
 `NEXT_PUBLIC_API_BASE_URL` should point to the backend API root, for example:
 
 ```env
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
 ```
 
 ## Sprint 1 Smoke Test
 
-1. Run the backend API on `http://localhost:8000`.
+1. Run the backend API on `http://127.0.0.1:8000`.
 2. Run the frontend with `npm run dev`.
 3. Visit `/kayit` and create a user.
 4. Confirm the dashboard loads and the backend status pill is visible.

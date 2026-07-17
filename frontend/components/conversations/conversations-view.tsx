@@ -1,10 +1,11 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
   AIAnalysisJob,
   Call,
   ConversationDetail,
+  createCallFromAudio,
   createCallFromText,
   Conversation,
   deleteCall,
@@ -37,8 +38,15 @@ export function ConversationsView() {
   const [isCreating, setCreating] = useState(false);
   const [isAnalyzing, setAnalyzing] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showAudioForm, setShowAudioForm] = useState(false);
   const [activeCallId, setActiveCallId] = useState<string | null>(null);
   const [newCall, setNewCall] = useState({ participants: "", phone: "", title: "", transcript: "" });
+  const [audioCall, setAudioCall] = useState({ participants: "", phone: "", title: "" });
+  const [recordingState, setRecordingState] = useState<"idle" | "recording" | "uploading" | "analyzing">("idle");
+  const [recordingStartedAt, setRecordingStartedAt] = useState<number | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const chunksRef = useRef<Blob[]>([]);
 
   const loadConversations = useCallback(async () => {
     if (!tokens?.accessToken) return;
@@ -57,11 +65,17 @@ export function ConversationsView() {
     } finally {
       setLoading(false);
     }
-  }, [tokens?.accessToken]);
+  }, [t, tokens?.accessToken]);
 
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
+
+  useEffect(() => {
+    return () => {
+      cleanupRecorder();
+    };
+  }, []);
 
   useEffect(() => {
     async function loadDetail() {
@@ -79,7 +93,7 @@ export function ConversationsView() {
       }
     }
     loadDetail();
-  }, [tokens?.accessToken, selectedId]);
+  }, [t, tokens?.accessToken, selectedId]);
 
   async function handleCreateCall(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -105,6 +119,98 @@ export function ConversationsView() {
     } finally {
       setCreating(false);
     }
+  }
+
+  async function handleStartRecording() {
+    if (!tokens?.accessToken || recordingState !== "idle") return;
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      setError(t("conversations.audio.unsupported"));
+      return;
+    }
+
+    setError(null);
+    setNotice(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const recorder = new MediaRecorder(stream);
+      chunksRef.current = [];
+      streamRef.current = stream;
+      recorderRef.current = recorder;
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
+      };
+      recorder.onstop = () => {
+        stream.getTracks().forEach((track) => track.stop());
+      };
+      recorder.start();
+      setRecordingStartedAt(Date.now());
+      setRecordingState("recording");
+    } catch {
+      cleanupRecorder();
+      setRecordingState("idle");
+      setError(t("conversations.audio.permissionDenied"));
+    }
+  }
+
+  function cleanupRecorder() {
+    recorderRef.current = null;
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+  }
+
+  async function handleStopRecording() {
+    if (!tokens?.accessToken || recordingState !== "recording") return;
+
+    const recorder = recorderRef.current;
+    if (!recorder) return;
+
+    const audioBlob = await stopRecorder(recorder, chunksRef.current);
+    const durationSeconds = recordingStartedAt ? Math.max(1, Math.round((Date.now() - recordingStartedAt) / 1000)) : null;
+    cleanupRecorder();
+
+    if (audioBlob.size === 0) {
+      setRecordingState("idle");
+      setError(t("conversations.audio.empty"));
+      return;
+    }
+
+    setRecordingState("uploading");
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await createCallFromAudio(tokens.accessToken, {
+        title: audioCall.title.trim() || "Webden kaydedilen görüşme",
+        audio: audioBlob,
+        phone_number: audioCall.phone.trim() || null,
+        participant_names: audioCall.participants.split(",").map((p) => p.trim()).filter(Boolean),
+        duration_seconds: durationSeconds,
+      });
+      setRecordingState("analyzing");
+      const job = await requestConversationAnalysis(tokens.accessToken, result.conversation.id);
+      setConversations((current) => [result.conversation, ...current.filter((item) => item.id !== result.conversation.id)]);
+      setAnalysisJobs((current) => [job, ...current.filter((item) => item.id !== job.id)]);
+      setSelectedId(result.conversation.id);
+      setDetail(await getConversation(tokens.accessToken, result.conversation.id));
+      setAudioCall({ participants: "", phone: "", title: "" });
+      setShowAudioForm(false);
+      setNotice(t("conversations.audio.success"));
+    } catch (recordingError) {
+      setError(recordingError instanceof Error ? recordingError.message : t("conversations.audio.processFailed"));
+    } finally {
+      setRecordingState("idle");
+      setRecordingStartedAt(null);
+    }
+  }
+
+  function handleCancelRecording() {
+    recorderRef.current?.stop();
+    cleanupRecorder();
+    chunksRef.current = [];
+    setRecordingState("idle");
+    setRecordingStartedAt(null);
+    setNotice(t("conversations.audio.cancelled"));
   }
 
   async function handleDeleteCall(callId: string) {
@@ -144,48 +250,138 @@ export function ConversationsView() {
   return (
     <div className="flex h-[calc(100vh-64px)] overflow-hidden">
       <section className="w-80 bg-surface border-r border-surface-container-highest flex flex-col shrink-0">
-        <div className="px-lg py-md border-b border-surface-container-highest flex justify-between items-center">
+        <div className="px-lg py-md border-b border-surface-container-highest">
           <h2 className="font-headline-md text-headline-md text-on-surface">{t("conversations.recentCalls")}</h2>
-          <button
-            type="button"
-            onClick={() => setShowCreateForm((value) => !value)}
-            className="text-primary hover:bg-primary/5 p-1 rounded transition-colors"
-            aria-label={t("conversations.newTextCallAria")}
-          >
-            <span className="material-symbols-outlined">add_circle</span>
-          </button>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setShowAudioForm((value) => !value);
+                setShowCreateForm(false);
+              }}
+              className={
+                "flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-label-sm font-bold transition-colors " +
+                (showAudioForm
+                  ? "bg-primary text-on-primary"
+                  : "bg-primary-container/20 text-primary hover:bg-primary-container/30")
+              }
+              aria-pressed={showAudioForm}
+            >
+              <span className="material-symbols-outlined text-[18px]">mic</span>
+              {t("conversations.audio.openButton")}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowCreateForm((value) => !value);
+                setShowAudioForm(false);
+              }}
+              className={
+                "flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-label-sm font-bold transition-colors " +
+                (showCreateForm
+                  ? "bg-surface-container-highest text-on-surface"
+                  : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container-high")
+              }
+              aria-pressed={showCreateForm}
+            >
+              <span className="material-symbols-outlined text-[18px]">edit_note</span>
+              {t("conversations.form.openButton")}
+            </button>
+          </div>
         </div>
 
-        {showCreateForm ? (
-          <form onSubmit={handleCreateCall} className="p-md space-y-2 border-b border-surface-container-highest">
+        {showAudioForm ? (
+          <div className="p-md space-y-3 border-b border-surface-container-highest">
             {error ? <p className="text-error text-[11px]">{error}</p> : null}
-            <input
-              className="w-full bg-surface-container-low rounded-lg px-3 py-2 text-body-sm"
-              onChange={(e) => setNewCall((c) => ({ ...c, title: e.target.value }))}
-              placeholder={t("conversations.form.titlePlaceholder")}
-              value={newCall.title}
-            />
-            <input
-              className="w-full bg-surface-container-low rounded-lg px-3 py-2 text-body-sm"
-              onChange={(e) => setNewCall((c) => ({ ...c, participants: e.target.value }))}
-              placeholder={t("conversations.form.participantsPlaceholder")}
-              value={newCall.participants}
-            />
-            <textarea
-              className="w-full bg-surface-container-low rounded-lg px-3 py-2 text-body-sm"
-              onChange={(e) => setNewCall((c) => ({ ...c, transcript: e.target.value }))}
-              placeholder={t("conversations.form.transcriptPlaceholder")}
-              rows={3}
-              value={newCall.transcript}
-            />
-            <button
-              type="submit"
-              disabled={isCreating || !newCall.title.trim() || !newCall.transcript.trim()}
-              className="w-full py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
-            >
-              {isCreating ? t("conversations.form.submitting") : t("conversations.form.submit")}
-            </button>
-          </form>
+            <div className="rounded-lg border border-surface-container-highest bg-surface-container-low p-3 space-y-2">
+              <div className="flex items-center gap-2 text-primary font-label-sm text-label-sm">
+                <span className="material-symbols-outlined text-[18px]">mic</span>
+                <span>{t("conversations.audio.title")}</span>
+              </div>
+              <input
+                className="w-full bg-white rounded-lg px-3 py-2 text-body-sm"
+                onChange={(e) => setAudioCall((c) => ({ ...c, title: e.target.value }))}
+                placeholder={t("conversations.audio.titlePlaceholder")}
+                value={audioCall.title}
+              />
+              <input
+                className="w-full bg-white rounded-lg px-3 py-2 text-body-sm"
+                onChange={(e) => setAudioCall((c) => ({ ...c, participants: e.target.value }))}
+                placeholder={t("conversations.form.participantsPlaceholder")}
+                value={audioCall.participants}
+              />
+              <input
+                className="w-full bg-white rounded-lg px-3 py-2 text-body-sm"
+                onChange={(e) => setAudioCall((c) => ({ ...c, phone: e.target.value }))}
+                placeholder={t("conversations.audio.phonePlaceholder")}
+                value={audioCall.phone}
+              />
+              <div className="flex gap-2">
+                {recordingState === "recording" ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={handleStopRecording}
+                      className="flex-1 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold"
+                    >
+                      {t("conversations.audio.stop")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelRecording}
+                      className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
+                    >
+                      {t("conversations.audio.cancel")}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={recordingState !== "idle"}
+                    onClick={handleStartRecording}
+                    className="w-full py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
+                  >
+                    {recordingState === "idle" ? t("conversations.audio.start") : t(`conversations.audio.${recordingState}`)}
+                  </button>
+                )}
+              </div>
+              <p className="text-[11px] text-on-surface-variant">{t("conversations.audio.hint")}</p>
+            </div>
+          </div>
+        ) : null}
+
+        {showCreateForm ? (
+          <div className="p-md border-b border-surface-container-highest">
+            {error ? <p className="text-error text-[11px] mb-2">{error}</p> : null}
+            <form onSubmit={handleCreateCall} className="space-y-2">
+              <input
+                className="w-full bg-surface-container-low rounded-lg px-3 py-2 text-body-sm"
+                onChange={(e) => setNewCall((c) => ({ ...c, title: e.target.value }))}
+                placeholder={t("conversations.form.titlePlaceholder")}
+                value={newCall.title}
+              />
+              <input
+                className="w-full bg-surface-container-low rounded-lg px-3 py-2 text-body-sm"
+                onChange={(e) => setNewCall((c) => ({ ...c, participants: e.target.value }))}
+                placeholder={t("conversations.form.participantsPlaceholder")}
+                value={newCall.participants}
+              />
+              <textarea
+                className="w-full bg-surface-container-low rounded-lg px-3 py-2 text-body-sm"
+                onChange={(e) => setNewCall((c) => ({ ...c, transcript: e.target.value }))}
+                placeholder={t("conversations.form.transcriptPlaceholder")}
+                rows={3}
+                value={newCall.transcript}
+              />
+              <button
+                type="submit"
+                disabled={isCreating || !newCall.title.trim() || !newCall.transcript.trim()}
+                className="w-full py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
+              >
+                {isCreating ? t("conversations.form.submitting") : t("conversations.form.submit")}
+              </button>
+            </form>
+          </div>
         ) : null}
 
         <div className="flex-1 overflow-y-auto custom-scrollbar">
@@ -378,6 +574,16 @@ function CallBlock({ call, isBusy, onDelete }: { call: Call; isBusy: boolean; on
       )}
     </div>
   );
+}
+
+function stopRecorder(recorder: MediaRecorder, chunks: Blob[]): Promise<Blob> {
+  return new Promise((resolve) => {
+    recorder.onstop = () => {
+      const type = recorder.mimeType || "audio/webm";
+      resolve(new Blob(chunks, { type }));
+    };
+    recorder.stop();
+  });
 }
 
 function parseTranscript(text: string): { speaker: string | null; text: string }[] {

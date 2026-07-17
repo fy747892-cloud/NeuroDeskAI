@@ -1,11 +1,12 @@
 import uuid
 from datetime import datetime
 
+import httpx
 from fastapi import APIRouter, Depends, Form, Request, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import require_permission
-from app.core.errors import NotFoundError, ValidationAppError
+from app.core.errors import NotFoundError, ProviderError, ValidationAppError
 from app.core.permissions import Permission
 from app.db.session import get_db
 from app.modules.ai.provider import get_ai_provider
@@ -97,12 +98,33 @@ async def create_call_from_audio(
         raise ValidationAppError("Uploaded audio file is too large.")
 
     provider = get_ai_provider()
-    transcript_text = await provider.transcribe_audio(
-        audio_bytes=audio_bytes,
-        filename=audio.filename or "recording.m4a",
-        content_type=audio.content_type or "audio/mp4",
-        language=language,
-    )
+    try:
+        transcript_text = await provider.transcribe_audio(
+            audio_bytes=audio_bytes,
+            filename=audio.filename or "recording.m4a",
+            content_type=audio.content_type or "audio/mp4",
+            language=language,
+        )
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
+            raise ProviderError(
+                "AI transkripsiyon kotası dolu. OpenAI planını/faturalandırmasını kontrol edin "
+                "veya backend'i geçici olarak LLM_PROVIDER=mock ile çalıştırın."
+            ) from exc
+        if exc.response.status_code in {
+            status.HTTP_401_UNAUTHORIZED,
+            status.HTTP_403_FORBIDDEN,
+        }:
+            raise ProviderError(
+                "AI transkripsiyon anahtarı yetkisiz. OpenAI API anahtarını ve model erişimini kontrol edin."
+            ) from exc
+        raise ProviderError(
+            "Ses metne çevrilemedi. AI sağlayıcısı isteği kabul etmedi; kota, anahtar veya ses formatını kontrol edin."
+        ) from exc
+    except Exception as exc:
+        raise ProviderError(
+            "Ses metne çevrilemedi. AI sağlayıcısını, kotayı veya ses dosyası formatını kontrol edin."
+        ) from exc
 
     names = [name.strip() for name in participant_names.split(",") if name.strip()]
 

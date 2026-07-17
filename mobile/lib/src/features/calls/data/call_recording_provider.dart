@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/api/api_error.dart';
 import 'call_recording_service.dart';
 import 'calls_repository.dart';
 
@@ -71,7 +72,8 @@ class CallRecordingNotifier extends Notifier<CallRecordingState> {
     } catch (e) {
       state = state.copyWith(
         status: CallRecordingStatus.error,
-        errorMessage: 'Kayıt başlatılamadı: $e',
+        errorMessage:
+            'Kayıt başlatılamadı. Mikrofon iznini, cihaz ses ayarlarını ve aktif kayıt durumunu kontrol edin.',
       );
     }
   }
@@ -81,8 +83,7 @@ class CallRecordingNotifier extends Notifier<CallRecordingState> {
 
     state = state.copyWith(status: CallRecordingStatus.uploading);
     try {
-      final bytes =
-          await ref.read(callRecordingServiceProvider).stopAndRead();
+      final bytes = await ref.read(callRecordingServiceProvider).stopAndRead();
 
       final title = state.phoneNumber?.isNotEmpty == true
           ? 'Çağrı — ${state.phoneNumber}'
@@ -107,7 +108,10 @@ class CallRecordingNotifier extends Notifier<CallRecordingState> {
     } catch (e) {
       state = state.copyWith(
         status: CallRecordingStatus.error,
-        errorMessage: e.toString(),
+        errorMessage: readableApiError(
+          e,
+          'Kayıt işlenemedi. Backend bağlantısını ve AI ses çözümleme ayarlarını kontrol edin.',
+        ),
       );
     }
   }
@@ -130,5 +134,5 @@ class CallRecordingNotifier extends Notifier<CallRecordingState> {
 
 final callRecordingProvider =
     NotifierProvider<CallRecordingNotifier, CallRecordingState>(
-      CallRecordingNotifier.new,
-    );
+  CallRecordingNotifier.new,
+);

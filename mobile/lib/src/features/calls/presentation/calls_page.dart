@@ -179,8 +179,9 @@ class _RecordingControlCard extends ConsumerWidget {
                 Align(
                   alignment: Alignment.centerRight,
                   child: OutlinedButton.icon(
-                    onPressed: () =>
-                        ref.read(callRecordingProvider.notifier).stopAndProcess(),
+                    onPressed: () => ref
+                        .read(callRecordingProvider.notifier)
+                        .stopAndProcess(),
                     icon: const Icon(Icons.stop_circle_outlined),
                     label: const Text('Durdur'),
                   ),
@@ -286,7 +287,8 @@ class _RecordingStatusCard extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: Text(message, style: Theme.of(context).textTheme.bodyMedium),
+              child:
+                  Text(message, style: Theme.of(context).textTheme.bodyMedium),
             ),
           ],
         ),
@@ -462,7 +464,8 @@ class _CallCardState extends ConsumerState<_CallCard> {
         children: [
           Row(
             children: [
-              Icon(Icons.error_outline, size: 16, color: theme.colorScheme.error),
+              Icon(Icons.error_outline,
+                  size: 16, color: theme.colorScheme.error),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
@@ -495,7 +498,8 @@ class _CallCardState extends ConsumerState<_CallCard> {
 
     return Row(
       children: [
-        Icon(Icons.check_circle_outline, size: 16, color: theme.colorScheme.primary),
+        Icon(Icons.check_circle_outline,
+            size: 16, color: theme.colorScheme.primary),
         const SizedBox(width: 6),
         Text('AI analizi tamamlandı.', style: theme.textTheme.bodySmall),
       ],

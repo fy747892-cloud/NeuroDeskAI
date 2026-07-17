@@ -520,6 +520,16 @@ export type CallTextResult = {
   transcription: CallTranscription;
 };
 
+export type CallAudioCreatePayload = {
+  title: string;
+  audio: Blob;
+  participant_names?: string[];
+  call_direction?: string | null;
+  phone_number?: string | null;
+  language?: string;
+  duration_seconds?: number | null;
+};
+
 export type CalendarAccount = {
   id: string;
   tenant_id: string;
@@ -598,16 +608,23 @@ export type AuthPayload = {
   displayName?: string;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(init?.headers ?? {}),
+      },
+    });
+  } catch {
+    throw new Error(
+      "API bağlantısı kurulamadı. Backend'in çalıştığını, adres ayarını ve internet bağlantınızı kontrol edin.",
+    );
+  }
 
   if (!response.ok) {
     const message = await readErrorMessage(response);
@@ -1372,6 +1389,47 @@ export async function createCallFromText(
   });
 }
 
+export async function createCallFromAudio(
+  accessToken: string,
+  payload: CallAudioCreatePayload,
+): Promise<CallTextResult> {
+  const formData = new FormData();
+  formData.set("title", payload.title);
+  formData.set("participant_names", payload.participant_names?.join(",") ?? "");
+  formData.set("language", payload.language ?? "tr");
+  if (payload.call_direction) {
+    formData.set("call_direction", payload.call_direction);
+  }
+  if (payload.phone_number) {
+    formData.set("phone_number", payload.phone_number);
+  }
+  if (typeof payload.duration_seconds === "number") {
+    formData.set("duration_seconds", String(payload.duration_seconds));
+  }
+  formData.set("audio", payload.audio, "web-recording.webm");
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/v1/calls/audio`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: formData,
+    });
+  } catch {
+    throw new Error(
+      "Ses kaydı backend'e gönderilemedi. Backend'in çalıştığını, API adresini ve ağ bağlantınızı kontrol edin.",
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  return (await response.json()) as CallTextResult;
+}
+
 export async function deleteCall(accessToken: string, callId: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/v1/calls/${callId}`, {
     method: "DELETE",
@@ -1461,26 +1519,117 @@ export async function logout(refreshToken: string): Promise<void> {
 }
 
 async function readErrorMessage(response: Response): Promise<string> {
+  const fallback = messageForStatus(response.status, response.statusText);
   try {
-    const payload = (await response.json()) as { detail?: unknown; message?: string };
-    if (typeof payload.message === "string") {
-      return payload.message;
-    }
-    if (typeof payload.detail === "string") {
-      return payload.detail;
-    }
-    if (Array.isArray(payload.detail)) {
-      return payload.detail
-        .map((item) => {
-          if (typeof item === "object" && item !== null && "msg" in item) {
-            return String(item.msg);
-          }
-          return String(item);
-        })
-        .join(", ");
+    const payload = (await response.json()) as {
+      detail?: unknown;
+      error?: unknown;
+      error_code?: unknown;
+      message?: unknown;
+    };
+    const message = friendlyPayloadMessage(payload, response.status);
+    if (message) {
+      return message;
     }
   } catch {
     // Fall through to status text.
   }
-  return response.statusText || "Request failed";
+  return fallback;
+}
+
+function friendlyPayloadMessage(
+  payload: { detail?: unknown; error?: unknown; error_code?: unknown; message?: unknown },
+  status: number,
+): string | null {
+  const message = extractPayloadMessage(payload);
+  if (message && !looksTechnical(message)) {
+    return message;
+  }
+
+  switch (payload.error_code) {
+    case "auth_error":
+      return "Oturum bilgisi doğrulanamadı. Tekrar giriş yapın.";
+    case "forbidden":
+      return "Bu işlem için yetkiniz yok. Hesap rolünüzü veya ekip izinlerinizi kontrol edin.";
+    case "not_found":
+      return "İstenen kayıt bulunamadı. Listeyi yenileyip tekrar deneyin.";
+    case "conflict":
+      return "Bu işlem mevcut kayıtla çakışıyor. Sayfayı yenileyip son durumu kontrol edin.";
+    case "validation_error":
+      return "Gönderilen bilgiler eksik veya hatalı. Form alanlarını kontrol edip tekrar deneyin.";
+    case "rate_limited":
+      return "Kısa sürede çok fazla istek gönderildi. Biraz bekleyip tekrar deneyin.";
+    case "quota_exceeded":
+      return "Kullanım kotası doldu. Plan limitlerini kontrol edin veya daha sonra tekrar deneyin.";
+    case "provider_error":
+      return "AI sağlayıcısı isteği tamamlayamadı. API anahtarı, kota ve dosya formatını kontrol edip tekrar deneyin.";
+    default:
+      return status === 400 || status === 422
+        ? "Gönderilen bilgiler eksik veya hatalı. Form alanlarını kontrol edip tekrar deneyin."
+        : null;
+  }
+}
+
+function extractPayloadMessage(payload: { detail?: unknown; error?: unknown; message?: unknown }): string | null {
+  const source = payload.message ?? payload.detail ?? payload.error;
+  if (typeof source === "string") {
+    return source.trim() || null;
+  }
+  if (Array.isArray(source)) {
+    const messages = source
+      .map((item) => {
+        if (typeof item === "object" && item !== null) {
+          const record = item as Record<string, unknown>;
+          return record.msg ?? record.message ?? record.detail;
+        }
+        return item;
+      })
+      .filter((item): item is string | number | boolean => ["string", "number", "boolean"].includes(typeof item))
+      .map(String)
+      .filter(Boolean);
+    return messages.length > 0 ? messages.join(" ") : null;
+  }
+  if (typeof source === "object" && source !== null) {
+    const record = source as Record<string, unknown>;
+    const nested = record.msg ?? record.message ?? record.detail;
+    return typeof nested === "string" ? nested.trim() || null : null;
+  }
+  return null;
+}
+
+function messageForStatus(status: number, statusText: string): string {
+  if (status === 400 || status === 422) {
+    return "Gönderilen bilgiler eksik veya hatalı. Form alanlarını kontrol edip tekrar deneyin.";
+  }
+  if (status === 401) {
+    return "Oturum süresi doldu. Tekrar giriş yapın.";
+  }
+  if (status === 403) {
+    return "Bu işlem için yetkiniz yok.";
+  }
+  if (status === 404) {
+    return "İstenen kayıt bulunamadı.";
+  }
+  if (status === 409) {
+    return "Bu işlem mevcut kayıtla çakışıyor. Sayfayı yenileyip son durumu kontrol edin.";
+  }
+  if (status === 429) {
+    return "Çok fazla istek gönderildi. Biraz bekleyip tekrar deneyin.";
+  }
+  if (status >= 500) {
+    return "Sunucu tarafında geçici bir sorun oluştu. Biraz sonra tekrar deneyin; devam ederse backend loglarını kontrol edin.";
+  }
+  return statusText || "İstek tamamlanamadı. Lütfen tekrar deneyin.";
+}
+
+function looksTechnical(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("dioexception") ||
+    lower.includes("httpexception") ||
+    lower.includes("runtimeerror") ||
+    lower.includes("traceback") ||
+    lower.includes("status code of") ||
+    lower.includes("requestoptions")
+  );
 }
