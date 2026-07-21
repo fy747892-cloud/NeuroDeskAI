@@ -117,7 +117,7 @@ class _PrioritySummary extends StatelessWidget {
           const SizedBox(height: 12),
           _MetaLine(
             icon: Icons.schedule,
-            text: 'Uretim: ${_formatDateTime(queue.generatedAt)}',
+            text: 'Üretim: ${_formatDateTime(queue.generatedAt)}',
             color: Colors.white.withValues(alpha: 0.8),
           ),
         ],

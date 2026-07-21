@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -18,10 +18,10 @@ class TasksPage extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('GÃ¶revler', style: theme.textTheme.headlineMedium),
+          Text('Görevler', style: theme.textTheme.headlineMedium),
           const SizedBox(height: 6),
           Text(
-            'Operasyon akÄ±ÅŸÄ±ndaki aÃ§Ä±k iÅŸleri, Ã¶ncelikleri ve teslim tarihlerini takip et.',
+            'Operasyon akışındaki açık işleri, öncelikleri ve teslim tarihlerini takip et.',
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),
@@ -37,7 +37,7 @@ class TasksPage extends ConsumerWidget {
                     ],
                   ),
             error: (error, stackTrace) =>
-                const _EmptyList(message: 'GÃ¶revler alÄ±namadÄ±.'),
+                const _EmptyList(message: 'Görevler alınamadı.'),
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
         ],
@@ -69,7 +69,7 @@ class _TaskSummary extends StatelessWidget {
         children: [
           Expanded(
             child: _SummaryMetric(
-              label: 'AÃ§Ä±k gÃ¶rev',
+              label: 'Açık görev',
               value: openCount.toString(),
               icon: Icons.pending_actions,
             ),
@@ -77,7 +77,7 @@ class _TaskSummary extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: _SummaryMetric(
-              label: 'YÃ¼ksek Ã¶ncelik',
+              label: 'Yüksek öncelik',
               value: urgentCount.toString(),
               icon: Icons.priority_high,
             ),
@@ -231,9 +231,9 @@ class _TaskTile extends ConsumerWidget {
   String _priorityLabel(String priority) {
     return switch (priority.toLowerCase()) {
       'urgent' => 'Acil',
-      'high' => 'YÃ¼ksek',
+      'high' => 'Yüksek',
       'medium' => 'Orta',
-      'low' => 'DÃ¼ÅŸÃ¼k',
+      'low' => 'Düşük',
       _ => priority,
     };
   }
@@ -276,7 +276,7 @@ class _StatusChip extends StatelessWidget {
         isCompleted ? Icons.check_circle : Icons.radio_button_unchecked,
         size: 16,
       ),
-      label: Text(isCompleted ? 'Tamam' : 'AÃ§Ä±k'),
+      label: Text(isCompleted ? 'Tamam' : 'Açık'),
       visualDensity: VisualDensity.compact,
     );
   }

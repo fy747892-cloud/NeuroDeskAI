@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/api/api_error.dart';
 import '../../ai_approvals/data/ai_approvals_repository.dart';
 import '../../calls/data/calls_repository.dart';
 import '../../calls/domain/ai_analysis_job.dart';
@@ -90,9 +91,12 @@ class DashboardPage extends ConsumerWidget {
                 ),
               ],
             ),
-            error: (error, stackTrace) => const _PageMessage(
-              title: 'Dashboard alınamadı',
-              body: 'Bağlantıyı kontrol edip tekrar dene.',
+            error: (error, stackTrace) => _PageMessage(
+              title: 'Özet alınamadı',
+              body: readableApiError(
+                error,
+                'Bağlantıyı kontrol edip tekrar deneyin.',
+              ),
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
@@ -274,7 +278,9 @@ class _ProcessingQueue extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    total == 0 ? 'Devam eden işlem yok' : '$total işlem dikkat bekliyor',
+                    total == 0
+                        ? 'Devam eden işlem yok'
+                        : '$total işlem dikkat bekliyor',
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                 ),
@@ -288,9 +294,18 @@ class _ProcessingQueue extends StatelessWidget {
               const SizedBox(height: 8),
               ...activeJobs.take(3).map(
                     (job) => _ActivityLine(
-                      icon: job.isFailed ? Icons.error_outline : Icons.auto_awesome,
-                      title: job.isFailed ? 'AI analizi başarısız' : 'AI analizi işleniyor',
-                      subtitle: job.errorMessage ?? _formatDateTime(job.createdAt),
+                      icon: job.isFailed
+                          ? Icons.error_outline
+                          : Icons.auto_awesome,
+                      title: job.isFailed
+                          ? 'AI analizi başarısız'
+                          : 'AI analizi işleniyor',
+                      subtitle: job.errorMessage == null
+                          ? _formatDateTime(job.createdAt)
+                          : readableBackendMessage(
+                              job.errorMessage,
+                              'AI analizi tamamlanamadı.',
+                            ),
                       route: '/app/calls',
                     ),
                   ),
@@ -344,7 +359,8 @@ class _RecentActivity extends StatelessWidget {
             ),
           ),
     ]..sort(
-        (a, b) => (b.sortKey ?? DateTime(0)).compareTo(a.sortKey ?? DateTime(0)),
+        (a, b) =>
+            (b.sortKey ?? DateTime(0)).compareTo(a.sortKey ?? DateTime(0)),
       );
 
     return Card(
@@ -353,7 +369,8 @@ class _RecentActivity extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Son işlemler', style: Theme.of(context).textTheme.titleMedium),
+            Text('Son işlemler',
+                style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 10),
             if (recent.isEmpty && approvalsCount == 0)
               const Text('Henüz yeni işlem yok.')

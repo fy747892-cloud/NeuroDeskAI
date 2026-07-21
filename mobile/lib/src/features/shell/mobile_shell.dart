@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -35,7 +35,7 @@ class MobileShell extends ConsumerWidget {
       final latest = matchingJobs.first;
       return latest.isPending || latest.isFailed;
     }).length;
-    // Activates the auto phone-state â†’ call-recording listener for as long
+    // Activates the auto phone-state → call-recording listener for as long
     // as the authenticated app shell is mounted; see call_state_listener.dart.
     ref.watch(callAutoRecordListenerProvider);
 
@@ -80,7 +80,7 @@ class MobileShell extends ConsumerWidget {
             onPressed: () => context.go('/app/notifications'),
           ),
           PopupMenuButton<_ShellAction>(
-            tooltip: 'DiÄŸer',
+            tooltip: 'Diğer',
             icon: const Icon(Icons.more_vert),
             onSelected: (action) {
               switch (action) {
@@ -109,7 +109,7 @@ class MobileShell extends ConsumerWidget {
                 value: _ShellAction.contacts,
                 child: ListTile(
                   leading: Icon(Icons.people_alt_outlined),
-                  title: Text('KiÅŸiler'),
+                  title: Text('Kişiler'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -117,7 +117,7 @@ class MobileShell extends ConsumerWidget {
                 value: _ShellAction.conversations,
                 child: ListTile(
                   leading: Icon(Icons.forum_outlined),
-                  title: Text('GÃ¶rÃ¼ÅŸmeler'),
+                  title: Text('Görüşmeler'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -125,7 +125,7 @@ class MobileShell extends ConsumerWidget {
                 value: _ShellAction.deals,
                 child: ListTile(
                   leading: Icon(Icons.account_tree_outlined),
-                  title: Text('FÄ±rsatlar'),
+                  title: Text('Fırsatlar'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -133,7 +133,7 @@ class MobileShell extends ConsumerWidget {
                 value: _ShellAction.priority,
                 child: ListTile(
                   leading: Icon(Icons.priority_high),
-                  title: Text('Ã–ncelik'),
+                  title: Text('Öncelik'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -173,7 +173,7 @@ class MobileShell extends ConsumerWidget {
                 value: _ShellAction.logout,
                 child: ListTile(
                   leading: Icon(Icons.logout),
-                  title: Text('Ã‡Ä±kÄ±ÅŸ yap'),
+                  title: Text('Çıkış yap'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -191,7 +191,7 @@ class MobileShell extends ConsumerWidget {
                     onRetry: () => ref.invalidate(apiStatusProvider),
                   ),
             error: (error, stackTrace) => _ApiStatusBanner(
-              statusLabel: 'BaÄŸlantÄ± hatasÄ±',
+              statusLabel: 'Bağlantı hatası',
               onRetry: () => ref.invalidate(apiStatusProvider),
             ),
             loading: () => const SizedBox.shrink(),
@@ -206,7 +206,7 @@ class MobileShell extends ConsumerWidget {
           NavigationDestination(
             icon: const Icon(Icons.dashboard_outlined),
             selectedIcon: const Icon(Icons.dashboard),
-            label: 'Ã–zet',
+            label: 'Özet',
           ),
           NavigationDestination(
             icon: _BadgeIcon(
@@ -217,7 +217,7 @@ class MobileShell extends ConsumerWidget {
               icon: Icons.checklist,
               count: dashboard?.summary.openTasksCount ?? 0,
             ),
-            label: 'GÃ¶revler',
+            label: 'Görevler',
           ),
           NavigationDestination(
             icon: _BadgeIcon(
@@ -228,7 +228,7 @@ class MobileShell extends ConsumerWidget {
               icon: Icons.call,
               count: callsNeedingAttention,
             ),
-            label: 'Ã‡aÄŸrÄ±',
+            label: 'Çağrı',
           ),
           NavigationDestination(
             icon: _BadgeIcon(
@@ -414,8 +414,8 @@ class _ApiStatusBanner extends StatelessWidget {
               Expanded(
                 child: Text(
                   statusLabel == null
-                      ? 'API baÄŸlantÄ±sÄ± zayÄ±f. Backend ve aÄŸ durumunu kontrol edin.'
-                      : 'API baÄŸlantÄ±sÄ± zayÄ±f: $statusLabel. Backend ve aÄŸ durumunu kontrol edin.',
+                      ? 'API bağlantısı zayıf. Backend ve ağ durumunu kontrol edin.'
+                      : 'API bağlantısı zayıf: $statusLabel. Backend ve ağ durumunu kontrol edin.',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(

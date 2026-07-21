@@ -8,7 +8,7 @@ String readableApiError(Object error, String fallback) {
       return 'Sunucu geç yanıt verdi. Bağlantıyı kontrol edip tekrar deneyin.';
     }
     if (error.type == DioExceptionType.connectionError) {
-      return 'API bağlantısı kurulamadı. Backend adresi ve ağ bağlantısını kontrol edin.';
+      return 'API bağlantısı kurulamadı. Backend adresini ve ağ bağlantısını kontrol edin.';
     }
     if (error.type == DioExceptionType.cancel) {
       return 'İstek iptal edildi. İşlemi tekrar başlatabilirsiniz.';
@@ -16,7 +16,8 @@ String readableApiError(Object error, String fallback) {
 
     final data = error.response?.data;
     if (data is Map<String, dynamic>) {
-      final message = _friendlyMessageFromData(data, error.response?.statusCode);
+      final message =
+          _friendlyMessageFromData(data, error.response?.statusCode);
       if (message != null && message.isNotEmpty) {
         return message;
       }
@@ -36,18 +37,22 @@ String readableApiError(Object error, String fallback) {
       return 'Çok fazla istek gönderildi. Biraz bekleyip tekrar deneyin.';
     }
     if (statusCode != null && statusCode >= 500) {
-      return 'Sunucu tarafında geçici bir sorun oluştu. Biraz sonra tekrar deneyin; devam ederse backend loglarını kontrol edin.';
+      return 'Sunucu tarafında geçici bir sorun oluştu. Biraz sonra tekrar deneyin.';
     }
   }
   return fallback;
 }
 
+String readableBackendMessage(String? message, String fallback) {
+  return _translateBackendMessage(message) ?? fallback;
+}
+
 String? _friendlyMessageFromData(Map<String, dynamic> data, int? statusCode) {
   final code = data['error_code'];
   final rawMessage = _messageFromData(data);
-  final message = rawMessage?.trim();
-  if (message != null && message.isNotEmpty && !_looksTechnical(message)) {
-    return message;
+  final translated = _translateBackendMessage(rawMessage);
+  if (translated != null) {
+    return translated;
   }
 
   if (code == 'auth_error') {
@@ -104,6 +109,59 @@ String? _messageFromData(Map<String, dynamic> data) {
   return message?.toString();
 }
 
+String? _translateBackendMessage(String? message) {
+  final normalized = message?.trim();
+  if (normalized == null || normalized.isEmpty) {
+    return null;
+  }
+
+  final lower = normalized.toLowerCase();
+  if (_looksTechnical(normalized)) {
+    return null;
+  }
+  if (lower.contains('invalid credentials') ||
+      lower.contains('incorrect username or password') ||
+      lower.contains('invalid email or password')) {
+    return 'Email veya şifre hatalı.';
+  }
+  if (lower.contains('not authenticated') ||
+      lower.contains('unauthorized') ||
+      lower.contains('token has expired')) {
+    return 'Oturum süresi doldu. Tekrar giriş yapın.';
+  }
+  if (lower.contains('permission') || lower.contains('forbidden')) {
+    return 'Bu işlem için yetkiniz yok.';
+  }
+  if (lower.contains('not found')) {
+    return 'İstenen kayıt bulunamadı.';
+  }
+  if (lower.contains('already exists') || lower.contains('duplicate')) {
+    return 'Bu kayıt zaten mevcut.';
+  }
+  if (lower.contains('required') || lower.contains('field required')) {
+    return 'Zorunlu alanları doldurun.';
+  }
+  if (lower.contains('quota') || lower.contains('limit exceeded')) {
+    return 'Kullanım hakkı doldu. Limitleri kontrol edip tekrar deneyin.';
+  }
+  if (lower.contains('rate limit') || lower.contains('too many requests')) {
+    return 'Çok fazla istek gönderildi. Biraz bekleyip tekrar deneyin.';
+  }
+  if (lower.contains('openai') || lower.contains('provider')) {
+    return 'AI sağlayıcısı isteği tamamlayamadı. Biraz sonra tekrar deneyin.';
+  }
+  if (lower.contains('storage') ||
+      lower.contains('bucket') ||
+      lower.contains('s3')) {
+    return 'Dosya depolama bağlantısında sorun oluştu.';
+  }
+  if (lower.contains('database') || lower.contains('db error')) {
+    return 'Veritabanı işleminde sorun oluştu.';
+  }
+
+  return RegExp(r'[ğüşöçıİĞÜŞÖÇ]').hasMatch(normalized) ? normalized : null;
+}
+
 bool _looksTechnical(String message) {
   final lower = message.toLowerCase();
   return lower.contains('dioexception') ||
@@ -111,5 +169,8 @@ bool _looksTechnical(String message) {
       lower.contains('runtimeerror') ||
       lower.contains('traceback') ||
       lower.contains('status code of') ||
-      lower.contains('requestoptions');
+      lower.contains('requestoptions') ||
+      lower.contains('sqlalchemy') ||
+      lower.contains('psycopg') ||
+      lower.contains('stack trace');
 }

@@ -219,11 +219,12 @@ class _AccountCard extends StatelessWidget {
           children: [
             Text('Hesap', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 10),
-            _MetricLine(label: 'Email', value: user.email),
-            _MetricLine(label: 'Durum', value: user.status),
+            _MetricLine(label: 'E-posta', value: user.email),
             _MetricLine(
-              label: 'Email dogrulandi',
-              value: user.isEmailVerified ? 'Evet' : 'Hayir',
+                label: 'Durum', value: _accountStatusLabel(user.status)),
+            _MetricLine(
+              label: 'E-posta doğrulandı',
+              value: user.isEmailVerified ? 'Evet' : 'Hayır',
             ),
             _MetricLine(label: 'Tenant', value: user.tenantId),
             _MetricLine(
@@ -235,6 +236,16 @@ class _AccountCard extends StatelessWidget {
       ),
     );
   }
+}
+
+String _accountStatusLabel(String status) {
+  return switch (status.toLowerCase()) {
+    'active' => 'Aktif',
+    'inactive' => 'Pasif',
+    'pending' => 'Beklemede',
+    'suspended' => 'Askıya alındı',
+    _ => status,
+  };
 }
 
 class _SupportCard extends StatelessWidget {
@@ -263,7 +274,8 @@ class _SupportCard extends StatelessWidget {
               icon: Icons.mail_outline,
               label: 'E-posta',
               value: _supportEmail,
-              onTap: () => launchUrl(Uri(scheme: 'mailto', path: _supportEmail)),
+              onTap: () =>
+                  launchUrl(Uri(scheme: 'mailto', path: _supportEmail)),
             ),
             const SizedBox(height: 8),
             _ContactTile(
