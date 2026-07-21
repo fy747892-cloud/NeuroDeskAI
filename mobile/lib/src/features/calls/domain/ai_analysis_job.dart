@@ -5,6 +5,7 @@ class AiAnalysisJob {
     required this.sourceId,
     required this.status,
     required this.results,
+    required this.createdAt,
     this.errorMessage,
   });
 
@@ -13,6 +14,7 @@ class AiAnalysisJob {
   final String sourceId;
   final String status;
   final List<AiAnalysisResult> results;
+  final DateTime createdAt;
   final String? errorMessage;
 
   bool get isFailed => status.toLowerCase() == 'failed';
@@ -49,6 +51,7 @@ class AiAnalysisJob {
           .cast<Map<String, dynamic>>()
           .map(AiAnalysisResult.fromJson)
           .toList(growable: false),
+      createdAt: DateTime.parse(json['created_at'] as String),
       errorMessage: json['error_message'] as String?,
     );
   }

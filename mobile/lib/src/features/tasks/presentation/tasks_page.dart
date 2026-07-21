@@ -1,5 +1,6 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../data/tasks_repository.dart';
 import '../domain/task.dart';
@@ -17,16 +18,16 @@ class TasksPage extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Görevler', style: theme.textTheme.headlineMedium),
+          Text('GÃ¶revler', style: theme.textTheme.headlineMedium),
           const SizedBox(height: 6),
           Text(
-            'Operasyon akışındaki açık işleri, öncelikleri ve teslim tarihlerini takip et.',
+            'Operasyon akÄ±ÅŸÄ±ndaki aÃ§Ä±k iÅŸleri, Ã¶ncelikleri ve teslim tarihlerini takip et.',
             style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 16),
           tasks.when(
             data: (items) => items.isEmpty
-                ? const _EmptyList(message: 'Henüz görev yok.')
+                ? _EmptyList(message: 'Henüz görev yok.', actionLabel: 'Onayları kontrol et', onAction: () => context.go('/app/approvals'))
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -36,7 +37,7 @@ class TasksPage extends ConsumerWidget {
                     ],
                   ),
             error: (error, stackTrace) =>
-                const _EmptyList(message: 'Görevler alınamadı.'),
+                const _EmptyList(message: 'GÃ¶revler alÄ±namadÄ±.'),
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
         ],
@@ -68,7 +69,7 @@ class _TaskSummary extends StatelessWidget {
         children: [
           Expanded(
             child: _SummaryMetric(
-              label: 'Açık görev',
+              label: 'AÃ§Ä±k gÃ¶rev',
               value: openCount.toString(),
               icon: Icons.pending_actions,
             ),
@@ -76,7 +77,7 @@ class _TaskSummary extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: _SummaryMetric(
-              label: 'Yüksek öncelik',
+              label: 'YÃ¼ksek Ã¶ncelik',
               value: urgentCount.toString(),
               icon: Icons.priority_high,
             ),
@@ -230,9 +231,9 @@ class _TaskTile extends ConsumerWidget {
   String _priorityLabel(String priority) {
     return switch (priority.toLowerCase()) {
       'urgent' => 'Acil',
-      'high' => 'Yüksek',
+      'high' => 'YÃ¼ksek',
       'medium' => 'Orta',
-      'low' => 'Düşük',
+      'low' => 'DÃ¼ÅŸÃ¼k',
       _ => priority,
     };
   }
@@ -275,23 +276,31 @@ class _StatusChip extends StatelessWidget {
         isCompleted ? Icons.check_circle : Icons.radio_button_unchecked,
         size: 16,
       ),
-      label: Text(isCompleted ? 'Tamam' : 'Açık'),
+      label: Text(isCompleted ? 'Tamam' : 'AÃ§Ä±k'),
       visualDensity: VisualDensity.compact,
     );
   }
 }
 
 class _EmptyList extends StatelessWidget {
-  const _EmptyList({required this.message});
+  const _EmptyList({required this.message, this.actionLabel, this.onAction});
 
   final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Text(message),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(message),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 10),
+            FilledButton.icon(onPressed: onAction, icon: const Icon(Icons.verified_outlined), label: Text(actionLabel!)),
+          ],
+        ]),
       ),
     );
   }

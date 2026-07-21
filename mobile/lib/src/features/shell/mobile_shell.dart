@@ -254,6 +254,53 @@ class MobileShell extends ConsumerWidget {
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        tooltip: 'Hızlı işlem',
+        onPressed: () => _showQuickActions(context),
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+
+  Future<void> _showQuickActions(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          children: [
+            Text('Hızlı işlem', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 10),
+            _QuickActionTile(
+              icon: Icons.call_outlined,
+              title: 'Çağrı kaydet',
+              route: '/app/calls',
+            ),
+            _QuickActionTile(
+              icon: Icons.upload_file,
+              title: 'Dosya yükle',
+              route: '/app/files',
+            ),
+            _QuickActionTile(
+              icon: Icons.checklist,
+              title: 'Görev ekle',
+              route: '/app/tasks',
+            ),
+            _QuickActionTile(
+              icon: Icons.person_add_alt,
+              title: 'Kişi ekle',
+              route: '/app/contacts',
+            ),
+            _QuickActionTile(
+              icon: Icons.mic_none,
+              title: 'Sesli komut',
+              route: '/app/search',
+            ),
+          ],
+        ),
+      ),
     );
   }
   int _selectedIndex(String location) {
@@ -313,6 +360,31 @@ class _BadgeIcon extends StatelessWidget {
       isLabelVisible: count > 0,
       label: Text(count > 99 ? '99+' : count.toString()),
       child: Icon(icon),
+    );
+  }
+}
+
+class _QuickActionTile extends StatelessWidget {
+  const _QuickActionTile({
+    required this.icon,
+    required this.title,
+    required this.route,
+  });
+
+  final IconData icon;
+  final String title;
+  final String route;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      leading: Icon(icon),
+      title: Text(title),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () {
+        Navigator.of(context).pop();
+        context.go(route);
+      },
     );
   }
 }
