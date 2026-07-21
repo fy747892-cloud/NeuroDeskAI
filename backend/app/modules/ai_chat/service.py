@@ -9,7 +9,7 @@ from app.modules.ai_chat.provider import get_chat_provider
 from app.modules.ai_chat.repository import ChatRepository
 from app.modules.ai_chat.retrieval import retrieve_context
 from app.modules.analytics.repository import AICostLogRepository
-from app.modules.billing.service import BillingService
+from app.modules.billing.service import AI_CHAT_REQUESTS_QUOTA_TYPE, BillingService
 
 TITLE_PREVIEW_LENGTH = 60
 
@@ -31,7 +31,9 @@ class ChatService:
         session_id: uuid.UUID | None,
         message: str,
     ) -> tuple[ChatSession, ChatMessage]:
-        await self._billing.enforce_ai_usage_guard(tenant_id=tenant_id)
+        await self._billing.enforce_ai_usage_guard(
+            tenant_id=tenant_id, quota_type=AI_CHAT_REQUESTS_QUOTA_TYPE
+        )
 
         if session_id is not None:
             session = await self._chats.get_session(
@@ -67,7 +69,9 @@ class ChatService:
             output_tokens=answer.output_tokens,
             latency_ms=latency_ms,
         )
-        await self._billing.record_ai_usage(tenant_id=tenant_id, user_id=user_id)
+        await self._billing.record_ai_usage(
+            tenant_id=tenant_id, user_id=user_id, usage_type=AI_CHAT_REQUESTS_QUOTA_TYPE
+        )
 
         assistant_message = await self._chats.add_message(
             tenant_id=tenant_id,

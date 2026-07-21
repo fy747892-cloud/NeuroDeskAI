@@ -167,6 +167,32 @@ async def test_txt_upload_flow_extracts_real_text(client: AsyncClient):
     assert text_body["extracted_text"] == content.decode("utf-8")
 
 
+async def test_call_transcript_is_listed_as_text_file(client: AsyncClient):
+    headers = await _auth_headers(client, "files-call-transcript@example.com")
+    transcript = "Bu görüşmeden takip görevi çıkar."
+
+    call_response = await client.post(
+        "/api/v1/calls/text",
+        headers=headers,
+        json={"title": "Müşteri görüşmesi", "transcript_text": transcript},
+    )
+    assert call_response.status_code == 201
+
+    files_response = await client.get("/api/v1/files", headers=headers)
+    assert files_response.status_code == 200
+    transcript_file = next(
+        file for file in files_response.json() if "isim eklemek için düzenleyin" in file["filename"]
+    )
+    assert transcript_file["mime_type"] == TXT_MIME
+    assert transcript_file["status"] == "ready"
+
+    text_response = await client.get(
+        f"/api/v1/files/{transcript_file['id']}/text", headers=headers
+    )
+    assert text_response.status_code == 200
+    assert text_response.json()["extracted_text"] == transcript
+
+
 async def test_docx_upload_flow_extracts_real_text(client: AsyncClient):
     headers = await _auth_headers(client, "files-docx-flow@example.com")
     content = _build_docx_bytes("This paragraph came from a real python-docx document.")

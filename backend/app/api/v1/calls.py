@@ -14,6 +14,7 @@ from app.modules.audit.repository import AuditRepository
 from app.modules.conversations.repository import ConversationRepository
 from app.modules.conversations.models import Call
 from app.modules.conversations.schemas import CallOut, CallTextCreate, CallTextOut, CallUpdate
+from app.modules.files.repository import DocumentTextRepository, FileRepository
 from app.modules.users.models import User
 
 router = APIRouter(prefix="/calls", tags=["calls"])
@@ -58,6 +59,14 @@ async def create_call_from_text(
         started_at=body.started_at,
         duration_seconds=body.duration_seconds,
         language=body.language,
+    )
+    await _create_transcript_file(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        organization_id=current_user.organization_id,
+        owner_user_id=current_user.id,
+        transcript_text=transcription.transcript_text,
+        created_at=call.started_at or call.created_at,
     )
     await AuditRepository(db).record(
         tenant_id=current_user.tenant_id,
@@ -142,6 +151,14 @@ async def create_call_from_audio(
         duration_seconds=duration_seconds,
         language=language,
     )
+    await _create_transcript_file(
+        db=db,
+        tenant_id=current_user.tenant_id,
+        organization_id=current_user.organization_id,
+        owner_user_id=current_user.id,
+        transcript_text=transcription.transcript_text,
+        created_at=call.started_at or call.created_at,
+    )
     await AuditRepository(db).record(
         tenant_id=current_user.tenant_id,
         actor_id=current_user.id,
@@ -158,6 +175,35 @@ async def create_call_from_audio(
     )
     await db.commit()
     return CallTextOut(conversation=conversation, call=call, transcription=transcription)
+
+
+async def _create_transcript_file(
+    *,
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    organization_id: uuid.UUID,
+    owner_user_id: uuid.UUID,
+    transcript_text: str,
+    created_at: datetime,
+) -> None:
+    local_label = created_at.strftime("%d.%m.%Y, %H:%M")
+    filename = f"{local_label} - isim eklemek için düzenleyin.txt"
+    file = await FileRepository(db).create(
+        tenant_id=tenant_id,
+        organization_id=organization_id,
+        owner_user_id=owner_user_id,
+        filename=filename,
+        mime_type="text/plain",
+        size_bytes=len(transcript_text.encode("utf-8")),
+        storage_key=f"call-transcripts/{uuid.uuid4()}.txt",
+    )
+    await FileRepository(db).update_status(file=file, status="ready")
+    await DocumentTextRepository(db).upsert(
+        tenant_id=tenant_id,
+        file_id=file.id,
+        extracted_text=transcript_text,
+        status="extracted",
+    )
 
 
 @router.get("/{call_id}", response_model=CallOut)

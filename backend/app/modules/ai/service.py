@@ -8,7 +8,7 @@ from app.modules.ai.models import AIActionApproval, AIAnalysisJob
 from app.modules.ai.provider import get_ai_provider
 from app.modules.ai.repository import AIRepository
 from app.modules.analytics.repository import AICostLogRepository
-from app.modules.billing.service import BillingService
+from app.modules.billing.service import AI_ANALYSIS_REQUESTS_QUOTA_TYPE, BillingService
 from app.modules.conversations.models import Call
 from app.modules.conversations.repository import ConversationRepository
 
@@ -30,7 +30,9 @@ class AIAnalysisService:
         user_id,
         conversation_id,
     ) -> AIAnalysisJob:
-        await self._billing.enforce_ai_usage_guard(tenant_id=tenant_id)
+        await self._billing.enforce_ai_usage_guard(
+            tenant_id=tenant_id, quota_type=AI_ANALYSIS_REQUESTS_QUOTA_TYPE
+        )
 
         conversation = await self._conversations.get_conversation(
             tenant_id=tenant_id,
@@ -67,7 +69,9 @@ class AIAnalysisService:
         if job.status not in {"failed", "cancelled"}:
             raise ValidationAppError("Only failed or cancelled jobs can be retried.")
 
-        await self._billing.enforce_ai_usage_guard(tenant_id=tenant_id)
+        await self._billing.enforce_ai_usage_guard(
+            tenant_id=tenant_id, quota_type=AI_ANALYSIS_REQUESTS_QUOTA_TYPE
+        )
 
         await self._ai.reset_for_retry(job=job)
         await self.process_job(job=job)
@@ -113,7 +117,11 @@ class AIAnalysisService:
                 output_tokens=output.output_tokens,
                 latency_ms=latency_ms,
             )
-            await self._billing.record_ai_usage(tenant_id=job.tenant_id, user_id=job.requested_by)
+            await self._billing.record_ai_usage(
+                tenant_id=job.tenant_id,
+                user_id=job.requested_by,
+                usage_type=AI_ANALYSIS_REQUESTS_QUOTA_TYPE,
+            )
             model_config = {
                 "provider": self._provider.provider_name,
                 "model": self._provider.model_name,
