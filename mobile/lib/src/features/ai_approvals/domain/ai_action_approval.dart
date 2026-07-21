@@ -60,6 +60,17 @@ class AiActionApproval {
     return 'Kaynak: $sourceType';
   }
 
+  String get reasonText {
+    final reason = suggestedPayload['reason'] ??
+        suggestedPayload['source_excerpt'] ??
+        suggestedPayload['evidence'] ??
+        suggestedPayload['matched_text'];
+    if (reason is String && reason.trim().isNotEmpty) {
+      return reason.trim();
+    }
+    return 'Bu öneri $sourceType kaynağındaki konuşma, dosya veya mesaj içeriğinden çıkarıldı.';
+  }
+
   String get actionLabel {
     return switch (actionType) {
       'task' => 'Görev',

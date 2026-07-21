@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../ai_approvals/data/ai_approvals_repository.dart';
+import '../../calls/data/calls_repository.dart';
+import '../../calls/domain/ai_analysis_job.dart';
+import '../../calls/domain/call_record.dart';
 import '../data/dashboard_repository.dart';
 
 class DashboardPage extends ConsumerWidget {
@@ -10,6 +14,9 @@ class DashboardPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboard = ref.watch(dashboardProvider);
+    final jobs = ref.watch(callAnalysisJobsProvider);
+    final calls = ref.watch(callsProvider);
+    final approvals = ref.watch(pendingAiApprovalsProvider);
 
     return RefreshIndicator(
       onRefresh: () => ref.refresh(dashboardProvider.future),
@@ -68,6 +75,18 @@ class DashboardPage extends ConsumerWidget {
                       onTap: () => context.go('/app/approvals'),
                     ),
                   ],
+                ),
+                const SizedBox(height: 18),
+                _ProcessingQueue(
+                  jobs: jobs.valueOrNull ?? const [],
+                  approvalsCount: data.summary.pendingAiApprovalsCount,
+                ),
+                const SizedBox(height: 18),
+                _RecentActivity(
+                  calls: calls.valueOrNull ?? const [],
+                  jobs: jobs.valueOrNull ?? const [],
+                  approvalsCount: approvals.valueOrNull?.length ??
+                      data.summary.pendingAiApprovalsCount,
                 ),
               ],
             ),
@@ -227,6 +246,166 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
+class _ProcessingQueue extends StatelessWidget {
+  const _ProcessingQueue({
+    required this.jobs,
+    required this.approvalsCount,
+  });
+
+  final List<AiAnalysisJob> jobs;
+  final int approvalsCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final activeJobs = jobs
+        .where((job) => job.isPending || job.isFailed)
+        .toList(growable: false);
+    final total = activeJobs.length + approvalsCount;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.sync, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    total == 0 ? 'Devam eden işlem yok' : '$total işlem dikkat bekliyor',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => context.go('/app/approvals'),
+                  child: const Text('Onaylar'),
+                ),
+              ],
+            ),
+            if (activeJobs.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              ...activeJobs.take(3).map(
+                    (job) => _ActivityLine(
+                      icon: job.isFailed ? Icons.error_outline : Icons.auto_awesome,
+                      title: job.isFailed ? 'AI analizi başarısız' : 'AI analizi işleniyor',
+                      subtitle: job.errorMessage ?? _formatDateTime(job.createdAt),
+                      route: '/app/calls',
+                    ),
+                  ),
+            ],
+            if (approvalsCount > 0)
+              _ActivityLine(
+                icon: Icons.verified_outlined,
+                title: '$approvalsCount AI onayı bekliyor',
+                subtitle: 'Görev, randevu veya fırsat önerilerini incele',
+                route: '/app/approvals',
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _RecentActivity extends StatelessWidget {
+  const _RecentActivity({
+    required this.calls,
+    required this.jobs,
+    required this.approvalsCount,
+  });
+
+  final List<CallRecord> calls;
+  final List<AiAnalysisJob> jobs;
+  final int approvalsCount;
+
+  @override
+  Widget build(BuildContext context) {
+    final recent = <_ActivityLine>[
+      ...calls.take(3).map(
+            (call) => _ActivityLine(
+              icon: Icons.call_outlined,
+              title: 'Çağrı transkripti oluştu',
+              subtitle: call.transcriptions.isEmpty
+                  ? _formatDateTime(call.createdAt)
+                  : call.transcriptions.first.transcriptText,
+              route: '/app/calls',
+              sortKey: call.createdAt,
+            ),
+          ),
+      ...jobs.where((job) => job.isCompleted).take(3).map(
+            (job) => _ActivityLine(
+              icon: Icons.check_circle_outline,
+              title: 'AI analizi tamamlandı',
+              subtitle: job.summary ?? _formatDateTime(job.createdAt),
+              route: '/app/calls',
+              sortKey: job.createdAt,
+            ),
+          ),
+    ]..sort(
+        (a, b) => (b.sortKey ?? DateTime(0)).compareTo(a.sortKey ?? DateTime(0)),
+      );
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Son işlemler', style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 10),
+            if (recent.isEmpty && approvalsCount == 0)
+              const Text('Henüz yeni işlem yok.')
+            else ...[
+              if (approvalsCount > 0)
+                _ActivityLine(
+                  icon: Icons.auto_awesome,
+                  title: 'Yeni AI önerileri hazır',
+                  subtitle: '$approvalsCount öneri Onay Merkezi’nde',
+                  route: '/app/approvals',
+                ),
+              ...recent.take(5),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ActivityLine extends StatelessWidget {
+  const _ActivityLine({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.route,
+    this.sortKey,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final String route;
+  final DateTime? sortKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(icon),
+      title: Text(title),
+      subtitle: Text(
+        subtitle,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+      ),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: () => context.go(route),
+    );
+  }
+}
+
 class _PageMessage extends StatelessWidget {
   const _PageMessage({required this.title, required this.body});
 
@@ -249,4 +428,12 @@ class _PageMessage extends StatelessWidget {
       ),
     );
   }
+}
+
+String _formatDateTime(DateTime value) {
+  final local = value.toLocal();
+  return '${local.day.toString().padLeft(2, '0')}.'
+      '${local.month.toString().padLeft(2, '0')} '
+      '${local.hour.toString().padLeft(2, '0')}:'
+      '${local.minute.toString().padLeft(2, '0')}';
 }
