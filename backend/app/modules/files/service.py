@@ -1,8 +1,10 @@
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError, ProviderError, ValidationAppError
+from app.modules.ai.repository import AIRepository
 from app.modules.files.extraction import extract_text
 from app.modules.files.models import File
 from app.modules.files.provider import (
@@ -39,6 +41,7 @@ class FileService:
         self._files = FileRepository(db)
         self._texts = DocumentTextRepository(db)
         self._analyses = DocumentAnalysisRepository(db)
+        self._ai = AIRepository(db)
         self._storage = ObjectStorageProvider()
         self._scanner = MockMalwareScanProvider()
         self._summarizer = get_document_summary_provider()
@@ -137,6 +140,125 @@ class FileService:
         await self._analyses.upsert(
             tenant_id=file.tenant_id, file_id=file.id, summary=summary, status="completed"
         )
+        await self._create_action_approvals_from_document(file=file, text=document_text.extracted_text)
 
     async def delete(self, *, file: File) -> File:
         return await self._files.soft_delete(file=file)
+
+    async def _create_action_approvals_from_document(self, *, file: File, text: str) -> None:
+        suggestions = _extract_action_suggestions(text)
+        if not suggestions["tasks"] and not suggestions["appointments"]:
+            return
+
+        prompt = await self._ai.get_or_create_prompt_version(
+            name="document_action_extraction",
+            version=f"{self._summarizer.provider_name}-{self._summarizer.model_name}",
+        )
+        job = await self._ai.create_job(
+            tenant_id=file.tenant_id,
+            organization_id=file.organization_id,
+            requested_by=file.owner_user_id,
+            source_type="file",
+            source_id=file.id,
+        )
+        await self._ai.mark_processing(job=job)
+        task_result = await self._ai.create_result(
+            tenant_id=file.tenant_id,
+            job_id=job.id,
+            result_type="document_task_extraction",
+            result_payload={"items": suggestions["tasks"]},
+            prompt_version_id=prompt.id,
+            model_config={"provider": self._summarizer.provider_name, "model": self._summarizer.model_name},
+        )
+        appointment_result = await self._ai.create_result(
+            tenant_id=file.tenant_id,
+            job_id=job.id,
+            result_type="document_appointment_extraction",
+            result_payload={"items": suggestions["appointments"]},
+            prompt_version_id=prompt.id,
+            model_config={"provider": self._summarizer.provider_name, "model": self._summarizer.model_name},
+        )
+        for item in suggestions["tasks"]:
+            await self._ai.create_action_approval(
+                tenant_id=file.tenant_id,
+                organization_id=file.organization_id,
+                requested_by=file.owner_user_id,
+                analysis_result_id=task_result.id,
+                action_type="task",
+                source_type="file",
+                source_id=file.id,
+                suggested_payload=item,
+                confidence_score=item.get("confidence"),
+            )
+        for item in suggestions["appointments"]:
+            await self._ai.create_action_approval(
+                tenant_id=file.tenant_id,
+                organization_id=file.organization_id,
+                requested_by=file.owner_user_id,
+                analysis_result_id=appointment_result.id,
+                action_type="appointment",
+                source_type="file",
+                source_id=file.id,
+                suggested_payload=item,
+                confidence_score=item.get("confidence"),
+            )
+        await self._ai.mark_completed(job=job)
+
+
+def _extract_action_suggestions(text: str) -> dict[str, list[dict]]:
+    tasks: list[dict] = []
+    appointments: list[dict] = []
+    for line in text.splitlines():
+        cells = [cell.strip() for cell in line.split("|")]
+        if len(cells) < 2:
+            continue
+
+        kind = cells[0].lower()
+        title = cells[1]
+        raw_date = cells[2] if len(cells) > 2 else None
+        if kind == "task" and title:
+            tasks.append(
+                {
+                    "title": title,
+                    "description": "Dosya analizinden çıkarıldı.",
+                    "priority": "medium",
+                    "due_at": _parse_document_datetime(raw_date),
+                    "confidence": 0.7,
+                }
+            )
+        if kind == "appointment" and title:
+            start_at = _parse_document_datetime(raw_date) or _default_future_datetime()
+            appointments.append(
+                {
+                    "title": title,
+                    "description": "Dosya analizinden çıkarıldı.",
+                    "proposed_datetime": start_at,
+                    "end_datetime": _add_minutes(start_at, 30),
+                    "confidence": 0.7,
+                }
+            )
+    return {"tasks": tasks, "appointments": appointments}
+
+
+def _parse_document_datetime(value: str | None) -> str | None:
+    if not value:
+        return None
+    normalized = value.strip().replace(" ", "T")
+    for candidate in (normalized, f"{normalized}T09:00:00"):
+        try:
+            parsed = datetime.fromisoformat(candidate)
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return parsed.isoformat()
+        except ValueError:
+            continue
+    return None
+
+
+def _default_future_datetime() -> str:
+    return (datetime.now(timezone.utc) + timedelta(days=1)).replace(microsecond=0).isoformat()
+
+
+def _add_minutes(value: str, minutes: int) -> str:
+    parsed = datetime.fromisoformat(value)
+    return (parsed + timedelta(minutes=minutes)).isoformat()

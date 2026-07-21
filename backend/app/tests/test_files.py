@@ -211,6 +211,51 @@ async def test_xlsx_upload_flow_extracts_real_text_and_summarizes(client: AsyncC
     assert len(tasks_after) == len(tasks_before)
     assert len(appointments_after) == len(appointments_before)
 
+    approvals_response = await client.get(
+        "/api/v1/ai/approvals?status_filter=pending", headers=headers
+    )
+    assert approvals_response.status_code == 200
+    approvals = approvals_response.json()
+    task_approval = next(
+        approval
+        for approval in approvals
+        if approval["action_type"] == "task" and approval["source_id"] == file["id"]
+    )
+    appointment_approval = next(
+        approval
+        for approval in approvals
+        if approval["action_type"] == "appointment" and approval["source_id"] == file["id"]
+    )
+
+    assert task_approval["source_type"] == "file"
+    assert task_approval["suggested_payload"]["title"] == "Prepare quarterly report"
+    assert appointment_approval["source_type"] == "file"
+    assert appointment_approval["suggested_payload"]["title"] == "Review meeting"
+
+    approve_task_response = await client.post(
+        f"/api/v1/ai/approvals/{task_approval['id']}/approve", headers=headers, json={}
+    )
+    assert approve_task_response.status_code == 200
+    create_task_response = await client.post(
+        "/api/v1/tasks/from-approval",
+        headers=headers,
+        json={"approval_id": task_approval["id"]},
+    )
+    assert create_task_response.status_code == 201
+    assert create_task_response.json()["title"] == "Prepare quarterly report"
+
+    approve_appointment_response = await client.post(
+        f"/api/v1/ai/approvals/{appointment_approval['id']}/approve", headers=headers, json={}
+    )
+    assert approve_appointment_response.status_code == 200
+    create_appointment_response = await client.post(
+        "/api/v1/appointments/from-approval",
+        headers=headers,
+        json={"approval_id": appointment_approval["id"], "force": True},
+    )
+    assert create_appointment_response.status_code == 201
+    assert create_appointment_response.json()["title"] == "Review meeting"
+
 
 async def test_pdf_upload_flow_extracts_real_text(client: AsyncClient):
     headers = await _auth_headers(client, "files-pdf-flow@example.com")
