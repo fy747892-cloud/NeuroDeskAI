@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../appointments/data/appointments_repository.dart';
+import '../../deals/data/deals_repository.dart';
+import '../../tasks/data/tasks_repository.dart';
 import '../data/ai_approvals_repository.dart';
 import '../domain/ai_action_approval.dart';
 
@@ -256,16 +260,21 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
   Future<void> _approve(AiActionApproval approval) async {
     await _submit(
       () => ref.read(aiApprovalsRepositoryProvider).approve(approval),
+      approval,
     );
   }
 
   Future<void> _reject(AiActionApproval approval) async {
     await _submit(
       () => ref.read(aiApprovalsRepositoryProvider).reject(approval.id),
+      null,
     );
   }
 
-  Future<void> _submit(Future<Object?> Function() action) async {
+  Future<void> _submit(
+    Future<Object?> Function() action,
+    AiActionApproval? approvedAction,
+  ) async {
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
@@ -273,6 +282,24 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
     try {
       await action();
       ref.invalidate(pendingAiApprovalsProvider);
+      if (approvedAction != null && mounted) {
+        _invalidateTargetList(approvedAction);
+        final route = _routeFor(approvedAction);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${approvedAction.actionLabel} oluşturuldu.'),
+            action: route == null
+                ? null
+                : SnackBarAction(
+                    label: 'Görüntüle',
+                    onPressed: () => context.go(route),
+                  ),
+          ),
+        );
+        if (route != null) {
+          context.go(route);
+        }
+      }
     } catch (error) {
       setState(() {
         _errorMessage = readableApiError(error, 'İşlem tamamlanamadı.');
@@ -282,6 +309,29 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
         setState(() => _isSubmitting = false);
       }
     }
+  }
+
+  void _invalidateTargetList(AiActionApproval approval) {
+    switch (approval.actionType) {
+      case 'task':
+      case 'create_task':
+        ref.invalidate(tasksProvider);
+      case 'appointment':
+      case 'create_appointment':
+        ref.invalidate(appointmentsProvider);
+      case 'deal':
+      case 'create_deal':
+        ref.invalidate(dealsProvider);
+    }
+  }
+
+  String? _routeFor(AiActionApproval approval) {
+    return switch (approval.actionType) {
+      'task' || 'create_task' => '/app/tasks',
+      'appointment' || 'create_appointment' => '/app/appointments',
+      'deal' || 'create_deal' => '/app/deals',
+      _ => null,
+    };
   }
 
   String _formatDate(DateTime value) {

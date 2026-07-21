@@ -43,10 +43,11 @@ async def test_new_tenant_gets_free_plan_and_quota_is_enforced(client: AsyncClie
 
     usage = await client.get("/api/v1/billing/usage", headers=headers)
     assert usage.status_code == 200
-    assert usage.json()["limit_value"] == 5
+    assert usage.json()["quota_type"] == "ai_chat_requests"
+    assert usage.json()["limit_value"] == 15
     assert usage.json()["used"] == 0
 
-    for index in range(5):
+    for index in range(15):
         response = await _send_chat_message(client, headers, f"Question number {index}")
         assert response.status_code == 201
 
@@ -55,14 +56,14 @@ async def test_new_tenant_gets_free_plan_and_quota_is_enforced(client: AsyncClie
     assert blocked.json()["error_code"] == "quota_exceeded"
 
     usage_after = await client.get("/api/v1/billing/usage", headers=headers)
-    assert usage_after.json()["used"] == 5
+    assert usage_after.json()["used"] == 15
     assert usage_after.json()["remaining"] == 0
 
 
-async def test_conversation_analysis_shares_the_same_ai_quota(client: AsyncClient):
+async def test_conversation_analysis_has_a_separate_ai_quota(client: AsyncClient):
     headers = await _auth_headers(client, "billing-shared-quota@example.com")
 
-    for index in range(5):
+    for index in range(15):
         response = await _send_chat_message(client, headers, f"Chat message {index}")
         assert response.status_code == 201
 
@@ -72,8 +73,13 @@ async def test_conversation_analysis_shares_the_same_ai_quota(client: AsyncClien
     analysis_response = await client.post(
         f"/api/v1/ai/analysis/conversations/{conversation_id}", headers=headers
     )
-    assert analysis_response.status_code == 429
-    assert analysis_response.json()["error_code"] == "quota_exceeded"
+    assert analysis_response.status_code == 201
+
+    analysis_usage = await client.get(
+        "/api/v1/billing/usage?quota_type=ai_analysis_requests", headers=headers
+    )
+    assert analysis_usage.json()["used"] == 1
+    assert analysis_usage.json()["remaining"] == 14
 
 
 async def test_plan_switch_raises_limit_and_allows_more_usage(client: AsyncClient):
@@ -84,7 +90,7 @@ async def test_plan_switch_raises_limit_and_allows_more_usage(client: AsyncClien
     plan_codes = {plan["code"] for plan in plans_response.json()}
     assert plan_codes == {"free", "pro", "enterprise"}
 
-    for index in range(5):
+    for index in range(15):
         response = await _send_chat_message(client, headers, f"Chat message {index}")
         assert response.status_code == 201
 
@@ -102,7 +108,7 @@ async def test_plan_switch_raises_limit_and_allows_more_usage(client: AsyncClien
 
     usage_response = await client.get("/api/v1/billing/usage", headers=headers)
     assert usage_response.json()["limit_value"] == 50
-    assert usage_response.json()["used"] == 5
+    assert usage_response.json()["used"] == 15
 
     allowed = await _send_chat_message(client, headers, "Now allowed under the Pro plan")
     assert allowed.status_code == 201

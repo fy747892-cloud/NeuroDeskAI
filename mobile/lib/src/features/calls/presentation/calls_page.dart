@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../../../core/api/api_error.dart';
 import '../../conversations/data/conversations_repository.dart';
+import '../../files/data/files_repository.dart';
 import '../data/call_recording_provider.dart';
 import '../data/calls_repository.dart';
 import '../domain/ai_analysis_job.dart';
@@ -34,11 +35,11 @@ class _CallsPageState extends ConsumerState<CallsPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text('Çağrılar', style: theme.textTheme.headlineMedium),
+            Text('Ã‡aÄŸrÄ±lar', style: theme.textTheme.headlineMedium),
             const SizedBox(height: 6),
             Text(
-              'Telefon çalarken kayıt otomatik başlar; istersen aşağıdan '
-              'elle de başlatıp durdurabilirsin.',
+              'Telefon Ã§alarken kayÄ±t otomatik baÅŸlar; istersen aÅŸaÄŸÄ±dan '
+              'elle de baÅŸlatÄ±p durdurabilirsin.',
               style: theme.textTheme.bodyMedium,
             ),
             const SizedBox(height: 14),
@@ -50,7 +51,7 @@ class _CallsPageState extends ConsumerState<CallsPage> {
             const SizedBox(height: 16),
             calls.when(
               data: (items) => items.isEmpty
-                  ? const _PageMessage(message: 'Henüz çağrı kaydı yok.')
+                  ? const _PageMessage(message: 'HenÃ¼z Ã§aÄŸrÄ± kaydÄ± yok.')
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
@@ -68,7 +69,7 @@ class _CallsPageState extends ConsumerState<CallsPage> {
                       ],
                     ),
               error: (error, stackTrace) => _PageMessage(
-                message: readableApiError(error, 'Çağrılar alınamadı.'),
+                message: readableApiError(error, 'Ã‡aÄŸrÄ±lar alÄ±namadÄ±.'),
               ),
               loading: () => const Center(child: CircularProgressIndicator()),
             ),
@@ -76,7 +77,7 @@ class _CallsPageState extends ConsumerState<CallsPage> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        tooltip: 'Çağrı metni ekle',
+        tooltip: 'Ã‡aÄŸrÄ± metni ekle',
         onPressed: _showCreateSheet,
         child: const Icon(Icons.add_call),
       ),
@@ -89,7 +90,7 @@ class _CallsPageState extends ConsumerState<CallsPage> {
           job.sourceType.toLowerCase() == 'conversation' &&
           job.sourceId == call.conversationId,
     );
-    return matches.isEmpty ? null : matches.last;
+    return matches.isEmpty ? null : matches.first;
   }
 
   Future<void> _showCreateSheet() async {
@@ -102,9 +103,9 @@ class _CallsPageState extends ConsumerState<CallsPage> {
     if (job != null) {
       setState(() {
         _notice = job.isFailed
-            ? 'Çağrı kaydedildi ama AI analizi başarısız oldu: '
-                '${job.errorMessage ?? 'bilinmeyen hata'}. Aşağıdan tekrar deneyebilirsin.'
-            : 'Çağrı kaydedildi ve AI analizi başlatıldı.';
+            ? 'Ã‡aÄŸrÄ± kaydedildi ama AI analizi baÅŸarÄ±sÄ±z oldu: '
+                '${job.errorMessage ?? 'bilinmeyen hata'}. AÅŸaÄŸÄ±dan tekrar deneyebilirsin.'
+            : 'Ã‡aÄŸrÄ± kaydedildi ve AI analizi baÅŸlatÄ±ldÄ±.';
       });
       ref.invalidate(callsProvider);
       ref.invalidate(callAnalysisJobsProvider);
@@ -126,6 +127,7 @@ class _RecordingControlCard extends ConsumerWidget {
           previous?.status != CallRecordingStatus.completed) {
         ref.invalidate(callsProvider);
         ref.invalidate(callAnalysisJobsProvider);
+        ref.invalidate(filesProvider);
       }
     });
 
@@ -134,16 +136,16 @@ class _RecordingControlCard extends ConsumerWidget {
         return Card(
           child: ListTile(
             leading: Icon(Icons.mic_none, color: theme.colorScheme.primary),
-            title: const Text('Görüşme kaydı'),
+            title: const Text('GÃ¶rÃ¼ÅŸme kaydÄ±'),
             subtitle: const Text(
-              'Aramayı hoparlörden yap; kayıt aramayla otomatik başlamazsa '
-              'buradan elle başlat.',
+              'AramayÄ± hoparlÃ¶rden yap; kayÄ±t aramayla otomatik baÅŸlamazsa '
+              'buradan elle baÅŸlat.',
             ),
             trailing: FilledButton.icon(
               onPressed: () =>
                   ref.read(callRecordingProvider.notifier).startRecording(),
               icon: const Icon(Icons.fiber_manual_record),
-              label: const Text('Başlat'),
+              label: const Text('BaÅŸlat'),
             ),
           ),
         );
@@ -162,7 +164,7 @@ class _RecordingControlCard extends ConsumerWidget {
                         color: theme.colorScheme.error, size: 16),
                     const SizedBox(width: 8),
                     Text(
-                      'Görüşme kaydediliyor',
+                      'GÃ¶rÃ¼ÅŸme kaydediliyor',
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -171,8 +173,8 @@ class _RecordingControlCard extends ConsumerWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Aramayı hoparlörden yapın ki mikrofon her iki tarafı da '
-                  'duyabilsin. Bitince "Durdur"a basın.',
+                  'AramayÄ± hoparlÃ¶rden yapÄ±n ki mikrofon her iki tarafÄ± da '
+                  'duyabilsin. Bitince "Durdur"a basÄ±n.',
                   style: theme.textTheme.bodySmall,
                 ),
                 const SizedBox(height: 10),
@@ -192,11 +194,11 @@ class _RecordingControlCard extends ConsumerWidget {
         );
 
       case CallRecordingStatus.uploading:
-        return const _RecordingStatusCard(message: 'Kayıt yükleniyor...');
+        return const _RecordingStatusCard(message: 'KayÄ±t yÃ¼kleniyor...');
 
       case CallRecordingStatus.analyzing:
         return const _RecordingStatusCard(
-          message: 'Ses metne çevrilip AI ile analiz ediliyor...',
+          message: 'Ses metne Ã§evrilip AI ile analiz ediliyor...',
         );
 
       case CallRecordingStatus.completed:
@@ -217,9 +219,9 @@ class _RecordingControlCard extends ConsumerWidget {
                 Expanded(
                   child: Text(
                     rec.analysisFailed
-                        ? 'Kayıt kaydedildi ama AI analizi başarısız oldu. '
-                            'Aşağıdaki çağrı kartından tekrar deneyebilirsin.'
-                        : 'Kayıt tamamlandı ve AI analizi başlatıldı.',
+                        ? 'KayÄ±t kaydedildi ama AI analizi baÅŸarÄ±sÄ±z oldu. '
+                            'AÅŸaÄŸÄ±daki Ã§aÄŸrÄ± kartÄ±ndan tekrar deneyebilirsin.'
+                        : 'KayÄ±t tamamlandÄ± ve AI analizi baÅŸlatÄ±ldÄ±.',
                     style: theme.textTheme.bodyMedium,
                   ),
                 ),
@@ -246,7 +248,7 @@ class _RecordingControlCard extends ConsumerWidget {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        rec.errorMessage ?? 'Kayıt işlemi başarısız oldu.',
+                        rec.errorMessage ?? 'KayÄ±t iÅŸlemi baÅŸarÄ±sÄ±z oldu.',
                         style: TextStyle(color: theme.colorScheme.error),
                       ),
                     ),
@@ -317,7 +319,7 @@ class _CallsSummary extends StatelessWidget {
         children: [
           Expanded(
             child: _SummaryMetric(
-              label: 'Çağrı',
+              label: 'Ã‡aÄŸrÄ±',
               value: calls.length.toString(),
               icon: Icons.call_outlined,
             ),
@@ -381,7 +383,7 @@ class _CallCardState extends ConsumerState<_CallCard> {
                   child: Text(
                     call.phoneNumber?.isNotEmpty == true
                         ? call.phoneNumber!
-                        : 'Manuel çağrı',
+                        : 'Manuel Ã§aÄŸrÄ±',
                     style: theme.textTheme.titleMedium,
                   ),
                 ),
@@ -411,10 +413,25 @@ class _CallCardState extends ConsumerState<_CallCard> {
             if (firstTranscript != null) ...[
               const SizedBox(height: 10),
               Text(
+                'Transkript',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
                 firstTranscript.transcriptText,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
+                maxLines: 8,
+                overflow: TextOverflow.fade,
                 style: theme.textTheme.bodyMedium,
+              ),
+            ] else ...[
+              const SizedBox(height: 10),
+              Text(
+                'Transkript henÃ¼z yok.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ],
             const SizedBox(height: 10),
@@ -436,7 +453,7 @@ class _CallCardState extends ConsumerState<_CallCard> {
               size: 16, color: theme.colorScheme.onSurfaceVariant),
           const SizedBox(width: 6),
           Text(
-            'AI analizi henüz başlatılmadı.',
+            'AI analizi henÃ¼z baÅŸlatÄ±lmadÄ±.',
             style: theme.textTheme.bodySmall
                 ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
@@ -453,7 +470,7 @@ class _CallCardState extends ConsumerState<_CallCard> {
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
           const SizedBox(width: 8),
-          Text('AI analizi işleniyor...', style: theme.textTheme.bodySmall),
+          Text('AI analizi iÅŸleniyor...', style: theme.textTheme.bodySmall),
         ],
       );
     }
@@ -470,8 +487,8 @@ class _CallCardState extends ConsumerState<_CallCard> {
               Expanded(
                 child: Text(
                   job.errorMessage?.isNotEmpty == true
-                      ? 'AI analizi başarısız: ${job.errorMessage}'
-                      : 'AI analizi başarısız oldu.',
+                      ? 'AI analizi baÅŸarÄ±sÄ±z: ${job.errorMessage}'
+                      : 'AI analizi baÅŸarÄ±sÄ±z oldu.',
                   style: theme.textTheme.bodySmall
                       ?.copyWith(color: theme.colorScheme.error),
                 ),
@@ -496,14 +513,7 @@ class _CallCardState extends ConsumerState<_CallCard> {
       );
     }
 
-    return Row(
-      children: [
-        Icon(Icons.check_circle_outline,
-            size: 16, color: theme.colorScheme.primary),
-        const SizedBox(width: 6),
-        Text('AI analizi tamamlandı.', style: theme.textTheme.bodySmall),
-      ],
-    );
+    return _CompletedAnalysisStatus(job: job);
   }
 
   Future<void> _retry(AiAnalysisJob job) async {
@@ -516,7 +526,7 @@ class _CallCardState extends ConsumerState<_CallCard> {
       ref.invalidate(callAnalysisJobsProvider);
     } catch (error) {
       setState(() {
-        _retryError = readableApiError(error, 'Tekrar deneme başarısız.');
+        _retryError = readableApiError(error, 'Tekrar deneme baÅŸarÄ±sÄ±z.');
       });
     } finally {
       if (mounted) {
@@ -562,14 +572,14 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Çağrı metni ekle',
+            Text('Ã‡aÄŸrÄ± metni ekle',
                 style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 14),
             TextField(
               controller: _titleController,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
-                labelText: 'Başlık',
+                labelText: 'BaÅŸlÄ±k',
                 prefixIcon: Icon(Icons.title),
               ),
             ),
@@ -618,7 +628,7 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
             OutlinedButton.icon(
               onPressed: _isSaving ? null : _importTranscriptFile,
               icon: const Icon(Icons.text_snippet_outlined),
-              label: const Text('TXT transkript dosyası içe aktar'),
+              label: const Text('TXT transkript dosyasÄ± iÃ§e aktar'),
             ),
             if (_errorMessage != null) ...[
               const SizedBox(height: 10),
@@ -654,7 +664,7 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
         .toList(growable: false);
 
     if (title.isEmpty || transcript.isEmpty) {
-      setState(() => _errorMessage = 'Başlık ve transkript zorunlu.');
+      setState(() => _errorMessage = 'BaÅŸlÄ±k ve transkript zorunlu.');
       return;
     }
 
@@ -679,7 +689,7 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
       }
     } catch (error) {
       setState(() {
-        _errorMessage = readableApiError(error, 'Çağrı kaydedilemedi.');
+        _errorMessage = readableApiError(error, 'Ã‡aÄŸrÄ± kaydedilemedi.');
       });
     } finally {
       if (mounted) {
@@ -704,20 +714,83 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
       }
       final text = String.fromCharCodes(bytes).trim();
       if (text.isEmpty) {
-        setState(() => _errorMessage = 'Seçilen transkript dosyası boş.');
+        setState(() => _errorMessage = 'SeÃ§ilen transkript dosyasÄ± boÅŸ.');
         return;
       }
       _transcriptController.text = text;
       if (_titleController.text.trim().isEmpty) {
         final name =
             file.name.replaceAll(RegExp(r'\.txt$', caseSensitive: false), '');
-        _titleController.text = name.isEmpty ? 'Görüşme transkripti' : name;
+        _titleController.text = name.isEmpty ? 'GÃ¶rÃ¼ÅŸme transkripti' : name;
       }
     } catch (error) {
       setState(() {
-        _errorMessage = 'Transkript dosyası okunamadı.';
+        _errorMessage = 'Transkript dosyasÄ± okunamadÄ±.';
       });
     }
+  }
+}
+
+class _CompletedAnalysisStatus extends StatelessWidget {
+  const _CompletedAnalysisStatus({required this.job});
+
+  final AiAnalysisJob job;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final summary = job.summary;
+    final actionCount = job.suggestedTaskCount +
+        job.suggestedAppointmentCount +
+        job.suggestedDealCount;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: theme.colorScheme.primary.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.check_circle_outline,
+                size: 16,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 6),
+              Text('AI analizi tamamlandÄ±.', style: theme.textTheme.bodySmall),
+            ],
+          ),
+          if (summary != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              summary,
+              maxLines: 5,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyMedium,
+            ),
+          ],
+          if (actionCount > 0) ...[
+            const SizedBox(height: 8),
+            Text(
+              '${job.suggestedTaskCount} gÃ¶rev, '
+              '${job.suggestedAppointmentCount} randevu, '
+              "${job.suggestedDealCount} fÄ±rsat Ã¶nerisi Onay Merkezi'nde.",
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }
 
@@ -804,7 +877,7 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final label = switch (status.toLowerCase()) {
-      'uploaded' => 'Yüklendi',
+      'uploaded' => 'YÃ¼klendi',
       'processed' => 'Islendi',
       'failed' => 'Hata',
       _ => status,

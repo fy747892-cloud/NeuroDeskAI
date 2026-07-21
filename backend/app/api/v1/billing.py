@@ -71,8 +71,11 @@ async def switch_subscription_plan(
 
 @router.get("/usage", response_model=UsageSummaryOut)
 async def get_usage(
+    quota_type: str = "ai_chat_requests",
     current_user: User = Depends(require_permission(Permission.BILLING_READ)),
     db: AsyncSession = Depends(get_db),
 ) -> UsageSummaryOut:
-    summary = await BillingService(db).get_usage_summary(tenant_id=current_user.tenant_id)
+    summary = await BillingService(db).get_usage_summary(
+        tenant_id=current_user.tenant_id, quota_type=quota_type
+    )
     return UsageSummaryOut(**summary)

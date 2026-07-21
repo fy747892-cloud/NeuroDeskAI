@@ -14,10 +14,12 @@ from app.modules.billing.repository import (
 from app.modules.organizations.models import Tenant
 
 AI_REQUESTS_QUOTA_TYPE = "ai_requests"
+AI_CHAT_REQUESTS_QUOTA_TYPE = "ai_chat_requests"
+AI_ANALYSIS_REQUESTS_QUOTA_TYPE = "ai_analysis_requests"
 SUBSCRIPTION_PERIOD_DAYS = 30
 
 PLAN_QUOTA_DEFAULTS: dict[str, int] = {
-    "free": 5,
+    "free": 15,
     "pro": 50,
     "enterprise": 500,
 }
@@ -67,11 +69,7 @@ class BillingService:
         subscription = await self._subscriptions.create(
             tenant_id=tenant_id, plan_id=plan.id, current_period_end=period_end
         )
-        await self._quotas.upsert(
-            tenant_id=tenant_id,
-            quota_type=AI_REQUESTS_QUOTA_TYPE,
-            limit_value=PLAN_QUOTA_DEFAULTS[plan.code],
-        )
+        await self._upsert_ai_quotas(tenant_id=tenant_id, limit_value=PLAN_QUOTA_DEFAULTS[plan.code])
         return subscription
 
     async def switch_plan(self, *, tenant_id: uuid.UUID, plan_code: str) -> Subscription:
@@ -87,11 +85,7 @@ class BillingService:
         subscription = await self._subscriptions.update_plan(
             subscription=subscription, plan_id=plan.id, current_period_end=period_end
         )
-        await self._quotas.upsert(
-            tenant_id=tenant_id,
-            quota_type=AI_REQUESTS_QUOTA_TYPE,
-            limit_value=PLAN_QUOTA_DEFAULTS[plan.code],
-        )
+        await self._upsert_ai_quotas(tenant_id=tenant_id, limit_value=PLAN_QUOTA_DEFAULTS[plan.code])
 
         tenant = await self._db.get(Tenant, tenant_id)
         if tenant is not None:
@@ -113,33 +107,55 @@ class BillingService:
         await self.ensure_plans_seeded()
         return await self._plans.list_all()
 
-    async def enforce_ai_usage_guard(self, *, tenant_id: uuid.UUID) -> None:
-        quota = await self._quotas.get(tenant_id=tenant_id, quota_type=AI_REQUESTS_QUOTA_TYPE)
+    async def enforce_ai_usage_guard(
+        self, *, tenant_id: uuid.UUID, quota_type: str = AI_REQUESTS_QUOTA_TYPE
+    ) -> None:
+        quota = await self._quotas.get(tenant_id=tenant_id, quota_type=quota_type)
         if quota is None:
             return
         used = await self._usage.count_for_today(
-            tenant_id=tenant_id, usage_type=AI_REQUESTS_QUOTA_TYPE
+            tenant_id=tenant_id, usage_type=quota_type
         )
         if used >= quota.limit_value:
             raise QuotaExceededError(
-                f"Daily AI usage quota ({quota.limit_value} requests) has been reached."
+                f"Daily {quota_type} quota ({quota.limit_value} requests) has been reached."
             )
 
-    async def record_ai_usage(self, *, tenant_id: uuid.UUID, user_id: uuid.UUID) -> None:
+    async def record_ai_usage(
+        self,
+        *,
+        tenant_id: uuid.UUID,
+        user_id: uuid.UUID,
+        usage_type: str = AI_REQUESTS_QUOTA_TYPE,
+    ) -> None:
         await self._usage.record(
-            tenant_id=tenant_id, user_id=user_id, usage_type=AI_REQUESTS_QUOTA_TYPE
+            tenant_id=tenant_id, user_id=user_id, usage_type=usage_type
         )
 
-    async def get_usage_summary(self, *, tenant_id: uuid.UUID) -> dict:
-        quota = await self._quotas.get(tenant_id=tenant_id, quota_type=AI_REQUESTS_QUOTA_TYPE)
+    async def get_usage_summary(
+        self, *, tenant_id: uuid.UUID, quota_type: str = AI_CHAT_REQUESTS_QUOTA_TYPE
+    ) -> dict:
+        quota = await self._quotas.get(tenant_id=tenant_id, quota_type=quota_type)
         used = await self._usage.count_for_today(
-            tenant_id=tenant_id, usage_type=AI_REQUESTS_QUOTA_TYPE
+            tenant_id=tenant_id, usage_type=quota_type
         )
         limit_value = quota.limit_value if quota is not None else 0
         return {
-            "quota_type": AI_REQUESTS_QUOTA_TYPE,
+            "quota_type": quota_type,
             "period": quota.period if quota is not None else "daily",
             "limit_value": limit_value,
             "used": used,
             "remaining": max(0, limit_value - used),
         }
+
+    async def _upsert_ai_quotas(self, *, tenant_id: uuid.UUID, limit_value: int) -> None:
+        for quota_type in (
+            AI_REQUESTS_QUOTA_TYPE,
+            AI_CHAT_REQUESTS_QUOTA_TYPE,
+            AI_ANALYSIS_REQUESTS_QUOTA_TYPE,
+        ):
+            await self._quotas.upsert(
+                tenant_id=tenant_id,
+                quota_type=quota_type,
+                limit_value=limit_value,
+            )

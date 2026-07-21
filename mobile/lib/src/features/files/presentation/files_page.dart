@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../ai_approvals/data/ai_approvals_repository.dart';
 import '../data/files_repository.dart';
 import '../domain/file_record.dart';
 
@@ -100,12 +102,24 @@ class _FilesPageState extends ConsumerState<FilesPage> {
     });
 
     try {
-      final analysis =
-          await ref.read(filesRepositoryProvider).analyzeFile(file.id);
+      await ref.read(filesRepositoryProvider).analyzeFile(file.id);
       setState(() {
-        _notice = '${file.filename} analiz durumu: ${analysis.status}';
+        _notice =
+            '${file.filename} analiz edildi. Görev/randevu önerileri varsa Onay Merkezi’nde bekliyor.';
       });
       ref.invalidate(filesProvider);
+      ref.invalidate(pendingAiApprovalsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Analiz tamamlandı. Onay Merkezi’ne geçebilirsin.'),
+            action: SnackBarAction(
+              label: 'Aç',
+              onPressed: () => context.go('/app/approvals'),
+            ),
+          ),
+        );
+      }
     } catch (error) {
       setState(() {
         _notice = readableApiError(error, 'Dosya analiz edilemedi.');
