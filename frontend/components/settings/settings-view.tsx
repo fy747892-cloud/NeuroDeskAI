@@ -452,6 +452,36 @@ export function SettingsView() {
         </section>
       </div>
 
+      <section className="glass-card p-lg rounded-xl mt-lg">
+        <h3 className="font-headline-md text-headline-md flex items-center gap-2">
+          <span className="material-symbols-outlined text-primary">support_agent</span>
+          {t("settings.support.title")}
+        </h3>
+        <p className="text-body-sm text-on-surface-variant mt-xs mb-md">{t("settings.support.subtitle")}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
+          <a
+            href="mailto:neurodeskkai@gmail.com"
+            className="flex items-center gap-3 p-md rounded-lg border border-outline-variant hover:bg-surface-container-high transition-colors"
+          >
+            <span className="material-symbols-outlined text-primary">mail</span>
+            <span>
+              <span className="block text-label-sm text-on-surface-variant">{t("settings.support.emailLabel")}</span>
+              <strong className="font-label-md text-on-surface">neurodeskkai@gmail.com</strong>
+            </span>
+          </a>
+          <a
+            href="tel:+905530682570"
+            className="flex items-center gap-3 p-md rounded-lg border border-outline-variant hover:bg-surface-container-high transition-colors"
+          >
+            <span className="material-symbols-outlined text-primary">call</span>
+            <span>
+              <span className="block text-label-sm text-on-surface-variant">{t("settings.support.phoneLabel")}</span>
+              <strong className="font-label-md text-on-surface">+90 553 068 25 70</strong>
+            </span>
+          </a>
+        </div>
+      </section>
+
       <section className="glass-card rounded-xl overflow-hidden mt-lg">
         <div className="px-lg py-md border-b border-outline-variant/30">
           <h3 className="font-headline-md text-headline-md">{t("settings.audit.title")}</h3>

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_error.dart';
@@ -42,6 +43,8 @@ class SettingsPage extends ConsumerWidget {
                 _ApiCard(apiStatus: apiStatus),
                 const SizedBox(height: 12),
                 _AccountCard(user: user),
+                const SizedBox(height: 12),
+                const _SupportCard(),
                 const SizedBox(height: 12),
                 FilledButton.icon(
                   onPressed: () {
@@ -226,6 +229,91 @@ class _AccountCard extends StatelessWidget {
             _MetricLine(
               label: 'Organizasyon',
               value: user.organizationId ?? 'Yok',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SupportCard extends StatelessWidget {
+  const _SupportCard();
+
+  static const _supportEmail = 'neurodeskkai@gmail.com';
+  static const _supportPhone = '+905530682570';
+  static const _supportPhoneDisplay = '+90 553 068 25 70';
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('İletişim', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text(
+              'Bir sorun mu yaşıyorsunuz? Bizimle iletişime geçin.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 12),
+            _ContactTile(
+              icon: Icons.mail_outline,
+              label: 'E-posta',
+              value: _supportEmail,
+              onTap: () => launchUrl(Uri(scheme: 'mailto', path: _supportEmail)),
+            ),
+            const SizedBox(height: 8),
+            _ContactTile(
+              icon: Icons.call_outlined,
+              label: 'Telefon',
+              value: _supportPhoneDisplay,
+              onTap: () => launchUrl(Uri(scheme: 'tel', path: _supportPhone)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ContactTile extends StatelessWidget {
+  const _ContactTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            Icon(icon, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: Theme.of(context).textTheme.bodySmall),
+                Text(
+                  value,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+              ],
             ),
           ],
         ),

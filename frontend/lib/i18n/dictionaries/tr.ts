@@ -247,6 +247,12 @@ export const tr: TranslationDictionary = {
       entityColumn: "Varlık",
       timeColumn: "Zaman",
     },
+    support: {
+      title: "İletişim",
+      subtitle: "Bir sorun mu yaşıyorsunuz? Bizimle iletişime geçin.",
+      emailLabel: "E-posta",
+      phoneLabel: "Telefon",
+    },
   },
   deals: {
     stage: {

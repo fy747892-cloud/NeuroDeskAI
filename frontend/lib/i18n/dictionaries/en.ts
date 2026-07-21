@@ -247,6 +247,12 @@ export const en: TranslationDictionary = {
       entityColumn: "Entity",
       timeColumn: "Time",
     },
+    support: {
+      title: "Contact Us",
+      subtitle: "Having an issue? Get in touch with us.",
+      emailLabel: "Email",
+      phoneLabel: "Phone",
+    },
   },
   deals: {
     stage: {
