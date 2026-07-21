@@ -3,6 +3,7 @@ import io
 import httpx
 from docx import Document
 from httpx import AsyncClient
+from openpyxl import Workbook
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +11,7 @@ from app.modules.organizations.models import OrganizationMember
 
 TXT_MIME = "text/plain"
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 PDF_MIME = "application/pdf"
 AUDIO_MIME = "audio/mpeg"
 
@@ -75,6 +77,18 @@ def _build_docx_bytes(text: str) -> bytes:
     document.add_paragraph(text)
     buffer = io.BytesIO()
     document.save(buffer)
+    return buffer.getvalue()
+
+
+def _build_xlsx_bytes() -> bytes:
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Plan"
+    sheet.append(["Type", "Title", "Due"])
+    sheet.append(["Task", "Prepare quarterly report", "2026-07-25"])
+    sheet.append(["Appointment", "Review meeting", "2026-07-26 10:00"])
+    buffer = io.BytesIO()
+    workbook.save(buffer)
     return buffer.getvalue()
 
 
@@ -167,6 +181,35 @@ async def test_docx_upload_flow_extracts_real_text(client: AsyncClient):
     text_body = text_response.json()
     assert text_body["status"] == "extracted"
     assert "real python-docx document" in text_body["extracted_text"]
+
+
+async def test_xlsx_upload_flow_extracts_real_text_and_summarizes(client: AsyncClient):
+    headers = await _auth_headers(client, "files-xlsx-flow@example.com")
+    content = _build_xlsx_bytes()
+    tasks_before = (await client.get("/api/v1/tasks", headers=headers)).json()
+    appointments_before = (await client.get("/api/v1/appointments", headers=headers)).json()
+
+    file = await _upload_and_complete(
+        client, headers, filename="plan.xlsx", mime_type=XLSX_MIME, content=content
+    )
+    assert file["status"] == "ready"
+
+    text_response = await client.get(f"/api/v1/files/{file['id']}/text", headers=headers)
+    assert text_response.status_code == 200
+    text_body = text_response.json()
+    assert text_body["status"] == "extracted"
+    assert "Prepare quarterly report" in text_body["extracted_text"]
+    assert "Review meeting" in text_body["extracted_text"]
+
+    analyze_response = await client.post(f"/api/v1/files/{file['id']}/analyze", headers=headers)
+    assert analyze_response.status_code == 200
+    assert analyze_response.json()["status"] == "completed"
+    assert "quarterly report" in analyze_response.json()["summary"]
+
+    tasks_after = (await client.get("/api/v1/tasks", headers=headers)).json()
+    appointments_after = (await client.get("/api/v1/appointments", headers=headers)).json()
+    assert len(tasks_after) == len(tasks_before)
+    assert len(appointments_after) == len(appointments_before)
 
 
 async def test_pdf_upload_flow_extracts_real_text(client: AsyncClient):

@@ -1,8 +1,11 @@
+import 'package:flutter_contacts/flutter_contacts.dart' as device_contacts;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../calls/data/call_recording_provider.dart';
 import '../data/contacts_repository.dart';
 import '../domain/contact.dart';
 
@@ -16,6 +19,7 @@ class ContactsPage extends ConsumerStatefulWidget {
 class _ContactsPageState extends ConsumerState<ContactsPage> {
   final _searchController = TextEditingController();
   String? _search;
+  bool _isImportingDeviceContacts = false;
 
   @override
   void dispose() {
@@ -52,6 +56,25 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                 setState(() => _search = _searchController.text.trim());
               },
             ),
+            const SizedBox(height: 10),
+            FilledButton.tonalIcon(
+              onPressed: _isImportingDeviceContacts
+                  ? null
+                  : () => _importDeviceContacts(
+                        contacts.valueOrNull ?? const [],
+                      ),
+              icon: _isImportingDeviceContacts
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.contacts_outlined),
+              label: Text(
+                _isImportingDeviceContacts
+                    ? 'Rehber aktarılıyor'
+                    : 'Telefon rehberinden içe aktar',
+              ),
+            ),
             const SizedBox(height: 16),
             contacts.when(
               data: (items) => items.isEmpty
@@ -84,6 +107,80 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
       builder: (context) => const _CreateContactSheet(),
     );
     ref.invalidate(contactsProvider(_search));
+  }
+
+  Future<void> _importDeviceContacts(List<Contact> existingContacts) async {
+    setState(() => _isImportingDeviceContacts = true);
+
+    try {
+      final granted = await device_contacts.FlutterContacts.requestPermission(
+        readonly: true,
+      );
+      if (!granted) {
+        _showSnack('Rehber izni verilmedi.');
+        return;
+      }
+
+      final deviceContacts = await device_contacts.FlutterContacts.getContacts(
+        withProperties: true,
+      );
+      final existingKeys = {
+        for (final contact in existingContacts) ...[
+          if (contact.email != null) _normalizeEmail(contact.email!),
+          if (contact.phone != null) _normalizePhone(contact.phone!),
+        ],
+      }..removeWhere((key) => key.isEmpty);
+
+      var importedCount = 0;
+      var skippedCount = 0;
+      for (final contact in deviceContacts) {
+        final name = contact.displayName.trim();
+        final phone = contact.phones.isEmpty ? '' : contact.phones.first.number;
+        final email = contact.emails.isEmpty ? '' : contact.emails.first.address;
+        final key = _normalizeEmail(email).isNotEmpty
+            ? _normalizeEmail(email)
+            : _normalizePhone(phone);
+
+        if (name.isEmpty || key.isEmpty || existingKeys.contains(key)) {
+          skippedCount++;
+          continue;
+        }
+
+        await ref.read(contactsRepositoryProvider).createContact(
+              fullName: name,
+              email: email,
+              phone: phone,
+              company: contact.organizations.isEmpty
+                  ? ''
+                  : contact.organizations.first.company,
+              title: contact.organizations.isEmpty
+                  ? ''
+                  : contact.organizations.first.title,
+            );
+        existingKeys.add(key);
+        importedCount++;
+      }
+
+      ref.invalidate(contactsProvider(_search));
+      _showSnack(
+        importedCount == 0
+            ? 'Aktarılacak yeni kişi bulunamadı.'
+            : '$importedCount kişi içe aktarıldı. $skippedCount kayıt atlandı.',
+      );
+    } catch (error) {
+      _showSnack(readableApiError(error, 'Rehber içe aktarılamadı.'));
+    } finally {
+      if (mounted) {
+        setState(() => _isImportingDeviceContacts = false);
+      }
+    }
+  }
+
+  void _showSnack(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 }
 
@@ -213,13 +310,13 @@ class _SummaryMetric extends StatelessWidget {
   }
 }
 
-class _ContactCard extends StatelessWidget {
+class _ContactCard extends ConsumerWidget {
   const _ContactCard({required this.contact});
 
   final Contact contact;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -248,6 +345,18 @@ class _ContactCard extends StatelessWidget {
                           label: Text(contact.status),
                           visualDensity: VisualDensity.compact,
                         ),
+                        if (contact.phone?.trim().isNotEmpty == true) ...[
+                          const SizedBox(width: 6),
+                          IconButton.filledTonal(
+                            tooltip: 'Ara',
+                            onPressed: () => _callPhoneNumber(
+                              context,
+                              ref,
+                              contact.phone!,
+                            ),
+                            icon: const Icon(Icons.call),
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 6),
@@ -280,6 +389,34 @@ class _ContactCard extends StatelessWidget {
     );
   }
 }
+
+Future<void> _callPhoneNumber(
+  BuildContext context,
+  WidgetRef ref,
+  String phoneNumber,
+) async {
+  final normalized = _normalizePhone(phoneNumber);
+  if (normalized.isEmpty) {
+    return;
+  }
+
+  await ref
+      .read(callRecordingProvider.notifier)
+      .startRecording(phoneNumber: normalized);
+
+  final uri = Uri(scheme: 'tel', path: normalized);
+  final launched = await launchUrl(uri);
+  if (!launched && context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Arama uygulaması açılamadı.')),
+    );
+  }
+}
+
+String _normalizeEmail(String value) => value.trim().toLowerCase();
+
+String _normalizePhone(String value) =>
+    value.replaceAll(RegExp(r'[^0-9+]'), '').trim();
 
 class _Avatar extends StatelessWidget {
   const _Avatar({required this.name});

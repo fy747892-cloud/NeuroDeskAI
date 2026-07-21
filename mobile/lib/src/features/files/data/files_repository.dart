@@ -32,6 +32,27 @@ class FilesRepository {
     return FileAnalysis.fromJson(response.data!);
   }
 
+  Future<FileAnalysis> getAnalysis(String fileId) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/files/$fileId/analysis',
+    );
+    return FileAnalysis.fromJson(response.data!);
+  }
+
+  Future<FileText> getText(String fileId) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/files/$fileId/text',
+    );
+    return FileText.fromJson(response.data!);
+  }
+
+  Future<String> getDownloadUrl(String fileId) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/v1/files/$fileId/download-url',
+    );
+    return response.data!['download_url'] as String;
+  }
+
   Future<void> deleteFile(String fileId) async {
     await _dio.delete<void>('/api/v1/files/$fileId');
   }
