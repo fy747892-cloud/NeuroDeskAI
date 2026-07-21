@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api/api_error.dart';
 import '../data/files_repository.dart';
@@ -74,6 +75,9 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                           file: file,
                           isActive: _activeFileId == file.id,
                           onAnalyze: () => _analyze(file),
+                          onDownload: () => _download(file),
+                          onShowText: () => _showExtractedText(file),
+                          onShowAnalysis: () => _showAnalysis(file),
                           onDelete: () => _confirmDelete(file),
                         ),
                       ),
@@ -126,6 +130,7 @@ class _FilesPageState extends ConsumerState<FilesPage> {
         allowedExtensions: const [
           'pdf',
           'docx',
+          'xlsx',
           'txt',
           'mp3',
           'wav',
@@ -197,6 +202,118 @@ class _FilesPageState extends ConsumerState<FilesPage> {
     if (confirmed == true) {
       await _delete(file);
     }
+  }
+
+  Future<void> _download(FileRecord file) async {
+    setState(() {
+      _activeFileId = file.id;
+      _notice = null;
+    });
+
+    try {
+      final url = await ref.read(filesRepositoryProvider).getDownloadUrl(file.id);
+      final launched = await launchUrl(
+        Uri.parse(url),
+        mode: LaunchMode.externalApplication,
+      );
+      if (!launched) {
+        setState(() => _notice = 'Dosya bağlantısı açılamadı.');
+      }
+    } catch (error) {
+      setState(() {
+        _notice = readableApiError(error, 'Dosya indirilemedi.');
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _activeFileId = null);
+      }
+    }
+  }
+
+  Future<void> _showExtractedText(FileRecord file) async {
+    setState(() {
+      _activeFileId = file.id;
+      _notice = null;
+    });
+
+    try {
+      final text = await ref.read(filesRepositoryProvider).getText(file.id);
+      if (!mounted) return;
+      await _showLongTextDialog(
+        title: '${file.filename} metni',
+        status: text.status,
+        content: text.extractedText ?? 'Çıkarılmış metin yok.',
+      );
+    } catch (error) {
+      setState(() {
+        _notice = readableApiError(error, 'Dosya metni alınamadı.');
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _activeFileId = null);
+      }
+    }
+  }
+
+  Future<void> _showAnalysis(FileRecord file) async {
+    setState(() {
+      _activeFileId = file.id;
+      _notice = null;
+    });
+
+    try {
+      final analysis = await ref.read(filesRepositoryProvider).getAnalysis(file.id);
+      if (!mounted) return;
+      await _showLongTextDialog(
+        title: '${file.filename} özeti',
+        status: analysis.status,
+        content: analysis.summary ?? 'Analiz özeti yok.',
+      );
+    } catch (error) {
+      setState(() {
+        _notice = readableApiError(error, 'Analiz özeti alınamadı.');
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _activeFileId = null);
+      }
+    }
+  }
+
+  Future<void> _showLongTextDialog({
+    required String title,
+    required String status,
+    required String content,
+  }) {
+    return showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(title),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Chip(
+                  label: Text(_statusLabel(status)),
+                  visualDensity: VisualDensity.compact,
+                ),
+                const SizedBox(height: 10),
+                SelectableText(content),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Kapat'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _delete(FileRecord file) async {
@@ -275,12 +392,18 @@ class _FileCard extends StatelessWidget {
     required this.file,
     required this.isActive,
     required this.onAnalyze,
+    required this.onDownload,
+    required this.onShowText,
+    required this.onShowAnalysis,
     required this.onDelete,
   });
 
   final FileRecord file;
   final bool isActive;
   final VoidCallback onAnalyze;
+  final VoidCallback onDownload;
+  final VoidCallback onShowText;
+  final VoidCallback onShowAnalysis;
   final VoidCallback onDelete;
 
   @override
@@ -360,6 +483,24 @@ class _FileCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 10),
                 IconButton.outlined(
+                  tooltip: 'Metni göster',
+                  onPressed: isActive ? null : onShowText,
+                  icon: const Icon(Icons.article_outlined),
+                ),
+                const SizedBox(width: 6),
+                IconButton.outlined(
+                  tooltip: 'Özeti göster',
+                  onPressed: isActive ? null : onShowAnalysis,
+                  icon: const Icon(Icons.summarize_outlined),
+                ),
+                const SizedBox(width: 6),
+                IconButton.outlined(
+                  tooltip: 'İndir / aç',
+                  onPressed: isActive ? null : onDownload,
+                  icon: const Icon(Icons.open_in_new),
+                ),
+                const SizedBox(width: 6),
+                IconButton.outlined(
                   tooltip: 'Sil',
                   onPressed: isActive ? null : onDelete,
                   icon: const Icon(Icons.delete_outline),
@@ -418,16 +559,8 @@ class _StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = switch (status) {
-      'ready' => 'Hazır',
-      'processing' => 'İşlemde',
-      'failed' => 'Hata',
-      'uploaded' => 'Yüklendi',
-      _ => status,
-    };
-
     return Chip(
-      label: Text(label),
+      label: Text(_statusLabel(status)),
       visualDensity: VisualDensity.compact,
     );
   }
@@ -512,11 +645,26 @@ String _mimeTypeFor(String? extension) {
     'pdf' => 'application/pdf',
     'docx' =>
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'xlsx' =>
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     'txt' => 'text/plain',
     'mp3' => 'audio/mpeg',
     'wav' => 'audio/wav',
     'm4a' => 'audio/x-m4a',
     'eml' => 'message/rfc822',
     _ => 'text/plain',
+  };
+}
+
+String _statusLabel(String status) {
+  return switch (status) {
+    'ready' => 'Hazır',
+    'processing' => 'İşlemde',
+    'failed' => 'Hata',
+    'uploaded' => 'Yüklendi',
+    'extracted' => 'Metin çıkarıldı',
+    'unsupported' => 'Desteklenmiyor',
+    'completed' => 'Tamamlandı',
+    _ => status,
   };
 }

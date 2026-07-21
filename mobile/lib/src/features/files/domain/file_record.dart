@@ -46,3 +46,23 @@ class FileAnalysis {
     );
   }
 }
+
+class FileText {
+  const FileText({
+    required this.fileId,
+    required this.status,
+    this.extractedText,
+  });
+
+  final String fileId;
+  final String status;
+  final String? extractedText;
+
+  factory FileText.fromJson(Map<String, dynamic> json) {
+    return FileText(
+      fileId: json['file_id'] as String,
+      status: json['status'] as String,
+      extractedText: json['extracted_text'] as String?,
+    );
+  }
+}

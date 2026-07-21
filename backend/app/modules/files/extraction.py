@@ -2,6 +2,7 @@ import email as email_stdlib
 import io
 
 from docx import Document
+from openpyxl import load_workbook
 from pypdf import PdfReader
 
 AUDIO_MIME_TYPES = {"audio/mpeg", "audio/wav", "audio/x-wav", "audio/mp4", "audio/x-m4a"}
@@ -29,6 +30,17 @@ def extract_text(*, mime_type: str, content: bytes) -> tuple[str | None, str]:
             document = Document(io.BytesIO(content))
             text = "\n".join(paragraph.text for paragraph in document.paragraphs)
             return text, "extracted"
+
+        if mime_type == "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":
+            workbook = load_workbook(io.BytesIO(content), data_only=True, read_only=True)
+            rows = []
+            for sheet in workbook.worksheets:
+                rows.append(f"Sheet: {sheet.title}")
+                for row in sheet.iter_rows(values_only=True):
+                    values = [str(value) for value in row if value is not None]
+                    if values:
+                        rows.append(" | ".join(values))
+            return "\n".join(rows), "extracted"
     except Exception:
         return None, "failed"
 

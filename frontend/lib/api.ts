@@ -409,6 +409,12 @@ export type FileAnalysis = {
   status: string;
 };
 
+export type FileText = {
+  file_id: string;
+  extracted_text: string | null;
+  status: string;
+};
+
 export type BillingPlan = {
   id: string;
   code: string;
@@ -1389,6 +1395,69 @@ export async function createCallFromText(
   });
 }
 
+export async function getFileAnalysis(accessToken: string, fileId: string): Promise<FileAnalysis> {
+  return request<FileAnalysis>(`/api/v1/files/${fileId}/analysis`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getFileText(accessToken: string, fileId: string): Promise<FileText> {
+  return request<FileText>(`/api/v1/files/${fileId}/text`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getFileDownloadUrl(accessToken: string, fileId: string): Promise<string> {
+  const response = await request<{ download_url: string }>(`/api/v1/files/${fileId}/download-url`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  return response.download_url;
+}
+
+export async function uploadFile(accessToken: string, file: File): Promise<FileRecord> {
+  const mimeType = mimeTypeForFile(file);
+  const start = await request<{ file_id: string; upload_url: string; expires_in: number }>("/api/v1/files/upload-url", {
+    method: "POST",
+    body: JSON.stringify({
+      filename: file.name,
+      mime_type: mimeType,
+      size_bytes: file.size,
+    }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  const uploadResponse = await fetch(start.upload_url, {
+    method: "PUT",
+    headers: {
+      "Content-Type": mimeType,
+    },
+    body: file,
+  });
+
+  if (!uploadResponse.ok) {
+    throw new Error(await readErrorMessage(uploadResponse));
+  }
+
+  return request<FileRecord>("/api/v1/files/complete-upload", {
+    method: "POST",
+    body: JSON.stringify({ file_id: start.file_id }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
 export async function createCallFromAudio(
   accessToken: string,
   payload: CallAudioCreatePayload,
@@ -1632,4 +1701,32 @@ function looksTechnical(message: string): boolean {
     lower.includes("status code of") ||
     lower.includes("requestoptions")
   );
+}
+
+function mimeTypeForFile(file: File): string {
+  if (file.type) {
+    return file.type;
+  }
+
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  switch (extension) {
+    case "pdf":
+      return "application/pdf";
+    case "docx":
+      return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    case "xlsx":
+      return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    case "txt":
+      return "text/plain";
+    case "mp3":
+      return "audio/mpeg";
+    case "wav":
+      return "audio/wav";
+    case "m4a":
+      return "audio/x-m4a";
+    case "eml":
+      return "message/rfc822";
+    default:
+      return "text/plain";
+  }
 }
