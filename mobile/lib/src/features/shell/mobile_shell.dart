@@ -1,10 +1,13 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_status.dart';
 import '../auth/presentation/auth_controller.dart';
 import '../calls/data/call_state_listener.dart';
+import '../calls/data/calls_repository.dart';
+import '../dashboard/data/dashboard_repository.dart';
+import '../notifications/data/notifications_repository.dart';
 
 class MobileShell extends ConsumerWidget {
   const MobileShell({required this.child, super.key});
@@ -15,7 +18,24 @@ class MobileShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final location = GoRouterState.of(context).uri.path;
     final apiStatus = ref.watch(apiStatusProvider);
-    // Activates the auto phone-state → call-recording listener for as long
+    final dashboard = ref.watch(dashboardProvider).valueOrNull;
+    final notifications = ref.watch(notificationsProvider).valueOrNull ?? const [];
+    final calls = ref.watch(callsProvider).valueOrNull ?? const [];
+    final jobs = ref.watch(callAnalysisJobsProvider).valueOrNull ?? const [];
+    final unreadNotifications = notifications.where((item) => !item.isRead).length;
+    final callsNeedingAttention = calls.where((call) {
+      final matchingJobs = jobs.where(
+        (job) =>
+            job.sourceType.toLowerCase() == 'conversation' &&
+            job.sourceId == call.conversationId,
+      );
+      if (matchingJobs.isEmpty) {
+        return true;
+      }
+      final latest = matchingJobs.first;
+      return latest.isPending || latest.isFailed;
+    }).length;
+    // Activates the auto phone-state â†’ call-recording listener for as long
     // as the authenticated app shell is mounted; see call_state_listener.dart.
     ref.watch(callAutoRecordListenerProvider);
 
@@ -53,11 +73,14 @@ class MobileShell extends ConsumerWidget {
           ),
           IconButton(
             tooltip: 'Bildirimler',
-            icon: const Icon(Icons.notifications_outlined),
+            icon: _BadgeIcon(
+              icon: Icons.notifications_outlined,
+              count: unreadNotifications,
+            ),
             onPressed: () => context.go('/app/notifications'),
           ),
           PopupMenuButton<_ShellAction>(
-            tooltip: 'Diğer',
+            tooltip: 'DiÄŸer',
             icon: const Icon(Icons.more_vert),
             onSelected: (action) {
               switch (action) {
@@ -86,7 +109,7 @@ class MobileShell extends ConsumerWidget {
                 value: _ShellAction.contacts,
                 child: ListTile(
                   leading: Icon(Icons.people_alt_outlined),
-                  title: Text('Kişiler'),
+                  title: Text('KiÅŸiler'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -94,7 +117,7 @@ class MobileShell extends ConsumerWidget {
                 value: _ShellAction.conversations,
                 child: ListTile(
                   leading: Icon(Icons.forum_outlined),
-                  title: Text('Görüşmeler'),
+                  title: Text('GÃ¶rÃ¼ÅŸmeler'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -102,7 +125,7 @@ class MobileShell extends ConsumerWidget {
                 value: _ShellAction.deals,
                 child: ListTile(
                   leading: Icon(Icons.account_tree_outlined),
-                  title: Text('Fırsatlar'),
+                  title: Text('FÄ±rsatlar'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -110,7 +133,7 @@ class MobileShell extends ConsumerWidget {
                 value: _ShellAction.priority,
                 child: ListTile(
                   leading: Icon(Icons.priority_high),
-                  title: Text('Öncelik'),
+                  title: Text('Ã–ncelik'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -150,7 +173,7 @@ class MobileShell extends ConsumerWidget {
                 value: _ShellAction.logout,
                 child: ListTile(
                   leading: Icon(Icons.logout),
-                  title: Text('Çıkış yap'),
+                  title: Text('Ã‡Ä±kÄ±ÅŸ yap'),
                   contentPadding: EdgeInsets.zero,
                 ),
               ),
@@ -168,7 +191,7 @@ class MobileShell extends ConsumerWidget {
                     onRetry: () => ref.invalidate(apiStatusProvider),
                   ),
             error: (error, stackTrace) => _ApiStatusBanner(
-              statusLabel: 'Bağlantı hatası',
+              statusLabel: 'BaÄŸlantÄ± hatasÄ±',
               onRetry: () => ref.invalidate(apiStatusProvider),
             ),
             loading: () => const SizedBox.shrink(),
@@ -179,37 +202,60 @@ class MobileShell extends ConsumerWidget {
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex(location),
         onDestinationSelected: (index) => context.go(_pathForIndex(index)),
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Özet',
+            icon: const Icon(Icons.dashboard_outlined),
+            selectedIcon: const Icon(Icons.dashboard),
+            label: 'Ã–zet',
           ),
           NavigationDestination(
-            icon: Icon(Icons.checklist_outlined),
-            selectedIcon: Icon(Icons.checklist),
-            label: 'Görevler',
+            icon: _BadgeIcon(
+              icon: Icons.checklist_outlined,
+              count: dashboard?.summary.openTasksCount ?? 0,
+            ),
+            selectedIcon: _BadgeIcon(
+              icon: Icons.checklist,
+              count: dashboard?.summary.openTasksCount ?? 0,
+            ),
+            label: 'GÃ¶revler',
           ),
           NavigationDestination(
-            icon: Icon(Icons.call_outlined),
-            selectedIcon: Icon(Icons.call),
-            label: 'Çağrı',
+            icon: _BadgeIcon(
+              icon: Icons.call_outlined,
+              count: callsNeedingAttention,
+            ),
+            selectedIcon: _BadgeIcon(
+              icon: Icons.call,
+              count: callsNeedingAttention,
+            ),
+            label: 'Ã‡aÄŸrÄ±',
           ),
           NavigationDestination(
-            icon: Icon(Icons.calendar_today_outlined),
-            selectedIcon: Icon(Icons.calendar_today),
+            icon: _BadgeIcon(
+              icon: Icons.calendar_today_outlined,
+              count: dashboard?.summary.upcomingAppointmentsCount ?? 0,
+            ),
+            selectedIcon: _BadgeIcon(
+              icon: Icons.calendar_today,
+              count: dashboard?.summary.upcomingAppointmentsCount ?? 0,
+            ),
             label: 'Takvim',
           ),
           NavigationDestination(
-            icon: Icon(Icons.verified_outlined),
-            selectedIcon: Icon(Icons.verified),
+            icon: _BadgeIcon(
+              icon: Icons.verified_outlined,
+              count: dashboard?.summary.pendingAiApprovalsCount ?? 0,
+            ),
+            selectedIcon: _BadgeIcon(
+              icon: Icons.verified,
+              count: dashboard?.summary.pendingAiApprovalsCount ?? 0,
+            ),
             label: 'Onay',
           ),
         ],
       ),
     );
   }
-
   int _selectedIndex(String location) {
     if (location.startsWith('/app/tasks')) {
       return 1;
@@ -252,6 +298,25 @@ enum _ShellAction {
   logout,
 }
 
+class _BadgeIcon extends StatelessWidget {
+  const _BadgeIcon({
+    required this.icon,
+    required this.count,
+  });
+
+  final IconData icon;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Badge(
+      isLabelVisible: count > 0,
+      label: Text(count > 99 ? '99+' : count.toString()),
+      child: Icon(icon),
+    );
+  }
+}
+
 class _ApiStatusBanner extends StatelessWidget {
   const _ApiStatusBanner({this.statusLabel, this.onRetry});
 
@@ -277,8 +342,8 @@ class _ApiStatusBanner extends StatelessWidget {
               Expanded(
                 child: Text(
                   statusLabel == null
-                      ? 'API bağlantısı zayıf. Backend ve ağ durumunu kontrol edin.'
-                      : 'API bağlantısı zayıf: $statusLabel. Backend ve ağ durumunu kontrol edin.',
+                      ? 'API baÄŸlantÄ±sÄ± zayÄ±f. Backend ve aÄŸ durumunu kontrol edin.'
+                      : 'API baÄŸlantÄ±sÄ± zayÄ±f: $statusLabel. Backend ve aÄŸ durumunu kontrol edin.',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
