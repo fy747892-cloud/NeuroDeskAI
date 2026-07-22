@@ -411,13 +411,17 @@ def get_oauth_provider(provider: str) -> OAuthProvider:
         if _has_oauth_credentials(settings.google_client_id, settings.google_client_secret):
             return GoogleOAuthProvider()
         if settings.env.lower() in {"production", "prod"}:
-            raise RuntimeError("Gmail OAuth credentials are not configured.")
+            raise RuntimeError(
+                "Gmail OAuth bilgileri yapılandırılmamış. GOOGLE_CLIENT_ID ve GOOGLE_CLIENT_SECRET değerlerini backend .env dosyasında tanımlayıp backend'i yeniden başlatın."
+            )
         return MockGoogleOAuthProvider()
     if provider == "outlook":
         if _has_oauth_credentials(settings.microsoft_client_id, settings.microsoft_client_secret):
             return MicrosoftOAuthProvider()
         if settings.env.lower() in {"production", "prod"}:
-            raise RuntimeError("Outlook OAuth credentials are not configured.")
+            raise RuntimeError(
+                "Outlook OAuth bilgileri yapılandırılmamış. MICROSOFT_CLIENT_ID ve MICROSOFT_CLIENT_SECRET değerlerini backend .env dosyasında tanımlayıp backend'i yeniden başlatın."
+            )
         return MockMicrosoftOAuthProvider()
     raise RuntimeError(f"Unsupported email OAuth provider: {provider}")
 
@@ -435,7 +439,18 @@ def get_mail_provider(provider: str) -> MailProvider:
 
 
 def _has_oauth_credentials(client_id: str | None, client_secret: str | None) -> bool:
-    invalid_values = {"", "not-configured", "not_configured", "changeme", "your-client-id"}
+    invalid_values = {
+        "",
+        "not-configured",
+        "not_configured",
+        "changeme",
+        "your-client-id",
+        "your-client-secret",
+        "your-google-client-id",
+        "your-google-client-secret",
+        "your-microsoft-client-id",
+        "your-microsoft-client-secret",
+    }
     return (client_id or "").strip().lower() not in invalid_values and (
         client_secret or ""
     ).strip().lower() not in invalid_values

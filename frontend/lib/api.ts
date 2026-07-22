@@ -266,6 +266,11 @@ export type DealCreatePayload = {
 
 export type DealUpdatePayload = Partial<DealCreatePayload>;
 
+export type ConversationUpdatePayload = {
+  title?: string;
+  status?: string;
+};
+
 export type ChatSource = {
   source_type: string;
   source_id: string;
@@ -401,6 +406,10 @@ export type FileRecord = {
   size_bytes: number;
   status: string;
   created_at: string;
+};
+
+export type FileUpdatePayload = {
+  filename: string;
 };
 
 export type FileAnalysis = {
@@ -813,6 +822,20 @@ export async function getConversation(
 ): Promise<ConversationDetail> {
   return request<ConversationDetail>(`/api/v1/conversations/${conversationId}`, {
     cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function updateConversation(
+  accessToken: string,
+  conversationId: string,
+  payload: ConversationUpdatePayload,
+): Promise<ConversationDetail> {
+  return request<ConversationDetail>(`/api/v1/conversations/${conversationId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -1253,6 +1276,20 @@ export async function listFiles(accessToken: string): Promise<FileRecord[]> {
 export async function analyzeFile(accessToken: string, fileId: string): Promise<FileAnalysis> {
   return request<FileAnalysis>(`/api/v1/files/${fileId}/analyze`, {
     method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function updateFile(
+  accessToken: string,
+  fileId: string,
+  payload: FileUpdatePayload,
+): Promise<FileRecord> {
+  return request<FileRecord>(`/api/v1/files/${fileId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },

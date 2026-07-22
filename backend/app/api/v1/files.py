@@ -5,7 +5,7 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import require_permission
-from app.core.errors import NotFoundError
+from app.core.errors import NotFoundError, ValidationAppError
 from app.core.permissions import Permission
 from app.core.rate_limit import RateLimiter
 from app.db.redis import get_redis
@@ -19,6 +19,7 @@ from app.modules.files.schemas import (
     DocumentTextOut,
     DownloadUrlOut,
     FileOut,
+    FileUpdateIn,
     UploadUrlIn,
     UploadUrlOut,
 )
@@ -103,6 +104,34 @@ async def get_file(
     db: AsyncSession = Depends(get_db),
 ) -> File:
     return await _get_current_file(db, current_user, file_id)
+
+
+@router.patch("/{file_id}", response_model=FileOut)
+async def update_file(
+    file_id: uuid.UUID,
+    body: FileUpdateIn,
+    request: Request,
+    current_user: User = Depends(require_permission(Permission.FILES_MANAGE)),
+    db: AsyncSession = Depends(get_db),
+) -> File:
+    file = await _get_current_file(db, current_user, file_id)
+    filename = body.filename.strip()
+    if not filename:
+        raise ValidationAppError("Dosya adı boş olamaz.")
+    file = await FileRepository(db).update_filename(file=file, filename=filename)
+    await AuditRepository(db).record(
+        tenant_id=current_user.tenant_id,
+        actor_id=current_user.id,
+        action="file.updated",
+        entity_type="file",
+        entity_id=file.id,
+        request_id=request.headers.get("x-request-id"),
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        metadata={"filename": file.filename},
+    )
+    await db.commit()
+    return file
 
 
 @router.get("/{file_id}/text", response_model=DocumentTextOut)

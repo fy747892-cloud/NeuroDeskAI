@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   analyzeFile,
   deleteFile,
@@ -9,6 +9,7 @@ import {
   getFileDownloadUrl,
   getFileText,
   listFiles,
+  updateFile,
   uploadFile,
 } from "@/lib/api";
 import { useLanguage } from "@/lib/i18n/context";
@@ -34,6 +35,8 @@ export function FilesView() {
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
+  const [editingFileId, setEditingFileId] = useState<string | null>(null);
+  const [editingFilename, setEditingFilename] = useState("");
 
   const readyCount = useMemo(() => files.filter((file) => file.status === "ready").length, [files]);
   const totalBytes = useMemo(() => files.reduce((sum, file) => sum + file.size_bytes, 0), [files]);
@@ -168,6 +171,34 @@ export function FilesView() {
     }
   }
 
+  function startEditing(file: FileRecord) {
+    setEditingFileId(file.id);
+    setEditingFilename(file.filename);
+    setError(null);
+    setNotice(null);
+  }
+
+  async function handleRenameFile(event: FormEvent<HTMLFormElement>, file: FileRecord) {
+    event.preventDefault();
+    const filename = editingFilename.trim();
+    if (!tokens?.accessToken || !filename) return;
+
+    setActiveFileId(file.id);
+    setError(null);
+    setNotice(null);
+    try {
+      const updated = await updateFile(tokens.accessToken, file.id, { filename });
+      setFiles((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setEditingFileId(null);
+      setEditingFilename("");
+      setNotice(t("files.renamed"));
+    } catch (renameError) {
+      setError(renameError instanceof Error ? renameError.message : t("files.renameError"));
+    } finally {
+      setActiveFileId(null);
+    }
+  }
+
   return (
     <div className="p-xl space-y-xl">
       <header className="flex items-start justify-between gap-lg flex-wrap">
@@ -213,10 +244,18 @@ export function FilesView() {
             file={file}
             isActive={activeFileId === file.id}
             onAnalyze={() => handleAnalyze(file)}
+            onCancelEdit={() => {
+              setEditingFileId(null);
+              setEditingFilename("");
+            }}
             onDelete={() => handleDelete(file)}
             onDownload={() => handleDownload(file)}
+            onEdit={() => startEditing(file)}
+            onEditingFilenameChange={setEditingFilename}
+            onRename={(event) => handleRenameFile(event, file)}
             onShowAnalysis={() => handleShowAnalysis(file)}
             onShowText={() => handleShowText(file)}
+            editingFilename={editingFileId === file.id ? editingFilename : null}
           />
         ))}
       </section>
@@ -230,19 +269,30 @@ function FileCard({
   file,
   isActive,
   onAnalyze,
+  onCancelEdit,
   onDelete,
   onDownload,
+  onEdit,
+  onEditingFilenameChange,
+  onRename,
   onShowAnalysis,
   onShowText,
+  editingFilename,
 }: {
   file: FileRecord;
   isActive: boolean;
   onAnalyze: () => void;
+  onCancelEdit: () => void;
   onDelete: () => void;
   onDownload: () => void;
+  onEdit: () => void;
+  onEditingFilenameChange: (value: string) => void;
+  onRename: (event: FormEvent<HTMLFormElement>) => void;
   onShowAnalysis: () => void;
   onShowText: () => void;
+  editingFilename: string | null;
 }) {
+  const { t } = useLanguage();
   return (
     <article className="glass-card p-lg rounded-xl">
       <div className="flex items-start gap-md">
@@ -250,12 +300,41 @@ function FileCard({
           <span className="material-symbols-outlined">description</span>
         </div>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center justify-between gap-md">
-            <h3 className="font-label-md text-label-md text-on-surface truncate">{file.filename}</h3>
-            <span className="px-2 py-0.5 rounded-full bg-surface-container-high text-[11px] font-bold text-on-surface-variant shrink-0">
-              {statusLabel(file.status)}
-            </span>
-          </div>
+          {editingFilename !== null ? (
+            <form onSubmit={onRename} className="flex items-center gap-2">
+              <input
+                autoFocus
+                className="min-w-0 flex-1 bg-white border border-outline-variant/40 rounded-lg px-3 py-2 text-body-sm"
+                onChange={(event) => onEditingFilenameChange(event.target.value)}
+                placeholder={t("files.renamePlaceholder")}
+                value={editingFilename}
+              />
+              <button
+                type="submit"
+                disabled={isActive || !editingFilename.trim()}
+                className="w-9 h-9 rounded-lg bg-primary text-on-primary flex items-center justify-center disabled:opacity-60"
+                aria-label={t("common.save")}
+              >
+                <span className="material-symbols-outlined text-[18px]">{isActive ? "hourglass_top" : "check"}</span>
+              </button>
+              <button
+                type="button"
+                disabled={isActive}
+                onClick={onCancelEdit}
+                className="w-9 h-9 rounded-lg border border-outline-variant/40 text-on-surface-variant bg-white flex items-center justify-center disabled:opacity-60"
+                aria-label={t("common.cancel")}
+              >
+                <span className="material-symbols-outlined text-[18px]">close</span>
+              </button>
+            </form>
+          ) : (
+            <div className="flex items-center justify-between gap-md">
+              <h3 className="font-label-md text-label-md text-on-surface truncate">{file.filename}</h3>
+              <span className="px-2 py-0.5 rounded-full bg-surface-container-high text-[11px] font-bold text-on-surface-variant shrink-0">
+                {statusLabel(file.status)}
+              </span>
+            </div>
+          )}
           <p className="text-body-sm text-on-surface-variant truncate mt-1">{file.mime_type}</p>
           <div className="flex items-center gap-lg mt-3 text-body-sm text-on-surface-variant flex-wrap">
             <span className="flex items-center gap-1">
@@ -274,6 +353,7 @@ function FileCard({
         <ActionButton disabled={isActive} icon="auto_awesome" label="Analiz et" onClick={onAnalyze} primary />
         <ActionButton disabled={isActive} icon="article" label="Metin" onClick={onShowText} />
         <ActionButton disabled={isActive} icon="summarize" label="Özet" onClick={onShowAnalysis} />
+        <ActionButton disabled={isActive} icon="edit" label="Düzenle" onClick={onEdit} />
         <ActionButton disabled={isActive} icon="open_in_new" label="Aç" onClick={onDownload} />
         <ActionButton disabled={isActive} icon="delete" label="Sil" onClick={onDelete} danger />
       </div>
