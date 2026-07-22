@@ -71,6 +71,11 @@ class FileRepository:
         await self._db.flush()
         return file
 
+    async def update_filename(self, *, file: File, filename: str) -> File:
+        file.filename = filename
+        await self._db.flush()
+        return file
+
     async def soft_delete(self, *, file: File) -> File:
         file.is_deleted = True
         file.deleted_at = datetime.now(timezone.utc)

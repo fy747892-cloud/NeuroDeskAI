@@ -13,6 +13,7 @@ import {
   listAnalysisJobs,
   listConversations,
   requestConversationAnalysis,
+  updateConversation,
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
@@ -40,6 +41,9 @@ export function ConversationsView() {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showAudioForm, setShowAudioForm] = useState(false);
   const [activeCallId, setActiveCallId] = useState<string | null>(null);
+  const [isRenaming, setRenaming] = useState(false);
+  const [isEditingTitle, setEditingTitle] = useState(false);
+  const [editingTitle, setEditingTitleValue] = useState("");
   const [newCall, setNewCall] = useState({ participants: "", phone: "", title: "", transcript: "" });
   const [audioCall, setAudioCall] = useState({ participants: "", phone: "", title: "" });
   const [recordingState, setRecordingState] = useState<"idle" | "recording" | "uploading" | "analyzing">("idle");
@@ -243,6 +247,38 @@ export function ConversationsView() {
     }
   }
 
+  function startRenamingConversation() {
+    if (!detail) return;
+    setEditingTitleValue(detail.title);
+    setEditingTitle(true);
+    setError(null);
+    setNotice(null);
+  }
+
+  async function handleRenameConversation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const title = editingTitle.trim();
+    if (!tokens?.accessToken || !detail || !title) return;
+
+    setRenaming(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const updated = await updateConversation(tokens.accessToken, detail.id, { title });
+      setDetail(updated);
+      setConversations((current) =>
+        current.map((conversation) => (conversation.id === updated.id ? { ...conversation, title: updated.title } : conversation)),
+      );
+      setEditingTitle(false);
+      setEditingTitleValue("");
+      setNotice(t("conversations.notices.renamed"));
+    } catch (renameError) {
+      setError(renameError instanceof Error ? renameError.message : t("conversations.errors.renameFailed"));
+    } finally {
+      setRenaming(false);
+    }
+  }
+
   const job = findLatestCompletedJob(analysisJobs, selectedId);
   const summaryText = job ? extractText(job, "conversation_summary", "summary_text") : null;
   const extractedItems = job ? extractItems(job) : [];
@@ -439,8 +475,50 @@ export function ConversationsView() {
           <>
             <div className="p-xl border-b border-surface-container-highest bg-white">
               <div className="flex justify-between items-start mb-6">
-                <div>
-                  <h1 className="font-headline-lg text-headline-lg text-on-surface mb-2">{detail.title}</h1>
+                <div className="min-w-0 flex-1">
+                  {isEditingTitle ? (
+                    <form onSubmit={handleRenameConversation} className="flex items-center gap-2 mb-2 max-w-xl">
+                      <input
+                        autoFocus
+                        className="min-w-0 flex-1 bg-surface-container-low border border-outline-variant/40 rounded-lg px-3 py-2 text-body-md"
+                        onChange={(event) => setEditingTitleValue(event.target.value)}
+                        placeholder={t("conversations.form.titlePlaceholder")}
+                        value={editingTitle}
+                      />
+                      <button
+                        type="submit"
+                        disabled={isRenaming || !editingTitle.trim()}
+                        className="w-10 h-10 rounded-lg bg-primary text-on-primary flex items-center justify-center disabled:opacity-60"
+                        aria-label={t("common.save")}
+                      >
+                        <span className="material-symbols-outlined text-[18px]">{isRenaming ? "hourglass_top" : "check"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isRenaming}
+                        onClick={() => {
+                          setEditingTitle(false);
+                          setEditingTitleValue("");
+                        }}
+                        className="w-10 h-10 rounded-lg border border-outline-variant/40 text-on-surface-variant bg-white flex items-center justify-center disabled:opacity-60"
+                        aria-label={t("common.cancel")}
+                      >
+                        <span className="material-symbols-outlined text-[18px]">close</span>
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="flex items-center gap-2 mb-2">
+                      <h1 className="font-headline-lg text-headline-lg text-on-surface truncate">{detail.title}</h1>
+                      <button
+                        type="button"
+                        onClick={startRenamingConversation}
+                        className="w-9 h-9 rounded-lg text-on-surface-variant hover:bg-surface-container-high flex items-center justify-center shrink-0"
+                        aria-label={t("common.edit")}
+                      >
+                        <span className="material-symbols-outlined text-[18px]">edit</span>
+                      </button>
+                    </div>
+                  )}
                   <div className="flex items-center gap-4 text-on-surface-variant font-label-md text-label-md flex-wrap">
                     <div className="flex items-center gap-1.5">
                       <span className="material-symbols-outlined text-[18px]">calendar_today</span>

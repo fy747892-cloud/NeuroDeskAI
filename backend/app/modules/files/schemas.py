@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class UploadUrlIn(BaseModel):
@@ -18,6 +18,10 @@ class UploadUrlOut(BaseModel):
 
 class CompleteUploadIn(BaseModel):
     file_id: UUID
+
+
+class FileUpdateIn(BaseModel):
+    filename: str = Field(min_length=1, max_length=255)
 
 
 class FileOut(BaseModel):
