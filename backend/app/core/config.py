@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     env: str = "local"
 
     database_url: str
+    database_ssl_mode: str = "disable"
     redis_url: str
 
     jwt_secret: str
@@ -52,6 +53,23 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def async_database_url(self) -> str:
+        if self.database_url.startswith("postgres://"):
+            return self.database_url.replace("postgres://", "postgresql+asyncpg://", 1)
+        if self.database_url.startswith("postgresql://"):
+            return self.database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+        return self.database_url
+
+    @property
+    def database_connect_args(self) -> dict:
+        mode = self.database_ssl_mode.strip().lower()
+        if mode in {"disable", "false", "0", "off", "no"}:
+            return {"ssl": False}
+        if mode in {"require", "true", "1", "on", "yes"}:
+            return {"ssl": True}
+        return {}
 
 
 settings = Settings()
