@@ -70,7 +70,7 @@ export function NotificationBell() {
       </button>
 
       {isOpen ? (
-        <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto custom-scrollbar bg-surface-container-lowest border border-outline-variant/30 rounded-xl shadow-xl z-50">
+        <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-80 max-h-[70vh] overflow-y-auto custom-scrollbar bg-surface-container-lowest border border-outline-variant/30 rounded-xl shadow-xl z-50">
           <div className="px-lg py-md border-b border-outline-variant/20 flex items-center justify-between">
             <h4 className="font-label-md text-label-md">{t("shell.notifications.title")}</h4>
             {unreadCount > 0 ? (
