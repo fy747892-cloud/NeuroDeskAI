@@ -277,8 +277,8 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
               controller: _participantsController,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
-                labelText: 'Katilimcilar',
-                hintText: 'Virgul ile ayir',
+                labelText: 'Katılımcılar',
+                hintText: 'Virgül ile ayır',
               ),
             ),
             const SizedBox(height: 12),

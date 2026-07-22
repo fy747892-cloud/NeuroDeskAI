@@ -163,7 +163,7 @@ class _TaskTile extends ConsumerWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    task.title,
+                    _localizedTaskText(task.title),
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(
                           decoration: isCompleted
                               ? TextDecoration.lineThrough
@@ -236,6 +236,21 @@ class _TaskTile extends ConsumerWidget {
       'low' => 'Düşük',
       _ => priority,
     };
+  }
+
+  String _localizedTaskText(String value) {
+    final trimmed = value.trim();
+    final lower = trimmed.toLowerCase();
+    if (lower == 'study for the exam') {
+      return 'Sınava çalış';
+    }
+    if (lower.startsWith('follow up:')) {
+      return 'Takip et: ${trimmed.substring('follow up:'.length).trim()}';
+    }
+    if (lower.startsWith('schedule follow-up for')) {
+      return '${trimmed.substring('schedule follow-up for'.length).trim()} için takip randevusu planla';
+    }
+    return trimmed;
   }
 }
 

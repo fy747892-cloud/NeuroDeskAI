@@ -303,7 +303,7 @@ class _StatusChip extends StatelessWidget {
     final label = switch (status.toLowerCase()) {
       'confirmed' => 'Onaylı',
       'scheduled' => 'Planlı',
-      'cancelled' => 'Iptal',
+      'cancelled' => 'İptal',
       'completed' => 'Bitti',
       _ => status,
     };

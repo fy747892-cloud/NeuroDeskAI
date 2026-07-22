@@ -147,6 +147,31 @@ String? _translateBackendMessage(String? message) {
   if (lower.contains('rate limit') || lower.contains('too many requests')) {
     return 'Çok fazla istek gönderildi. Biraz bekleyip tekrar deneyin.';
   }
+  if (lower.contains('gmail oauth credentials are not configured')) {
+    return 'Gmail bağlantısı için OAuth bilgileri eksik. Google Cloud Console’da client id, secret ve redirect URI ayarlarını kontrol edin.';
+  }
+  if (lower.contains('outlook oauth credentials are not configured')) {
+    return 'Outlook bağlantısı için Microsoft uygulama bilgileri eksik. Azure uygulamasında client id, secret ve redirect URI ayarlarını kontrol edin.';
+  }
+  if (lower.contains('aadsts700016') ||
+      (lower.contains('identifier') && lower.contains('not-configured'))) {
+    return 'Outlook OAuth uygulaması yapılandırılmamış görünüyor. Microsoft client id değeri gerçek uygulama id ile değiştirilmelidir.';
+  }
+  if (lower.contains('google token exchange failed') || lower.contains('invalid_request')) {
+    return 'Gmail yetkilendirmesi tamamlanamadı. Google OAuth client ve redirect URI ayarlarını kontrol edin.';
+  }
+  if (lower.contains('llm_api_key') || lower.contains('api key')) {
+    return 'AI API anahtarı eksik veya geçersiz. Sunucu ortam değişkenlerini kontrol edin.';
+  }
+  if (lower.contains('transcription returned empty text')) {
+    return 'Ses çözümlendi ama transkript boş döndü. Kaydı daha net alıp tekrar deneyin.';
+  }
+  if (lower.contains('not valid json') || lower.contains('json object')) {
+    return 'AI yanıtı beklenen formatta gelmedi. İşlemi tekrar deneyin.';
+  }
+  if (lower.contains('unsupported llm provider')) {
+    return 'AI sağlayıcısı ayarı desteklenmiyor. Sunucu yapılandırmasını kontrol edin.';
+  }
   if (lower.contains('openai') || lower.contains('provider')) {
     return 'AI sağlayıcısı isteği tamamlayamadı. Biraz sonra tekrar deneyin.';
   }

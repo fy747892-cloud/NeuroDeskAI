@@ -59,6 +59,10 @@ export const en: TranslationDictionary = {
     languageSwitcher: {
       aria: "Change language",
     },
+    mobileMenu: {
+      openAria: "Open menu",
+      closeAria: "Close menu",
+    },
     search: {
       placeholder: "Semantic search across your work...",
       startTyping: "Start typing to search.",

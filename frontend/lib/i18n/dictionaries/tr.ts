@@ -59,6 +59,10 @@ export const tr: TranslationDictionary = {
     languageSwitcher: {
       aria: "Dili değiştir",
     },
+    mobileMenu: {
+      openAria: "Menüyü aç",
+      closeAria: "Menüyü kapat",
+    },
     search: {
       placeholder: "Çalışmalarında anlamsal arama yap...",
       startTyping: "Aramaya başlamak için yazmaya başla.",

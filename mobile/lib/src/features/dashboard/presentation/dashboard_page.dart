@@ -353,7 +353,9 @@ class _RecentActivity extends StatelessWidget {
             (job) => _ActivityLine(
               icon: Icons.check_circle_outline,
               title: 'AI analizi tamamlandı',
-              subtitle: job.summary ?? _formatDateTime(job.createdAt),
+              subtitle: job.summary == null
+                  ? _formatDateTime(job.createdAt)
+                  : _localizedAnalysisText(job.summary!),
               route: '/app/calls',
               sortKey: job.createdAt,
             ),
@@ -389,6 +391,14 @@ class _RecentActivity extends StatelessWidget {
       ),
     );
   }
+}
+
+String _localizedAnalysisText(String value) {
+  final trimmed = value.trim();
+  if (trimmed.toLowerCase().startsWith('conversation:')) {
+    return 'Görüşme: ${trimmed.substring('conversation:'.length).trim()}';
+  }
+  return trimmed;
 }
 
 class _ActivityLine extends StatelessWidget {

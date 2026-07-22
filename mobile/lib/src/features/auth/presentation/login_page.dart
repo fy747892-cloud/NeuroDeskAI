@@ -69,7 +69,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(labelText: 'Email'),
+                        decoration: const InputDecoration(labelText: 'E-posta'),
                       ),
                       const SizedBox(height: 12),
                       TextField(
@@ -157,7 +157,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
     if (email.isEmpty || password.isEmpty) {
       setState(() {
-        _validationMessage = 'Email ve şifre zorunlu.';
+        _validationMessage = 'E-posta ve şifre zorunlu.';
       });
       return;
     }

@@ -97,13 +97,19 @@ class CallRecordingNotifier extends Notifier<CallRecordingState> {
           );
 
       state = state.copyWith(status: CallRecordingStatus.analyzing);
-      final job = await ref
-          .read(callsRepositoryProvider)
-          .requestAnalysis(result.conversationId);
+      var analysisFailed = false;
+      try {
+        final job = await ref
+            .read(callsRepositoryProvider)
+            .requestAnalysis(result.conversationId);
+        analysisFailed = job.isFailed;
+      } catch (_) {
+        analysisFailed = true;
+      }
 
       state = state.copyWith(
         status: CallRecordingStatus.completed,
-        analysisFailed: job.isFailed,
+        analysisFailed: analysisFailed,
       );
     } catch (e) {
       state = state.copyWith(

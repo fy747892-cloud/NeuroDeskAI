@@ -408,23 +408,34 @@ class MailProvider(Protocol):
 
 def get_oauth_provider(provider: str) -> OAuthProvider:
     if provider == "gmail":
-        if settings.google_client_id and settings.google_client_secret:
+        if _has_oauth_credentials(settings.google_client_id, settings.google_client_secret):
             return GoogleOAuthProvider()
+        if settings.env.lower() in {"production", "prod"}:
+            raise RuntimeError("Gmail OAuth credentials are not configured.")
         return MockGoogleOAuthProvider()
     if provider == "outlook":
-        if settings.microsoft_client_id and settings.microsoft_client_secret:
+        if _has_oauth_credentials(settings.microsoft_client_id, settings.microsoft_client_secret):
             return MicrosoftOAuthProvider()
+        if settings.env.lower() in {"production", "prod"}:
+            raise RuntimeError("Outlook OAuth credentials are not configured.")
         return MockMicrosoftOAuthProvider()
     raise RuntimeError(f"Unsupported email OAuth provider: {provider}")
 
 
 def get_mail_provider(provider: str) -> MailProvider:
     if provider == "gmail":
-        if settings.google_client_id and settings.google_client_secret:
+        if _has_oauth_credentials(settings.google_client_id, settings.google_client_secret):
             return GmailProvider()
         return MockGmailProvider()
     if provider == "outlook":
-        if settings.microsoft_client_id and settings.microsoft_client_secret:
+        if _has_oauth_credentials(settings.microsoft_client_id, settings.microsoft_client_secret):
             return OutlookMailProvider()
         return MockOutlookMailProvider()
     raise RuntimeError(f"Unsupported email mail provider: {provider}")
+
+
+def _has_oauth_credentials(client_id: str | None, client_secret: str | None) -> bool:
+    invalid_values = {"", "not-configured", "not_configured", "changeme", "your-client-id"}
+    return (client_id or "").strip().lower() not in invalid_values and (
+        client_secret or ""
+    ).strip().lower() not in invalid_values

@@ -44,7 +44,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'AI Chat',
+                                'AI sohbet',
                                 style: theme.textTheme.headlineMedium,
                               ),
                               const SizedBox(height: 6),
@@ -97,7 +97,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
         error: (error, stackTrace) => ListView(
           padding: const EdgeInsets.all(16),
           children: const [
-            _PageMessage(message: 'AI Chat yüklenemedi.'),
+            _PageMessage(message: 'AI sohbet yüklenemedi.'),
           ],
         ),
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -359,7 +359,7 @@ class _ConfidenceLine extends StatelessWidget {
         const Icon(Icons.speed, size: 16, color: Color(0xFF3525CD)),
         const SizedBox(width: 6),
         Text(
-          'Guven ${(confidence * 100).round()}%',
+          'Güven ${(confidence * 100).round()}%',
           style: Theme.of(context).textTheme.labelMedium,
         ),
       ],

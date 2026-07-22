@@ -47,7 +47,7 @@ class AiActionApproval {
       'appointment' => 'Randevu önerisi',
       'create_appointment' => 'Randevu önerisi',
       'deal' => 'Fırsat önerisi',
-      _ => 'AI aksiyon onerisi',
+      _ => 'AI aksiyon önerisi',
     };
   }
 
