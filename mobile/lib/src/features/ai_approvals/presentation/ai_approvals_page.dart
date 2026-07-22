@@ -86,7 +86,7 @@ class _ApprovalsSummary extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: _SummaryMetric(
-              label: 'Takvim onerisi',
+              label: 'Takvim önerisi',
               value: appointmentCount.toString(),
               icon: Icons.event_available,
             ),
@@ -239,7 +239,7 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
                 if (confidence != null)
                   _MetaLine(
                     icon: Icons.speed,
-                    text: 'Guven: $confidence',
+                    text: 'Güven: $confidence',
                   ),
                 if (approval.expiresAt != null)
                   _MetaLine(
@@ -309,20 +309,17 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
       if (approvedAction != null && mounted) {
         _invalidateTargetList(approvedAction);
         final route = _routeFor(approvedAction);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('${approvedAction.actionLabel} oluşturuldu.'),
-            action: route == null
-                ? null
-                : SnackBarAction(
-                    label: 'Görüntüle',
-                    onPressed: () => context.go(route),
-                  ),
-          ),
-        );
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.hideCurrentSnackBar();
         if (route != null) {
           context.go(route);
         }
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text('${approvedAction.actionLabel} oluşturuldu.'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
       }
     } catch (error) {
       setState(() {

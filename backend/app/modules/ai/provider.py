@@ -1,4 +1,4 @@
-import json
+﻿import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -39,13 +39,13 @@ class MockAIProvider:
 
         clean_text = " ".join(transcript_text.split())
         preview = clean_text[:240]
-        summary_text = preview if preview else f"Conversation: {title}"
+        summary_text = preview if preview else f"Görüşme: {title}"
 
         tasks = {
             "items": [
                 {
-                    "title": f"Follow up: {title}",
-                    "description": "Review the conversation and confirm next steps.",
+                    "title": f"Takip et: {title}",
+                    "description": "Görüşmeyi incele ve sonraki adımları netleştir.",
                     "confidence": 0.72,
                 }
             ]
@@ -53,9 +53,9 @@ class MockAIProvider:
         appointments = {
             "items": [
                 {
-                    "title": f"Schedule follow-up for {title}",
+                    "title": f"{title} için takip randevusu planla",
                     "proposed_datetime": "2026-07-17T09:00:00+03:00",
-                    "time_hint": "next week",
+                    "time_hint": "gelecek hafta",
                     "confidence": 0.61,
                 }
             ]
@@ -63,7 +63,7 @@ class MockAIProvider:
         deals = {
             "items": [
                 {
-                    "title": f"Opportunity from {title}",
+                    "title": f"{title} kaynaklı fırsat",
                     "stage": "proposal_sent",
                     "confidence": 0.55,
                 }
@@ -144,22 +144,26 @@ class OpenAICompatibleAIProvider:
                 {
                     "role": "system",
                     "content": (
-                        "You extract structured CRM actions from call transcripts. "
-                        "Return only valid JSON with keys summary, tasks, appointments, deals. "
-                        "tasks.items, appointments.items, and deals.items must be arrays. "
-                        "Each item should include title and confidence between 0 and 1. "
-                        "Appointment items should include proposed_datetime when available. "
-                        "Deal items represent sales opportunities/offers mentioned in the "
-                        "conversation and should include stage, one of: lead, proposal_sent, "
-                        "negotiation, invoiced, won, lost — and value (numeric) when a price "
-                        "or amount was mentioned."
+                        "Sen Türkçe çalışan bir CRM asistanısın. Görüşme "
+                        "transkriptlerinden özet, görev, randevu ve fırsat "
+                        "önerileri çıkarırsın. Kullanıcıya gösterilecek tüm "
+                        "metinleri Türkçe yaz: summary_text, title, description, "
+                        "reason, time_hint ve benzeri alanlar İngilizce olmamalı. "
+                        "Yalnızca geçerli JSON döndür ve anahtarlar summary, tasks, "
+                        "appointments, deals olsun. tasks.items, appointments.items "
+                        "ve deals.items dizi olmalı. Her item title ve 0-1 arasında "
+                        "confidence içermeli. Randevu itemları mümkünse "
+                        "proposed_datetime içermeli. Fırsat itemları görüşmede geçen "
+                        "satış/teklif ihtimallerini temsil eder ve stage şu "
+                        "değerlerden biri olmalı: lead, proposal_sent, negotiation, "
+                        "invoiced, won, lost. Tutar geçtiyse value sayısal olmalı."
                     ),
                 },
                 {
                     "role": "user",
                     "content": (
-                        f"Conversation title: {title}\n\n"
-                        f"Transcript:\n{transcript_text}"
+                        f"Görüşme başlığı: {title}\n\n"
+                        f"Transkript:\n{transcript_text}"
                     ),
                 },
             ],
@@ -222,7 +226,7 @@ def _normalize_summary(payload: Any, *, title: str) -> dict:
         payload = {}
     summary_text = str(payload.get("summary_text") or payload.get("text") or "").strip()
     if not summary_text:
-        summary_text = f"Conversation: {title}"
+        summary_text = f"Görüşme: {title}"
     return {
         "summary_text": summary_text,
         "summary_type": str(payload.get("summary_type") or "conversation_summary"),

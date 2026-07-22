@@ -609,8 +609,8 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
               controller: _participantsController,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
-                labelText: 'Katilimcilar',
-                hintText: 'Virgul ile ayir',
+                labelText: 'Katılımcılar',
+                hintText: 'Virgül ile ayır',
                 prefixIcon: Icon(Icons.people_alt_outlined),
               ),
             ),
@@ -771,7 +771,7 @@ class _CompletedAnalysisStatus extends StatelessWidget {
           if (summary != null) ...[
             const SizedBox(height: 8),
             Text(
-              summary,
+              _localizedAnalysisText(summary),
               maxLines: 5,
               overflow: TextOverflow.ellipsis,
               style: theme.textTheme.bodyMedium,
@@ -792,6 +792,14 @@ class _CompletedAnalysisStatus extends StatelessWidget {
       ),
     );
   }
+}
+
+String _localizedAnalysisText(String value) {
+  final trimmed = value.trim();
+  if (trimmed.toLowerCase().startsWith('conversation:')) {
+    return 'Görüşme: ${trimmed.substring('conversation:'.length).trim()}';
+  }
+  return trimmed;
 }
 
 class _SummaryMetric extends StatelessWidget {
@@ -879,6 +887,7 @@ class _StatusChip extends StatelessWidget {
     final label = switch (status.toLowerCase()) {
       'uploaded' => 'Yüklendi',
       'processed' => 'İşlendi',
+      'completed' => 'Tamamlandı',
       'failed' => 'Hata',
       _ => status,
     };

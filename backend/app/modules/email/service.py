@@ -50,7 +50,10 @@ class EmailIntegrationService:
             organization_id=organization_id,
             return_to=return_to,
         )
-        oauth_provider = get_oauth_provider(provider)
+        try:
+            oauth_provider = get_oauth_provider(provider)
+        except RuntimeError as exc:
+            raise ProviderError(str(exc)) from exc
         authorize_url = oauth_provider.build_authorize_url(state=state)
         return {"authorize_url": authorize_url, "state": state}
 

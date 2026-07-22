@@ -29,11 +29,22 @@ class AppNotification {
 
   String? get targetRoute {
     final id = sourceId;
+    final source = sourceType?.toLowerCase();
+    final type = notificationType.toLowerCase();
+
     if (id == null || id.isEmpty) {
-      return null;
+      return switch (type) {
+        'task' || 'task_reminder' => '/app/tasks',
+        'appointment' || 'appointment_reminder' => '/app/appointments',
+        'approval' || 'ai_action_approval' => '/app/approvals',
+        'call' || 'call_analysis' => '/app/calls',
+        'file' => '/app/files',
+        'email' || 'email_account' || 'email_message' => '/app/email',
+        _ => null,
+      };
     }
 
-    return switch (sourceType?.toLowerCase()) {
+    return switch (source) {
       'task' => '/app/tasks/$id',
       'appointment' => '/app/appointments/$id',
       'conversation' => '/app/conversations/$id',

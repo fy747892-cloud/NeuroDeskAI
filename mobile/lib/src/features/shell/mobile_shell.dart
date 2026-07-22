@@ -62,7 +62,7 @@ class MobileShell extends ConsumerWidget {
         ),
         actions: [
           IconButton(
-            tooltip: 'AI Chat',
+            tooltip: 'AI sohbet',
             icon: const Icon(Icons.auto_awesome),
             onPressed: () => context.go('/app/chat'),
           ),

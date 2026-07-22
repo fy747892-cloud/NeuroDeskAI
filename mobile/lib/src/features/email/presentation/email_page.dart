@@ -315,7 +315,7 @@ class _AccountCard extends StatelessWidget {
                     ),
                   ),
                   Chip(
-                    label: Text(account.status),
+                    label: Text(_emailStatusLabel(account.status)),
                     visualDensity: VisualDensity.compact,
                   ),
                 ],
@@ -498,6 +498,16 @@ String _providerLabel(String provider) {
     'gmail' => 'Gmail',
     'outlook' => 'Outlook',
     _ => provider,
+  };
+}
+
+String _emailStatusLabel(String status) {
+  return switch (status.toLowerCase()) {
+    'connected' => 'Bağlı',
+    'pending_oauth' => 'Yetki bekliyor',
+    'revoked' => 'Bağlantı kaldırıldı',
+    'failed' => 'Hata',
+    _ => status,
   };
 }
 

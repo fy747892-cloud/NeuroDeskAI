@@ -271,15 +271,35 @@ class _NotificationTileState extends ConsumerState<_NotificationTile> {
   }
 
   Future<void> _openNotification(AppNotification notification) async {
-    if (!notification.isRead) {
-      await _markRead();
-    }
-    if (!mounted) {
-      return;
-    }
     final route = notification.targetRoute;
-    if (route != null) {
-      context.go(route);
+    setState(() => _isSubmitting = true);
+    try {
+      if (!notification.isRead) {
+        await ref
+            .read(notificationsRepositoryProvider)
+            .markRead(notification.id);
+        ref.invalidate(notificationsProvider);
+      }
+      if (!mounted) {
+        return;
+      }
+      if (route != null) {
+        context.go(route);
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              readableApiError(error, 'Bildirim açılamadı.'),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
     }
   }
 }

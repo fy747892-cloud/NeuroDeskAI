@@ -75,7 +75,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
-                        decoration: const InputDecoration(labelText: 'Email'),
+                        decoration: const InputDecoration(labelText: 'E-posta'),
                       ),
                       const SizedBox(height: 12),
                       TextField(
