@@ -41,7 +41,7 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                     Text('Dosyalar', style: theme.textTheme.headlineMedium),
                     const SizedBox(height: 6),
                     Text(
-                      'Yüklenen dokümanları izle, analiz et ve temizle.',
+                      'PDF, Word, Excel, metin, ses ve e-posta dosyalarını yükle; AI özet ve aksiyon önerilerini çıkar.',
                       style: theme.textTheme.bodyMedium,
                     ),
                   ],
@@ -64,9 +64,17 @@ class _FilesPageState extends ConsumerState<FilesPage> {
             _Notice(message: _notice!),
           ],
           const SizedBox(height: 16),
+          _UploadGuideCard(
+            isUploading: _isUploading,
+            onUpload: _pickAndUpload,
+          ),
+          const SizedBox(height: 16),
           files.when(
             data: (items) => items.isEmpty
-                ? const _PageMessage(message: 'Dosya bulunmuyor.')
+                ? const _PageMessage(
+                    message:
+                        'Henüz dosya yok. Excel, PDF, Word veya ses dosyası yükleyerek başlayabilirsin.',
+                  )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -110,7 +118,9 @@ class _FilesPageState extends ConsumerState<FilesPage> {
       ref.invalidate(filesProvider);
       ref.invalidate(pendingAiApprovalsProvider);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
           SnackBar(
             content: const Text('Analiz tamamlandı. Onay Merkezi’ne geçebilirsin.'),
             action: SnackBarAction(
@@ -179,8 +189,23 @@ class _FilesPageState extends ConsumerState<FilesPage> {
             sizeBytes: file.size,
             bytes: stream,
           );
+      ref.invalidate(filesProvider);
+      setState(() => _activeFileId = uploaded.id);
+      try {
+        await ref.read(filesRepositoryProvider).analyzeFile(uploaded.id);
+        ref.invalidate(pendingAiApprovalsProvider);
+        setState(() {
+          _notice =
+              '${uploaded.filename} yüklendi ve analiz edildi. Öneriler varsa Onay Merkezi’nde bekliyor.';
+        });
+      } catch (error) {
+        setState(() {
+          _notice =
+              '${uploaded.filename} yüklendi, ancak analiz başlatılamadı: ${readableApiError(error, 'bilinmeyen hata')}. Karttaki Analiz et butonuyla tekrar deneyebilirsin.';
+        });
+      }
       setState(() {
-        _notice = '${uploaded.filename} yüklendi.';
+        _activeFileId = null;
       });
       ref.invalidate(filesProvider);
     } catch (error) {
@@ -354,6 +379,101 @@ class _FilesPageState extends ConsumerState<FilesPage> {
 
 const _maxUploadSizeBytes = 25 * 1024 * 1024;
 
+class _UploadGuideCard extends StatelessWidget {
+  const _UploadGuideCard({
+    required this.isUploading,
+    required this.onUpload,
+  });
+
+  final bool isUploading;
+  final VoidCallback onUpload;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.upload_file,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Dosya yükle ve yorumlat',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Excel, PDF, Word, TXT, ses ve EML dosyaları desteklenir. En fazla ${_formatBytes(_maxUploadSizeBytes)}.',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 10),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: const [
+                      _FormatChip(label: 'Excel'),
+                      _FormatChip(label: 'PDF'),
+                      _FormatChip(label: 'Word'),
+                      _FormatChip(label: 'Ses'),
+                      _FormatChip(label: 'E-posta'),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            FilledButton.icon(
+              onPressed: isUploading ? null : onUpload,
+              icon: isUploading
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.add),
+              label: Text(isUploading ? 'Yükleniyor' : 'Yükle'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FormatChip extends StatelessWidget {
+  const _FormatChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Chip(
+      label: Text(label),
+      visualDensity: VisualDensity.compact,
+      side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+    );
+  }
+}
+
 class _FilesSummary extends StatelessWidget {
   const _FilesSummary({required this.files});
 
@@ -481,43 +601,42 @@ class _FileCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Row(
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Expanded(
+                FilledButton.icon(
+                  onPressed: isActive ? null : onAnalyze,
+                  icon: isActive
+                      ? const SizedBox.square(
+                          dimension: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.auto_awesome),
+                  label: const Text('Analiz et'),
+                ),
+                Tooltip(
+                  message: 'Metni göster',
                   child: OutlinedButton.icon(
-                    onPressed: isActive ? null : onAnalyze,
-                    icon: isActive
-                        ? const SizedBox.square(
-                            dimension: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Icon(Icons.auto_awesome),
-                    label: const Text('Analiz et'),
+                    onPressed: isActive ? null : onShowText,
+                    icon: const Icon(Icons.article_outlined),
+                    label: const Text('Metin'),
                   ),
                 ),
-                const SizedBox(width: 10),
-                IconButton.outlined(
-                  tooltip: 'Metni göster',
-                  onPressed: isActive ? null : onShowText,
-                  icon: const Icon(Icons.article_outlined),
-                ),
-                const SizedBox(width: 6),
-                IconButton.outlined(
-                  tooltip: 'Özeti göster',
+                OutlinedButton.icon(
                   onPressed: isActive ? null : onShowAnalysis,
                   icon: const Icon(Icons.summarize_outlined),
+                  label: const Text('Özet'),
                 ),
-                const SizedBox(width: 6),
-                IconButton.outlined(
-                  tooltip: 'İndir / aç',
+                OutlinedButton.icon(
                   onPressed: isActive ? null : onDownload,
                   icon: const Icon(Icons.open_in_new),
+                  label: const Text('Aç'),
                 ),
-                const SizedBox(width: 6),
-                IconButton.outlined(
-                  tooltip: 'Sil',
+                OutlinedButton.icon(
                   onPressed: isActive ? null : onDelete,
                   icon: const Icon(Icons.delete_outline),
+                  label: const Text('Sil'),
                 ),
               ],
             ),

@@ -94,17 +94,17 @@ class _CallsPageState extends ConsumerState<CallsPage> {
   }
 
   Future<void> _showCreateSheet() async {
-    final job = await showModalBottomSheet<AiAnalysisJob>(
+    final result = await showModalBottomSheet<_CreateCallResult>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       builder: (context) => const _CreateCallSheet(),
     );
-    if (job != null) {
+    if (result != null) {
       setState(() {
-        _notice = job.isFailed
+        _notice = result.analysisFailed
             ? 'Çağrı kaydedildi ama AI analizi başarısız oldu: '
-                '${readableBackendMessage(job.errorMessage, 'bilinmeyen hata')}. Aşağıdan tekrar deneyebilirsin.'
+                '${readableBackendMessage(result.errorMessage, 'bilinmeyen hata')}. Aşağıdan tekrar deneyebilirsin.'
             : 'Çağrı kaydedildi ve AI analizi başlatıldı.';
       });
       ref.invalidate(callsProvider);
@@ -134,18 +134,39 @@ class _RecordingControlCard extends ConsumerWidget {
     switch (rec.status) {
       case CallRecordingStatus.idle:
         return Card(
-          child: ListTile(
-            leading: Icon(Icons.mic_none, color: theme.colorScheme.primary),
-            title: const Text('Görüşme kaydı'),
-            subtitle: const Text(
-              'Aramayı hoparlörden yap; kayıt aramayla otomatik başlamazsa '
-              'buradan elle başlat.',
-            ),
-            trailing: FilledButton.icon(
-              onPressed: () =>
-                  ref.read(callRecordingProvider.notifier).startRecording(),
-              icon: const Icon(Icons.fiber_manual_record),
-              label: const Text('Başlat'),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ActionIcon(
+                  icon: Icons.mic_none,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Canlı görüşme kaydı',
+                        style: TextStyle(fontWeight: FontWeight.w800),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Telefonu hoparlöre alıp kaydı başlat. Bitince transkript ve AI analizi otomatik hazırlanır.',
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                FilledButton.icon(
+                  onPressed: () =>
+                      ref.read(callRecordingProvider.notifier).startRecording(),
+                  icon: const Icon(Icons.fiber_manual_record),
+                  label: const Text('Başlat'),
+                ),
+              ],
             ),
           ),
         );
@@ -574,12 +595,18 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
           children: [
             Text('Çağrı metni ekle',
                 style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 6),
+            Text(
+              'Geçmiş bir görüşmenin notunu veya transkriptini yapıştır. Kayıt çağrılar listesine düşer, ardından AI analizi başlatılır.',
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
             const SizedBox(height: 14),
             TextField(
               controller: _titleController,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
                 labelText: 'Başlık',
+                hintText: 'Örn. Sinan Kul ile teklif görüşmesi',
                 prefixIcon: Icon(Icons.title),
               ),
             ),
@@ -601,6 +628,7 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(
                 labelText: 'Telefon',
+                hintText: 'İsteğe bağlı',
                 prefixIcon: Icon(Icons.phone_outlined),
               ),
             ),
@@ -621,6 +649,8 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
               maxLines: 8,
               decoration: const InputDecoration(
                 labelText: 'Transkript',
+                hintText:
+                    'Konuşulanları buraya yapıştır. Görev, randevu ve özet önerileri bu metinden çıkarılır.',
                 prefixIcon: Icon(Icons.notes_outlined),
               ),
             ),
@@ -681,11 +711,25 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
             callDirection: _direction,
             phoneNumber: _phoneController.text,
           );
-      final job = await ref
-          .read(callsRepositoryProvider)
-          .requestAnalysis(result.conversationId);
+      var analysisFailed = false;
+      String? errorMessage;
+      try {
+        final job = await ref
+            .read(callsRepositoryProvider)
+            .requestAnalysis(result.conversationId);
+        analysisFailed = job.isFailed;
+        errorMessage = job.errorMessage;
+      } catch (error) {
+        analysisFailed = true;
+        errorMessage = readableApiError(error, 'AI analizi başlatılamadı.');
+      }
       if (mounted) {
-        Navigator.of(context).pop(job);
+        Navigator.of(context).pop(
+          _CreateCallResult(
+            analysisFailed: analysisFailed,
+            errorMessage: errorMessage,
+          ),
+        );
       }
     } catch (error) {
       setState(() {
@@ -729,6 +773,16 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
       });
     }
   }
+}
+
+class _CreateCallResult {
+  const _CreateCallResult({
+    required this.analysisFailed,
+    this.errorMessage,
+  });
+
+  final bool analysisFailed;
+  final String? errorMessage;
 }
 
 class _CompletedAnalysisStatus extends StatelessWidget {
@@ -850,6 +904,26 @@ class _SummaryMetric extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ActionIcon extends StatelessWidget {
+  const _ActionIcon({required this.icon, required this.color});
+
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(icon, color: color),
     );
   }
 }

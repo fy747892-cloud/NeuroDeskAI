@@ -19,7 +19,8 @@ class MobileShell extends ConsumerWidget {
     final location = GoRouterState.of(context).uri.path;
     final apiStatus = ref.watch(apiStatusProvider);
     final dashboard = ref.watch(dashboardProvider).valueOrNull;
-    final notifications = ref.watch(notificationsProvider).valueOrNull ?? const [];
+    final notifications =
+        ref.watch(notificationsProvider).valueOrNull ?? const [];
     final calls = ref.watch(callsProvider).valueOrNull ?? const [];
     final jobs = ref.watch(callAnalysisJobsProvider).valueOrNull ?? const [];
     final unreadNotifications = notifications.where((item) => !item.isRead).length;
