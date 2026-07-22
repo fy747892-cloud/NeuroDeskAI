@@ -637,7 +637,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     });
   } catch {
     throw new Error(
-      "API bağlantısı kurulamadı. Backend'in çalıştığını, adres ayarını ve internet bağlantınızı kontrol edin.",
+      `API bağlantısı kurulamadı. Kullanılan backend adresi: ${API_BASE_URL}. Backend'in çalıştığını, NEXT_PUBLIC_API_BASE_URL ayarını ve CORS izinlerini kontrol edin.`,
     );
   }
 
