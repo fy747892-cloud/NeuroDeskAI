@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_error.dart';
 import '../../conversations/data/conversations_repository.dart';
@@ -18,8 +19,6 @@ class CallsPage extends ConsumerStatefulWidget {
 }
 
 class _CallsPageState extends ConsumerState<CallsPage> {
-  String? _notice;
-
   @override
   Widget build(BuildContext context) {
     final calls = ref.watch(callsProvider);
@@ -44,10 +43,6 @@ class _CallsPageState extends ConsumerState<CallsPage> {
             ),
             const SizedBox(height: 14),
             const _RecordingControlCard(),
-            if (_notice != null) ...[
-              const SizedBox(height: 12),
-              _PageMessage(message: _notice!),
-            ],
             const SizedBox(height: 16),
             calls.when(
               data: (items) => items.isEmpty
@@ -101,16 +96,40 @@ class _CallsPageState extends ConsumerState<CallsPage> {
       builder: (context) => const _CreateCallSheet(),
     );
     if (result != null) {
-      setState(() {
-        _notice = result.analysisFailed
-            ? 'Çağrı kaydedildi ama AI analizi başarısız oldu: '
-                '${readableBackendMessage(result.errorMessage, 'bilinmeyen hata')}. Aşağıdan tekrar deneyebilirsin.'
-            : 'Çağrı kaydedildi ve AI analizi başlatıldı.';
-      });
       ref.invalidate(callsProvider);
       ref.invalidate(callAnalysisJobsProvider);
       ref.invalidate(conversationsProvider);
+      if (!mounted) return;
+      _showActionSnack(
+        result.analysisFailed
+            ? 'Çağrı kaydedildi, AI analizi tekrar denenebilir.'
+            : 'Çağrı kaydedildi ve AI analizi başlatıldı.',
+        actionLabel: result.analysisFailed ? 'Çağrıya git' : 'Onay',
+        route: result.analysisFailed ? '/app/calls' : '/app/approvals',
+      );
     }
+  }
+
+  void _showActionSnack(
+    String message, {
+    required String actionLabel,
+    required String route,
+  }) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 5),
+        action: SnackBarAction(
+          label: actionLabel,
+          onPressed: () {
+            messenger.hideCurrentSnackBar();
+            context.go(route);
+          },
+        ),
+      ),
+    );
   }
 }
 
@@ -128,6 +147,31 @@ class _RecordingControlCard extends ConsumerWidget {
         ref.invalidate(callsProvider);
         ref.invalidate(callAnalysisJobsProvider);
         ref.invalidate(filesProvider);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!context.mounted) return;
+          final messenger = ScaffoldMessenger.of(context);
+          messenger.hideCurrentSnackBar();
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(
+                next.analysisFailed
+                    ? 'Kayıt kaydedildi, AI analizi tekrar denenebilir.'
+                    : 'Kayıt tamamlandı ve AI analizi başlatıldı.',
+              ),
+              duration: const Duration(seconds: 5),
+              action: SnackBarAction(
+                label: next.analysisFailed ? 'Çağrıya git' : 'Onay',
+                onPressed: () {
+                  messenger.hideCurrentSnackBar();
+                  ref.read(callRecordingProvider.notifier).reset();
+                  context.go(
+                    next.analysisFailed ? '/app/calls' : '/app/approvals',
+                  );
+                },
+              ),
+            ),
+          );
+        });
       }
     });
 
@@ -154,7 +198,9 @@ class _RecordingControlCard extends ConsumerWidget {
                       ),
                       SizedBox(height: 4),
                       Text(
-                        'Telefonu hoparlöre alıp kaydı başlat. Bitince transkript ve AI analizi otomatik hazırlanır.',
+                        'Telefonu hoparlöre alıp kaydı başlat. En iyi sonuç '
+                        'için sesi orta-yüksek seviyeye getir, telefonu '
+                        'hoparlöre yakın ve sabit tut.',
                       ),
                     ],
                   ),
@@ -194,10 +240,13 @@ class _RecordingControlCard extends ConsumerWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Aramayı hoparlörden yapın ki mikrofon her iki tarafı da '
-                  'duyabilsin. Bitince "Durdur"a basın.',
+                  'Aramayı hoparlörden yapın. Telefonu masaya sabit koyun, '
+                  'hoparlör sesi mikrofona baksın ve ortam gürültüsünü '
+                  'azaltın.',
                   style: theme.textTheme.bodySmall,
                 ),
+                const SizedBox(height: 10),
+                const _RecordingQualityTips(),
                 const SizedBox(height: 10),
                 Align(
                   alignment: Alignment.centerRight,
@@ -247,8 +296,10 @@ class _RecordingControlCard extends ConsumerWidget {
                   ),
                 ),
                 TextButton(
-                  onPressed: () =>
-                      ref.read(callRecordingProvider.notifier).reset(),
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                    ref.read(callRecordingProvider.notifier).reset();
+                  },
                   child: const Text('Kapat'),
                 ),
               ],
@@ -288,6 +339,49 @@ class _RecordingControlCard extends ConsumerWidget {
           ),
         );
     }
+  }
+}
+
+class _RecordingQualityTips extends StatelessWidget {
+  const _RecordingQualityTips();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = theme.colorScheme.primary;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.16)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.graphic_eq, size: 18, color: color),
+              const SizedBox(width: 6),
+              Text(
+                'Kayıt kalitesi',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Ses düşükse hoparlör seviyesini artır. Karşı taraf çok uzaktan '
+            'geliyorsa telefonu hoparlöre 20-30 cm yaklaştır.',
+            style: theme.textTheme.bodySmall,
+          ),
+        ],
+      ),
+    );
   }
 }
 

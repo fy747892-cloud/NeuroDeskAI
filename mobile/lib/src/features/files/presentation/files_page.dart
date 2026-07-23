@@ -111,10 +111,9 @@ class _FilesPageState extends ConsumerState<FilesPage> {
 
     try {
       await ref.read(filesRepositoryProvider).analyzeFile(file.id);
-      setState(() {
-        _notice =
-            '${file.filename} analiz edildi. Görev/randevu önerileri varsa Onay Merkezi’nde bekliyor.';
-      });
+      _showTemporaryNotice(
+        '${file.filename} analiz edildi. Görev/randevu önerileri varsa Onay Merkezi’nde bekliyor.',
+      );
       ref.invalidate(filesProvider);
       ref.invalidate(pendingAiApprovalsProvider);
       if (mounted) {
@@ -125,7 +124,13 @@ class _FilesPageState extends ConsumerState<FilesPage> {
             content: const Text('Analiz tamamlandı. Onay Merkezi’ne geçebilirsin.'),
             action: SnackBarAction(
               label: 'Aç',
-              onPressed: () => context.go('/app/approvals'),
+              onPressed: () {
+                messenger.hideCurrentSnackBar();
+                if (mounted) {
+                  setState(() => _notice = null);
+                }
+                context.go('/app/approvals');
+              },
             ),
           ),
         );
@@ -194,10 +199,9 @@ class _FilesPageState extends ConsumerState<FilesPage> {
       try {
         await ref.read(filesRepositoryProvider).analyzeFile(uploaded.id);
         ref.invalidate(pendingAiApprovalsProvider);
-        setState(() {
-          _notice =
-              '${uploaded.filename} yüklendi ve analiz edildi. Öneriler varsa Onay Merkezi’nde bekliyor.';
-        });
+        _showTemporaryNotice(
+          '${uploaded.filename} yüklendi ve analiz edildi. Öneriler varsa Onay Merkezi’nde bekliyor.',
+        );
       } catch (error) {
         setState(() {
           _notice =
@@ -363,7 +367,7 @@ class _FilesPageState extends ConsumerState<FilesPage> {
 
     try {
       await ref.read(filesRepositoryProvider).deleteFile(file.id);
-      setState(() => _notice = '${file.filename} silindi.');
+      _showTemporaryNotice('${file.filename} silindi.');
       ref.invalidate(filesProvider);
     } catch (error) {
       setState(() {
@@ -374,6 +378,15 @@ class _FilesPageState extends ConsumerState<FilesPage> {
         setState(() => _activeFileId = null);
       }
     }
+  }
+
+  void _showTemporaryNotice(String message) {
+    if (!mounted) return;
+    setState(() => _notice = message);
+    Future.delayed(const Duration(seconds: 5), () {
+      if (!mounted || _notice != message) return;
+      setState(() => _notice = null);
+    });
   }
 }
 

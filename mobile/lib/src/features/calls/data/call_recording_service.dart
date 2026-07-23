@@ -7,6 +7,7 @@ import 'package:record/record.dart';
 
 const String _recordFilePathKey = 'callRecordingFilePath';
 const String _recordDirectoryName = 'call_recordings';
+const String _openRecorderButtonId = 'open_call_recorder';
 
 /// Foreground service entry point. Runs in a separate isolate so the
 /// microphone stays active while the system Phone app has focus.
@@ -17,6 +18,7 @@ void startCallRecordingTask() {
 
 class _CallRecordingTaskHandler extends TaskHandler {
   final AudioRecorder _recorder = AudioRecorder();
+  DateTime? _startedAt;
 
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
@@ -24,6 +26,7 @@ class _CallRecordingTaskHandler extends TaskHandler {
       key: _recordFilePathKey,
     );
     if (filePath == null) return;
+    _startedAt = timestamp;
 
     // AndroidAudioSource.mic/defaultSource goes through the voice-call
     // tuned audio path on many devices during an active call, which applies
@@ -37,6 +40,13 @@ class _CallRecordingTaskHandler extends TaskHandler {
     // detect the failure and fall back automatically.
     await _recorder.start(
       const RecordConfig(
+        encoder: AudioEncoder.aacLc,
+        bitRate: 256000,
+        sampleRate: 48000,
+        numChannels: 1,
+        autoGain: true,
+        echoCancel: false,
+        noiseSuppress: false,
         androidConfig: AndroidRecordConfig(
           audioSource: AndroidAudioSource.unprocessed,
         ),
@@ -46,7 +56,32 @@ class _CallRecordingTaskHandler extends TaskHandler {
   }
 
   @override
-  void onRepeatEvent(DateTime timestamp) {}
+  void onRepeatEvent(DateTime timestamp) {
+    final startedAt = _startedAt;
+    final elapsed = startedAt == null
+        ? Duration.zero
+        : timestamp.difference(startedAt);
+    FlutterForegroundTask.updateService(
+      notificationTitle: 'NeuroDesk görüşme kaydı',
+      notificationText:
+          'Kaydediliyor: ${_formatElapsed(elapsed)} • Durdurmak için uygulamaya dön.',
+      notificationButtons: const [
+        NotificationButton(id: _openRecorderButtonId, text: 'Uygulamaya dön'),
+      ],
+    );
+  }
+
+  @override
+  void onNotificationButtonPressed(String id) {
+    if (id == _openRecorderButtonId) {
+      FlutterForegroundTask.launchApp('/app/calls');
+    }
+  }
+
+  @override
+  void onNotificationPressed() {
+    FlutterForegroundTask.launchApp('/app/calls');
+  }
 
   @override
   Future<void> onDestroy(DateTime timestamp, bool isTimeout) async {
@@ -80,7 +115,7 @@ class CallRecordingService {
         showNotification: false,
       ),
       foregroundTaskOptions: ForegroundTaskOptions(
-        eventAction: ForegroundTaskEventAction.nothing(),
+        eventAction: ForegroundTaskEventAction.repeat(1000),
         allowWakeLock: true,
       ),
     );
@@ -128,8 +163,12 @@ class CallRecordingService {
     final result = await FlutterForegroundTask.startService(
       serviceId: 401,
       serviceTypes: const [ForegroundServiceTypes.microphone],
-      notificationTitle: 'Görüşme kaydediliyor',
-      notificationText: 'Kaydı durdurmak için uygulamaya dönün.',
+      notificationTitle: 'NeuroDesk görüşme kaydı',
+      notificationText:
+          'Kayda başlandı • Hoparlörü açık tut, durdurmak için uygulamaya dön.',
+      notificationButtons: const [
+        NotificationButton(id: _openRecorderButtonId, text: 'Uygulamaya dön'),
+      ],
       callback: startCallRecordingTask,
     );
 
@@ -181,4 +220,14 @@ class CallRecordingService {
     await file.delete();
     return bytes;
   }
+}
+
+String _formatElapsed(Duration duration) {
+  final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+  final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+  final hours = duration.inHours;
+  if (hours > 0) {
+    return '${hours.toString().padLeft(2, '0')}:$minutes:$seconds';
+  }
+  return '$minutes:$seconds';
 }

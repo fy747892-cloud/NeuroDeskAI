@@ -62,7 +62,7 @@ class AiChatController extends AsyncNotifier<AiChatState> {
     } catch (error) {
       state = AsyncData(
         current.copyWith(
-          errorMessage: readableApiError(error, 'Chat oturumları alınamadı.'),
+          errorMessage: readableApiError(error, 'Sohbet oturumları alınamadı.'),
         ),
       );
     }
@@ -88,7 +88,7 @@ class AiChatController extends AsyncNotifier<AiChatState> {
     } catch (error) {
       state = AsyncData(
         current.copyWith(
-          errorMessage: readableApiError(error, 'Chat oturumu açılamadı.'),
+          errorMessage: readableApiError(error, 'Sohbet oturumu açılamadı.'),
         ),
       );
     }
