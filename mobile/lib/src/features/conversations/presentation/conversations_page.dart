@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../ai_approvals/data/ai_approvals_repository.dart';
 import '../data/conversations_repository.dart';
 import '../domain/conversation.dart';
 
@@ -64,6 +65,7 @@ class ConversationsPage extends ConsumerWidget {
       builder: (context) => const _CreateCallSheet(),
     );
     ref.invalidate(conversationsProvider);
+    ref.invalidate(pendingAiApprovalsProvider);
   }
 }
 
@@ -212,7 +214,9 @@ class _ConversationTileState extends ConsumerState<_ConversationTile> {
       await ref
           .read(conversationsRepositoryProvider)
           .requestAnalysis(widget.conversation.id);
+      ref.invalidate(pendingAiApprovalsProvider);
       if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('AI analiz başlatıldı.')),
         );
@@ -341,8 +345,10 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
           .read(conversationsRepositoryProvider)
           .requestAnalysis(result.conversationId);
       ref.invalidate(conversationsProvider);
+      ref.invalidate(pendingAiApprovalsProvider);
       if (mounted) {
         Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Görüşme kaydedildi ve analiz başladı.'),
@@ -477,7 +483,7 @@ class _StatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final label = switch (status.toLowerCase()) {
       'pending' => 'Bekliyor',
-      'processing' => 'Isleniyor',
+      'processing' => 'İşleniyor',
       'analyzed' => 'Analizli',
       'completed' => 'Tamam',
       _ => status,

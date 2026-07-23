@@ -68,10 +68,14 @@ class AiApprovalsRepository {
 
   Future<void> _materializeApprovedAction(AiActionApproval approval) async {
     final endpoint = switch (approval.actionType) {
-      'task' || 'task/create_task' => '/api/v1/tasks/from-approval',
-      'appointment' || 'appointment/create_appointment' =>
+      'task' || 'create_task' || 'task/create_task' =>
+        '/api/v1/tasks/from-approval',
+      'appointment' ||
+      'create_appointment' ||
+      'appointment/create_appointment' =>
         '/api/v1/appointments/from-approval',
-      'deal' || 'deal/create_deal' => '/api/v1/deals/from-approval',
+      'deal' || 'create_deal' || 'deal/create_deal' =>
+        '/api/v1/deals/from-approval',
       _ => null,
     };
     if (endpoint == null) return;

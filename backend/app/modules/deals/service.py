@@ -64,7 +64,7 @@ class DealService:
         )
         if approval is None:
             raise NotFoundError("AI action approval not found.")
-        if approval.action_type not in {"deal", "create_deal"}:
+        if approval.action_type not in {"deal", "create_deal", "deal/create_deal"}:
             raise ValidationAppError("Only deal approvals can create deals.")
         if approval.status != "approved":
             raise ValidationAppError("Only approved AI deal suggestions can create deals.")

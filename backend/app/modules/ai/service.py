@@ -109,6 +109,11 @@ class AIAnalysisService:
                 title=conversation.title,
                 transcript_text=transcript_text,
             )
+            output = self._ensure_action_suggestions(
+                output=output,
+                title=conversation.title,
+                transcript_text=transcript_text,
+            )
             latency_ms = int((time.monotonic() - start_time) * 1000)
             await self._cost_logs.record(
                 tenant_id=job.tenant_id,
@@ -290,17 +295,45 @@ class AIAnalysisService:
             approval.status = "expired"
             raise ValidationAppError("Expired AI action approvals cannot be applied.")
 
+    def _ensure_action_suggestions(
+        self,
+        *,
+        output,
+        title: str,
+        transcript_text: str,
+    ):
+        has_items = any(
+            bool(payload.get("items"))
+            for payload in (output.tasks, output.appointments, output.deals)
+            if isinstance(payload, dict)
+        )
+        if has_items:
+            return output
+
+        excerpt = " ".join(transcript_text.split())[:240]
+        output.tasks["items"] = [
+            {
+                "title": f"Takip et: {title}",
+                "description": excerpt
+                or "AI analizi aksiyon üretmedi; görüşmeyi kontrol edip sonraki adımı belirle.",
+                "priority": "medium",
+                "reason": "Analiz tamamlandı ancak net aksiyon üretilemediği için takip görevi önerildi.",
+                "confidence": 0.5,
+            }
+        ]
+        return output
+
     def _validate_approved_payload(self, action_type: str, payload: dict) -> None:
-        if action_type in {"task", "create_task"} and not payload.get("title"):
+        if action_type in {"task", "create_task", "task/create_task"} and not payload.get("title"):
             raise ValidationAppError("Approved task payload must include a title.")
-        if action_type in {"appointment", "create_appointment"}:
+        if action_type in {"appointment", "create_appointment", "appointment/create_appointment"}:
             if not payload.get("title"):
                 raise ValidationAppError("Approved appointment payload must include a title.")
             if not payload.get("proposed_datetime"):
                 raise ValidationAppError(
                     "Approved appointment payload must include proposed_datetime."
                 )
-        if action_type in {"deal", "create_deal"} and not payload.get("title"):
+        if action_type in {"deal", "create_deal", "deal/create_deal"} and not payload.get("title"):
             raise ValidationAppError("Approved deal payload must include a title.")
 
     async def _materialize_approved_action(
@@ -311,7 +344,7 @@ class AIAnalysisService:
         user_id,
         approval: AIActionApproval,
     ) -> None:
-        if approval.action_type in {"task", "create_task"}:
+        if approval.action_type in {"task", "create_task", "task/create_task"}:
             await TaskService(self._db).create_task_from_approval(
                 tenant_id=tenant_id,
                 organization_id=organization_id,
@@ -319,7 +352,7 @@ class AIAnalysisService:
                 approval_id=approval.id,
             )
             return
-        if approval.action_type in {"appointment", "create_appointment"}:
+        if approval.action_type in {"appointment", "create_appointment", "appointment/create_appointment"}:
             await AppointmentService(self._db).create_appointment_from_approval(
                 tenant_id=tenant_id,
                 organization_id=organization_id,
@@ -327,7 +360,7 @@ class AIAnalysisService:
                 approval_id=approval.id,
             )
             return
-        if approval.action_type in {"deal", "create_deal"}:
+        if approval.action_type in {"deal", "create_deal", "deal/create_deal"}:
             await DealService(self._db).create_deal_from_approval(
                 tenant_id=tenant_id,
                 organization_id=organization_id,

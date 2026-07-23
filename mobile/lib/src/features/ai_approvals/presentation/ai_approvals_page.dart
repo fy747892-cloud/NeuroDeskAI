@@ -170,12 +170,15 @@ class _BulkApprovalActionsState extends ConsumerState<_BulkApprovalActions> {
 }
 
 bool _isTask(AiActionApproval approval) {
-  return approval.actionType == 'task' || approval.actionType == 'create_task';
+  return approval.actionType == 'task' ||
+      approval.actionType == 'create_task' ||
+      approval.actionType == 'task/create_task';
 }
 
 bool _isAppointment(AiActionApproval approval) {
   return approval.actionType == 'appointment' ||
-      approval.actionType == 'create_appointment';
+      approval.actionType == 'create_appointment' ||
+      approval.actionType == 'appointment/create_appointment';
 }
 
 class _ApprovalsSummary extends StatelessWidget {
@@ -185,13 +188,7 @@ class _ApprovalsSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appointmentCount = approvals
-        .where(
-          (approval) =>
-              approval.actionType == 'appointment' ||
-              approval.actionType == 'create_appointment',
-        )
-        .length;
+    final appointmentCount = approvals.where(_isAppointment).length;
 
     return Container(
       padding: const EdgeInsets.all(18),
@@ -461,21 +458,27 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
     switch (approval.actionType) {
       case 'task':
       case 'create_task':
+      case 'task/create_task':
         ref.invalidate(tasksProvider);
       case 'appointment':
       case 'create_appointment':
+      case 'appointment/create_appointment':
         ref.invalidate(appointmentsProvider);
       case 'deal':
       case 'create_deal':
+      case 'deal/create_deal':
         ref.invalidate(dealsProvider);
     }
   }
 
   String? _routeFor(AiActionApproval approval) {
     return switch (approval.actionType) {
-      'task' || 'create_task' => '/app/tasks',
-      'appointment' || 'create_appointment' => '/app/appointments',
-      'deal' || 'create_deal' => '/app/deals',
+      'task' || 'create_task' || 'task/create_task' => '/app/tasks',
+      'appointment' ||
+      'create_appointment' ||
+      'appointment/create_appointment' =>
+        '/app/appointments',
+      'deal' || 'create_deal' || 'deal/create_deal' => '/app/deals',
       _ => null,
     };
   }

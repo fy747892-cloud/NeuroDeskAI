@@ -148,7 +148,15 @@ class FileService:
     async def _create_action_approvals_from_document(self, *, file: File, text: str) -> None:
         suggestions = _extract_action_suggestions(text)
         if not suggestions["tasks"] and not suggestions["appointments"]:
-            return
+            suggestions["tasks"].append(
+                {
+                    "title": f"Dosyayı takip et: {file.filename}",
+                    "description": _document_excerpt(text),
+                    "priority": "medium",
+                    "reason": "Dosya analizi tamamlandı ancak net görev/randevu satırı bulunamadı.",
+                    "confidence": 0.5,
+                }
+            )
 
         prompt = await self._ai.get_or_create_prompt_version(
             name="document_action_extraction",
@@ -262,3 +270,8 @@ def _default_future_datetime() -> str:
 def _add_minutes(value: str, minutes: int) -> str:
     parsed = datetime.fromisoformat(value)
     return (parsed + timedelta(minutes=minutes)).isoformat()
+
+
+def _document_excerpt(text: str) -> str:
+    excerpt = " ".join(text.split())[:240]
+    return excerpt or "Dosya içeriğini inceleyip sonraki adımı belirle."

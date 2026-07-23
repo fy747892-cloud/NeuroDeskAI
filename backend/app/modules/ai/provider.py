@@ -235,12 +235,31 @@ def _normalize_summary(payload: Any, *, title: str) -> dict:
 
 
 def _normalize_items_payload(payload: Any) -> dict:
-    if not isinstance(payload, dict):
-        return {"items": []}
-    items = payload.get("items")
+    if isinstance(payload, list):
+        items = payload
+    elif isinstance(payload, dict):
+        items = (
+            payload.get("items")
+            or payload.get("actions")
+            or payload.get("tasks")
+            or payload.get("appointments")
+            or payload.get("deals")
+            or payload.get("suggestions")
+        )
+    else:
+        items = None
     if not isinstance(items, list):
         return {"items": []}
-    normalized = [item for item in items if isinstance(item, dict) and item.get("title")]
+    normalized = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        title = item.get("title") or item.get("name") or item.get("subject")
+        if not title:
+            continue
+        item["title"] = str(title).strip()
+        if item["title"]:
+            normalized.append(item)
     for item in normalized:
         item["confidence"] = _normalize_confidence(item.get("confidence"), default=0.6)
     return {"items": normalized}
