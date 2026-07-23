@@ -3,7 +3,7 @@ from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import ConflictError, NotFoundError, ValidationAppError
+from app.core.errors import NotFoundError, ValidationAppError
 from app.modules.ai.repository import AIRepository
 from app.modules.contacts.repository import ContactRepository
 from app.modules.deals.models import Deal
@@ -64,7 +64,7 @@ class DealService:
         )
         if approval is None:
             raise NotFoundError("AI action approval not found.")
-        if approval.action_type != "deal":
+        if approval.action_type not in {"deal", "create_deal"}:
             raise ValidationAppError("Only deal approvals can create deals.")
         if approval.status != "approved":
             raise ValidationAppError("Only approved AI deal suggestions can create deals.")
@@ -73,7 +73,7 @@ class DealService:
             tenant_id=tenant_id, organization_id=organization_id, approval_id=approval.id
         )
         if existing_deal is not None:
-            raise ConflictError("This AI action approval has already created a deal.")
+            return existing_deal
 
         payload = approval.approved_payload or approval.suggested_payload
         title = payload.get("title")

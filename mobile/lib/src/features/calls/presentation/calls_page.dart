@@ -1,11 +1,18 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../ai_approvals/data/ai_approvals_repository.dart';
+import '../../ai_approvals/domain/ai_action_approval.dart';
+import '../../ai_approvals/presentation/quick_approval_card.dart';
+import '../../appointments/data/appointments_repository.dart';
 import '../../conversations/data/conversations_repository.dart';
 import '../../files/data/files_repository.dart';
+import '../../tasks/data/tasks_repository.dart';
 import '../data/call_recording_provider.dart';
 import '../data/calls_repository.dart';
 import '../domain/ai_analysis_job.dart';
@@ -19,10 +26,37 @@ class CallsPage extends ConsumerStatefulWidget {
 }
 
 class _CallsPageState extends ConsumerState<CallsPage> {
+  Timer? _pollingTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted) return;
+      final jobs = ref.read(callAnalysisJobsProvider).valueOrNull ?? const [];
+      final hasActiveJob = jobs.any((job) => job.isPending);
+      final rec = ref.read(callRecordingProvider);
+      final hasActiveRecording = rec.status == CallRecordingStatus.uploading ||
+          rec.status == CallRecordingStatus.analyzing;
+      if (hasActiveJob || hasActiveRecording) {
+        ref.invalidate(callsProvider);
+        ref.invalidate(callAnalysisJobsProvider);
+        ref.invalidate(pendingAiApprovalsProvider);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final calls = ref.watch(callsProvider);
     final jobs = ref.watch(callAnalysisJobsProvider);
+    final approvals = ref.watch(pendingAiApprovalsProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -41,6 +75,12 @@ class _CallsPageState extends ConsumerState<CallsPage> {
               'elle de başlatıp durdurabilirsin.',
               style: theme.textTheme.bodyMedium,
             ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => context.go('/app/files'),
+              icon: const Icon(Icons.auto_awesome),
+              label: const Text('AI analiz için dosya yükle'),
+            ),
             const SizedBox(height: 14),
             const _RecordingControlCard(),
             const SizedBox(height: 16),
@@ -58,6 +98,11 @@ class _CallsPageState extends ConsumerState<CallsPage> {
                             analysisJob: jobs.maybeWhen(
                               data: (list) => _latestJobFor(list, call),
                               orElse: () => null,
+                            ),
+                            approvals: approvals.maybeWhen(
+                              data: (list) =>
+                                  _approvalsForCall(list, call).toList(),
+                              orElse: () => const [],
                             ),
                           ),
                         ),
@@ -86,6 +131,17 @@ class _CallsPageState extends ConsumerState<CallsPage> {
           job.sourceId == call.conversationId,
     );
     return matches.isEmpty ? null : matches.first;
+  }
+
+  Iterable<AiActionApproval> _approvalsForCall(
+    List<AiActionApproval> approvals,
+    CallRecord call,
+  ) {
+    return approvals.where(
+      (approval) =>
+          approval.sourceType.toLowerCase() == 'conversation' &&
+          approval.sourceId == call.conversationId,
+    );
   }
 
   Future<void> _showCreateSheet() async {
@@ -454,9 +510,14 @@ class _CallsSummary extends StatelessWidget {
 }
 
 class _CallCard extends ConsumerStatefulWidget {
-  const _CallCard({required this.call, this.analysisJob});
+  const _CallCard({
+    required this.call,
+    required this.approvals,
+    this.analysisJob,
+  });
 
   final CallRecord call;
+  final List<AiActionApproval> approvals;
   final AiAnalysisJob? analysisJob;
 
   @override
@@ -551,6 +612,14 @@ class _CallCardState extends ConsumerState<_CallCard> {
             ],
             const SizedBox(height: 10),
             _buildAnalysisStatus(context),
+            QuickApprovalCard(
+              approvals: widget.approvals,
+              onChanged: () {
+                ref.invalidate(tasksProvider);
+                ref.invalidate(appointmentsProvider);
+                ref.invalidate(callAnalysisJobsProvider);
+              },
+            ),
           ],
         ),
       ),

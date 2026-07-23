@@ -3,7 +3,7 @@ from datetime import datetime
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import ConflictError, NotFoundError, ValidationAppError
+from app.core.errors import NotFoundError, ValidationAppError
 from app.modules.ai.repository import AIRepository
 from app.modules.contacts.repository import ContactRepository
 from app.modules.tasks.models import Task
@@ -65,7 +65,7 @@ class TaskService:
         )
         if approval is None:
             raise NotFoundError("AI action approval not found.")
-        if approval.action_type != "task":
+        if approval.action_type not in {"task", "create_task"}:
             raise ValidationAppError("Only task approvals can create tasks.")
         if approval.status != "approved":
             raise ValidationAppError("Only approved AI task suggestions can create tasks.")
@@ -76,7 +76,7 @@ class TaskService:
             approval_id=approval.id,
         )
         if existing_task is not None:
-            raise ConflictError("This AI action approval has already created a task.")
+            return existing_task
 
         payload = approval.approved_payload or approval.suggested_payload
         title = payload.get("title")

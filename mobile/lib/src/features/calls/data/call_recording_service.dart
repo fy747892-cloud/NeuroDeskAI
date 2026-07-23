@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:path/path.dart' as path;
@@ -8,6 +8,7 @@ import 'package:record/record.dart';
 const String _recordFilePathKey = 'callRecordingFilePath';
 const String _recordDirectoryName = 'call_recordings';
 const String _openRecorderButtonId = 'open_call_recorder';
+const String _notificationTitle = 'NeuroDesk AI';
 
 /// Foreground service entry point. Runs in a separate isolate so the
 /// microphone stays active while the system Phone app has focus.
@@ -36,7 +37,7 @@ class _CallRecordingTaskHandler extends TaskHandler {
     //
     // AndroidAudioSource.voiceCall (real call audio, no speakerphone needed)
     // was considered too, but on devices that don't allow it, it doesn't
-    // throw — it silently records silence instead, with no reliable way to
+    // throw Ã¢â‚¬â€ it silently records silence instead, with no reliable way to
     // detect the failure and fall back automatically.
     await _recorder.start(
       const RecordConfig(
@@ -62,11 +63,11 @@ class _CallRecordingTaskHandler extends TaskHandler {
         ? Duration.zero
         : timestamp.difference(startedAt);
     FlutterForegroundTask.updateService(
-      notificationTitle: 'NeuroDesk görüşme kaydı',
-      notificationText:
-          'Kaydediliyor: ${_formatElapsed(elapsed)} • Durdurmak için uygulamaya dön.',
+      notificationTitle: _notificationTitle,
+      notificationText: 'Hoparlore al - Kayit acik '
+          '${_formatElapsed(elapsed)} - Uygulamaya don',
       notificationButtons: const [
-        NotificationButton(id: _openRecorderButtonId, text: 'Uygulamaya dön'),
+        NotificationButton(id: _openRecorderButtonId, text: 'Uygulamaya don'),
       ],
     );
   }
@@ -94,7 +95,7 @@ class _CallRecordingTaskHandler extends TaskHandler {
 
 /// Records the phone's microphone (ambient/speaker audio) in a foreground
 /// service so the recording keeps running once the system Phone app takes
-/// over the screen for a native call. Android only — iOS does not allow
+/// over the screen for a native call. Android only Ã¢â‚¬â€ iOS does not allow
 /// third-party mic access during a phone call.
 class CallRecordingService {
   bool _initialized = false;
@@ -106,8 +107,8 @@ class CallRecordingService {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'call_recording_service',
-        channelName: 'Görüşme Kaydı',
-        channelDescription: 'Görüşme kaydı alınırken gösterilir.',
+        channelName: 'Gorusme kaydi',
+        channelDescription: 'Gorusme kaydi alinirken gosterilir.',
         channelImportance: NotificationChannelImportance.HIGH,
         priority: NotificationPriority.HIGH,
       ),
@@ -126,9 +127,9 @@ class CallRecordingService {
   Future<String> start() async {
     if (!Platform.isAndroid) {
       throw Exception(
-        'Görüşme kaydı yalnızca Android\'de destekleniyor: iOS üçüncü '
-        'parti uygulamaların telefon görüşmesi sırasında mikrofona '
-        'erişmesine izin vermiyor.',
+        'GÃƒÂ¶rÃƒÂ¼Ã…Å¸me kaydÃ„Â± yalnÃ„Â±zca Android\'de destekleniyor: iOS ÃƒÂ¼ÃƒÂ§ÃƒÂ¼ncÃƒÂ¼ '
+        'parti uygulamalarÃ„Â±n telefon gÃƒÂ¶rÃƒÂ¼Ã…Å¸mesi sÃ„Â±rasÃ„Â±nda mikrofona '
+        'eriÃ…Å¸mesine izin vermiyor.',
       );
     }
 
@@ -163,11 +164,11 @@ class CallRecordingService {
     final result = await FlutterForegroundTask.startService(
       serviceId: 401,
       serviceTypes: const [ForegroundServiceTypes.microphone],
-      notificationTitle: 'NeuroDesk görüşme kaydı',
+      notificationTitle: _notificationTitle,
       notificationText:
-          'Kayda başlandı • Hoparlörü açık tut, durdurmak için uygulamaya dön.',
+          'Hoparlore al - Kayit basliyor - Uygulamaya don',
       notificationButtons: const [
-        NotificationButton(id: _openRecorderButtonId, text: 'Uygulamaya dön'),
+        NotificationButton(id: _openRecorderButtonId, text: 'Uygulamaya don'),
       ],
       callback: startCallRecordingTask,
     );
@@ -192,13 +193,13 @@ class CallRecordingService {
     }
 
     if (filePath == null) {
-      throw Exception('Kayıt dosyası bulunamadı.');
+      throw Exception('KayÃ„Â±t dosyasÃ„Â± bulunamadÃ„Â±.');
     }
     final file = File(filePath);
 
-    // MediaRecorder, servis durdurulduktan hemen sonra dosyanın trailer'ını
-    // (moov atom) yazmayı bitirmemiş olabilir. Dosya boyutu iki ölçüm
-    // arasında değişmeyene kadar kısa aralıklarla bekle.
+    // MediaRecorder, servis durdurulduktan hemen sonra dosyanÃ„Â±n trailer'Ã„Â±nÃ„Â±
+    // (moov atom) yazmayÃ„Â± bitirmemiÃ…Å¸ olabilir. Dosya boyutu iki ÃƒÂ¶lÃƒÂ§ÃƒÂ¼m
+    // arasÃ„Â±nda deÃ„Å¸iÃ…Å¸meyene kadar kÃ„Â±sa aralÃ„Â±klarla bekle.
     int lastSize = -1;
     for (var i = 0; i < 15; i++) {
       if (await file.exists()) {
@@ -211,8 +212,8 @@ class CallRecordingService {
 
     if (!await file.exists() || await file.length() == 0) {
       throw Exception(
-        'Kayıt dosyası boş görünüyor. Hoparlörün açık olduğundan ve '
-        'mikrofon izninin verildiğinden emin olup tekrar deneyin.',
+        'KayÃ„Â±t dosyasÃ„Â± boÃ…Å¸ gÃƒÂ¶rÃƒÂ¼nÃƒÂ¼yor. HoparlÃƒÂ¶rÃƒÂ¼n aÃƒÂ§Ã„Â±k olduÃ„Å¸undan ve '
+        'mikrofon izninin verildiÃ„Å¸inden emin olup tekrar deneyin.',
       );
     }
 
