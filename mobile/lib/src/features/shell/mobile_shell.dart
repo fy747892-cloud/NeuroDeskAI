@@ -19,8 +19,7 @@ class MobileShell extends ConsumerWidget {
     final location = GoRouterState.of(context).uri.path;
     final apiStatus = ref.watch(apiStatusProvider);
     final dashboard = ref.watch(dashboardProvider).valueOrNull;
-    final notifications =
-        ref.watch(notificationsProvider).valueOrNull ?? const [];
+    final notifications = ref.watch(notificationsProvider).valueOrNull ?? const [];
     final calls = ref.watch(callsProvider).valueOrNull ?? const [];
     final jobs = ref.watch(callAnalysisJobsProvider).valueOrNull ?? const [];
     final unreadNotifications = notifications.where((item) => !item.isRead).length;
@@ -30,14 +29,11 @@ class MobileShell extends ConsumerWidget {
             job.sourceType.toLowerCase() == 'conversation' &&
             job.sourceId == call.conversationId,
       );
-      if (matchingJobs.isEmpty) {
-        return true;
-      }
+      if (matchingJobs.isEmpty) return true;
       final latest = matchingJobs.first;
       return latest.isPending || latest.isFailed;
     }).length;
-    // Activates the auto phone-state → call-recording listener for as long
-    // as the authenticated app shell is mounted; see call_state_listener.dart.
+
     ref.watch(callAutoRecordListenerProvider);
 
     return Scaffold(
@@ -55,10 +51,7 @@ class MobileShell extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 10),
-            const Text(
-              'NeuroDesk AI',
-              style: TextStyle(fontWeight: FontWeight.w800),
-            ),
+            const Text('NeuroDesk AI', style: TextStyle(fontWeight: FontWeight.w800)),
           ],
         ),
         actions: [
@@ -74,10 +67,7 @@ class MobileShell extends ConsumerWidget {
           ),
           IconButton(
             tooltip: 'Bildirimler',
-            icon: _BadgeIcon(
-              icon: Icons.notifications_outlined,
-              count: unreadNotifications,
-            ),
+            icon: _BadgeIcon(icon: Icons.notifications_outlined, count: unreadNotifications),
             onPressed: () => context.go('/app/notifications'),
           ),
           PopupMenuButton<_ShellAction>(
@@ -106,78 +96,15 @@ class MobileShell extends ConsumerWidget {
               }
             },
             itemBuilder: (context) => const [
-              PopupMenuItem(
-                value: _ShellAction.contacts,
-                child: ListTile(
-                  leading: Icon(Icons.people_alt_outlined),
-                  title: Text('Kişiler'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: _ShellAction.conversations,
-                child: ListTile(
-                  leading: Icon(Icons.forum_outlined),
-                  title: Text('Görüşmeler'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: _ShellAction.deals,
-                child: ListTile(
-                  leading: Icon(Icons.account_tree_outlined),
-                  title: Text('Fırsatlar'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: _ShellAction.priority,
-                child: ListTile(
-                  leading: Icon(Icons.priority_high),
-                  title: Text('Öncelik'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: _ShellAction.analytics,
-                child: ListTile(
-                  leading: Icon(Icons.insights_outlined),
-                  title: Text('Analitik'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: _ShellAction.files,
-                child: ListTile(
-                  leading: Icon(Icons.folder_outlined),
-                  title: Text('Dosyalar'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: _ShellAction.email,
-                child: ListTile(
-                  leading: Icon(Icons.mail_outline),
-                  title: Text('E-posta'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: _ShellAction.settings,
-                child: ListTile(
-                  leading: Icon(Icons.settings_outlined),
-                  title: Text('Ayarlar'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
-              PopupMenuItem(
-                value: _ShellAction.logout,
-                child: ListTile(
-                  leading: Icon(Icons.logout),
-                  title: Text('Çıkış yap'),
-                  contentPadding: EdgeInsets.zero,
-                ),
-              ),
+              PopupMenuItem(value: _ShellAction.contacts, child: _MenuTile(icon: Icons.people_alt_outlined, title: 'Kişiler')),
+              PopupMenuItem(value: _ShellAction.conversations, child: _MenuTile(icon: Icons.forum_outlined, title: 'Görüşmeler')),
+              PopupMenuItem(value: _ShellAction.deals, child: _MenuTile(icon: Icons.account_tree_outlined, title: 'Fırsatlar')),
+              PopupMenuItem(value: _ShellAction.priority, child: _MenuTile(icon: Icons.priority_high, title: 'Öncelik')),
+              PopupMenuItem(value: _ShellAction.analytics, child: _MenuTile(icon: Icons.insights_outlined, title: 'Analitik')),
+              PopupMenuItem(value: _ShellAction.files, child: _MenuTile(icon: Icons.folder_outlined, title: 'Dosyalar')),
+              PopupMenuItem(value: _ShellAction.email, child: _MenuTile(icon: Icons.mail_outline, title: 'E-posta')),
+              PopupMenuItem(value: _ShellAction.settings, child: _MenuTile(icon: Icons.settings_outlined, title: 'Ayarlar')),
+              PopupMenuItem(value: _ShellAction.logout, child: _MenuTile(icon: Icons.logout, title: 'Çıkış yap')),
             ],
           ),
         ],
@@ -204,53 +131,29 @@ class MobileShell extends ConsumerWidget {
         selectedIndex: _selectedIndex(location),
         onDestinationSelected: (index) => context.go(_pathForIndex(index)),
         destinations: [
-          NavigationDestination(
-            icon: const Icon(Icons.dashboard_outlined),
-            selectedIcon: const Icon(Icons.dashboard),
+          const NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard),
             label: 'Özet',
           ),
           NavigationDestination(
-            icon: _BadgeIcon(
-              icon: Icons.checklist_outlined,
-              count: dashboard?.summary.openTasksCount ?? 0,
-            ),
-            selectedIcon: _BadgeIcon(
-              icon: Icons.checklist,
-              count: dashboard?.summary.openTasksCount ?? 0,
-            ),
+            icon: _BadgeIcon(icon: Icons.checklist_outlined, count: dashboard?.summary.openTasksCount ?? 0),
+            selectedIcon: _BadgeIcon(icon: Icons.checklist, count: dashboard?.summary.openTasksCount ?? 0),
             label: 'Görevler',
           ),
           NavigationDestination(
-            icon: _BadgeIcon(
-              icon: Icons.call_outlined,
-              count: callsNeedingAttention,
-            ),
-            selectedIcon: _BadgeIcon(
-              icon: Icons.call,
-              count: callsNeedingAttention,
-            ),
+            icon: _BadgeIcon(icon: Icons.call_outlined, count: callsNeedingAttention),
+            selectedIcon: _BadgeIcon(icon: Icons.call, count: callsNeedingAttention),
             label: 'Çağrı',
           ),
           NavigationDestination(
-            icon: _BadgeIcon(
-              icon: Icons.calendar_today_outlined,
-              count: dashboard?.summary.upcomingAppointmentsCount ?? 0,
-            ),
-            selectedIcon: _BadgeIcon(
-              icon: Icons.calendar_today,
-              count: dashboard?.summary.upcomingAppointmentsCount ?? 0,
-            ),
+            icon: _BadgeIcon(icon: Icons.calendar_today_outlined, count: dashboard?.summary.upcomingAppointmentsCount ?? 0),
+            selectedIcon: _BadgeIcon(icon: Icons.calendar_today, count: dashboard?.summary.upcomingAppointmentsCount ?? 0),
             label: 'Takvim',
           ),
           NavigationDestination(
-            icon: _BadgeIcon(
-              icon: Icons.verified_outlined,
-              count: dashboard?.summary.pendingAiApprovalsCount ?? 0,
-            ),
-            selectedIcon: _BadgeIcon(
-              icon: Icons.verified,
-              count: dashboard?.summary.pendingAiApprovalsCount ?? 0,
-            ),
+            icon: _BadgeIcon(icon: Icons.verified_outlined, count: dashboard?.summary.pendingAiApprovalsCount ?? 0),
+            selectedIcon: _BadgeIcon(icon: Icons.verified, count: dashboard?.summary.pendingAiApprovalsCount ?? 0),
             label: 'Onay',
           ),
         ],
@@ -274,52 +177,23 @@ class MobileShell extends ConsumerWidget {
           children: [
             Text('Hızlı işlem', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 10),
-            _QuickActionTile(
-              icon: Icons.call_outlined,
-              title: 'Çağrı kaydet',
-              route: '/app/calls',
-            ),
-            _QuickActionTile(
-              icon: Icons.upload_file,
-              title: 'Dosya yükle',
-              route: '/app/files',
-            ),
-            _QuickActionTile(
-              icon: Icons.checklist,
-              title: 'Görev ekle',
-              route: '/app/tasks',
-            ),
-            _QuickActionTile(
-              icon: Icons.person_add_alt,
-              title: 'Kişi ekle',
-              route: '/app/contacts',
-            ),
-            _QuickActionTile(
-              icon: Icons.mic_none,
-              title: 'Sesli komut',
-              route: '/app/search',
-            ),
+            _QuickActionTile(icon: Icons.call_outlined, title: 'Çağrı kaydet', route: '/app/calls'),
+            _QuickActionTile(icon: Icons.upload_file, title: 'Dosya yükle', route: '/app/files'),
+            _QuickActionTile(icon: Icons.checklist, title: 'Görev ekle', route: '/app/tasks'),
+            _QuickActionTile(icon: Icons.person_add_alt, title: 'Kişi ekle', route: '/app/contacts'),
+            _QuickActionTile(icon: Icons.mic_none, title: 'Sesli komut', route: '/app/search'),
           ],
         ),
       ),
     );
   }
+
   int _selectedIndex(String location) {
-    if (location.startsWith('/app/tasks')) {
-      return 1;
-    }
-    if (location.startsWith('/app/conversations')) {
-      return 2;
-    }
-    if (location.startsWith('/app/calls')) {
-      return 2;
-    }
-    if (location.startsWith('/app/appointments')) {
-      return 3;
-    }
-    if (location.startsWith('/app/approvals')) {
-      return 4;
-    }
+    if (location.startsWith('/app/tasks')) return 1;
+    if (location.startsWith('/app/conversations')) return 2;
+    if (location.startsWith('/app/calls')) return 2;
+    if (location.startsWith('/app/appointments')) return 3;
+    if (location.startsWith('/app/approvals')) return 4;
     return 0;
   }
 
@@ -334,23 +208,22 @@ class MobileShell extends ConsumerWidget {
   }
 }
 
-enum _ShellAction {
-  contacts,
-  conversations,
-  deals,
-  priority,
-  analytics,
-  files,
-  email,
-  settings,
-  logout,
+enum _ShellAction { contacts, conversations, deals, priority, analytics, files, email, settings, logout }
+
+class _MenuTile extends StatelessWidget {
+  const _MenuTile({required this.icon, required this.title});
+
+  final IconData icon;
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(leading: Icon(icon), title: Text(title), contentPadding: EdgeInsets.zero);
+  }
 }
 
 class _BadgeIcon extends StatelessWidget {
-  const _BadgeIcon({
-    required this.icon,
-    required this.count,
-  });
+  const _BadgeIcon({required this.icon, required this.count});
 
   final IconData icon;
   final int count;
@@ -366,11 +239,7 @@ class _BadgeIcon extends StatelessWidget {
 }
 
 class _QuickActionTile extends StatelessWidget {
-  const _QuickActionTile({
-    required this.icon,
-    required this.title,
-    required this.route,
-  });
+  const _QuickActionTile({required this.icon, required this.title, required this.route});
 
   final IconData icon;
   final String title;
@@ -406,11 +275,7 @@ class _ApiStatusBanner extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: [
-              const Icon(
-                Icons.wifi_off_outlined,
-                color: Color(0xFFC2410C),
-                size: 18,
-              ),
+              const Icon(Icons.wifi_off_outlined, color: Color(0xFFC2410C), size: 18),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -425,10 +290,7 @@ class _ApiStatusBanner extends StatelessWidget {
                       ),
                 ),
               ),
-              TextButton(
-                onPressed: onRetry,
-                child: const Text('Dene'),
-              ),
+              TextButton(onPressed: onRetry, child: const Text('Dene')),
             ],
           ),
         ),

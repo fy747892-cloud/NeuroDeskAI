@@ -3,6 +3,7 @@ class AiActionApproval {
     required this.id,
     required this.actionType,
     required this.sourceType,
+    required this.sourceId,
     required this.status,
     required this.suggestedPayload,
     required this.createdAt,
@@ -13,6 +14,7 @@ class AiActionApproval {
   final String id;
   final String actionType;
   final String sourceType;
+  final String sourceId;
   final String status;
   final Map<String, dynamic> suggestedPayload;
   final double? confidenceScore;
@@ -24,6 +26,7 @@ class AiActionApproval {
       id: json['id'] as String,
       actionType: json['action_type'] as String,
       sourceType: json['source_type'] as String,
+      sourceId: json['source_id'] as String? ?? '',
       status: json['status'] as String,
       suggestedPayload: Map<String, dynamic>.from(
         json['suggested_payload'] as Map,
@@ -42,11 +45,10 @@ class AiActionApproval {
       return title;
     }
     return switch (actionType) {
-      'task' => 'Görev önerisi',
-      'create_task' => 'Görev önerisi',
-      'appointment' => 'Randevu önerisi',
-      'create_appointment' => 'Randevu önerisi',
-      'deal' => 'Fırsat önerisi',
+      'task' || 'create_task' || 'task/create_task' => 'Görev önerisi',
+      'appointment' || 'create_appointment' || 'appointment/create_appointment' =>
+        'Randevu önerisi',
+      'deal' || 'create_deal' || 'deal/create_deal' => 'Fırsat önerisi',
       _ => 'AI aksiyon önerisi',
     };
   }
@@ -73,11 +75,10 @@ class AiActionApproval {
 
   String get actionLabel {
     return switch (actionType) {
-      'task' => 'Görev',
-      'create_task' => 'Görev',
-      'appointment' => 'Randevu',
-      'create_appointment' => 'Randevu',
-      'deal' => 'Fırsat',
+      'task' || 'create_task' || 'task/create_task' => 'Görev',
+      'appointment' || 'create_appointment' || 'appointment/create_appointment' =>
+        'Randevu',
+      'deal' || 'create_deal' || 'deal/create_deal' => 'Fırsat',
       'send_email' => 'E-posta',
       _ => actionType,
     };

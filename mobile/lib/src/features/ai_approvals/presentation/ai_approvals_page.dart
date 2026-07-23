@@ -37,6 +37,8 @@ class AiApprovalsPage extends ConsumerWidget {
                     children: [
                       _ApprovalsSummary(approvals: items),
                       const SizedBox(height: 14),
+                      _BulkApprovalActions(approvals: items),
+                      const SizedBox(height: 14),
                       ...items.map(
                         (approval) => _ApprovalCard(approval: approval),
                       ),
@@ -51,6 +53,129 @@ class AiApprovalsPage extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _BulkApprovalActions extends ConsumerStatefulWidget {
+  const _BulkApprovalActions({required this.approvals});
+
+  final List<AiActionApproval> approvals;
+
+  @override
+  ConsumerState<_BulkApprovalActions> createState() =>
+      _BulkApprovalActionsState();
+}
+
+class _BulkApprovalActionsState extends ConsumerState<_BulkApprovalActions> {
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    final tasks = widget.approvals.where(_isTask).toList(growable: false);
+    final appointments =
+        widget.approvals.where(_isAppointment).toList(growable: false);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Toplu işlem',
+              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton.tonalIcon(
+                  onPressed: _isSubmitting || tasks.isEmpty
+                      ? null
+                      : () => _approveMany(tasks, 'Görevler oluşturuldu.'),
+                  icon: const Icon(Icons.task_alt),
+                  label: Text('Tüm görevleri onayla (${tasks.length})'),
+                ),
+                FilledButton.tonalIcon(
+                  onPressed: _isSubmitting || appointments.isEmpty
+                      ? null
+                      : () => _approveMany(
+                            appointments,
+                            'Randevular oluşturuldu.',
+                          ),
+                  icon: const Icon(Icons.event_available),
+                  label:
+                      Text('Tüm randevuları onayla (${appointments.length})'),
+                ),
+                FilledButton.icon(
+                  onPressed: _isSubmitting
+                      ? null
+                      : () => _approveMany(
+                            widget.approvals,
+                            'Bekleyen öneriler onaylandı.',
+                          ),
+                  icon: const Icon(Icons.done_all),
+                  label: const Text('Hepsini onayla'),
+                ),
+              ],
+            ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _errorMessage!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _approveMany(
+    List<AiActionApproval> approvals,
+    String successMessage,
+  ) async {
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+    try {
+      await ref.read(aiApprovalsRepositoryProvider).approveMany(approvals);
+      ref.invalidate(pendingAiApprovalsProvider);
+      ref.invalidate(tasksProvider);
+      ref.invalidate(appointmentsProvider);
+      ref.invalidate(dealsProvider);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(successMessage),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (error) {
+      setState(() {
+        _errorMessage = readableApiError(error, 'Toplu işlem tamamlanamadı.');
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+}
+
+bool _isTask(AiActionApproval approval) {
+  return approval.actionType == 'task' || approval.actionType == 'create_task';
+}
+
+bool _isAppointment(AiActionApproval approval) {
+  return approval.actionType == 'appointment' ||
+      approval.actionType == 'create_appointment';
 }
 
 class _ApprovalsSummary extends StatelessWidget {

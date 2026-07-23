@@ -8,9 +8,8 @@ import 'package:record/record.dart';
 const String _recordFilePathKey = 'callRecordingFilePath';
 const String _recordDirectoryName = 'call_recordings';
 const String _openRecorderButtonId = 'open_call_recorder';
+const String _notificationTitle = 'NeuroDesk AI';
 
-/// Foreground service entry point. Runs in a separate isolate so the
-/// microphone stays active while the system Phone app has focus.
 @pragma('vm:entry-point')
 void startCallRecordingTask() {
   FlutterForegroundTask.setTaskHandler(_CallRecordingTaskHandler());
@@ -28,16 +27,9 @@ class _CallRecordingTaskHandler extends TaskHandler {
     if (filePath == null) return;
     _startedAt = timestamp;
 
-    // AndroidAudioSource.mic/defaultSource goes through the voice-call
-    // tuned audio path on many devices during an active call, which applies
-    // noise suppression/echo cancellation aggressive enough to erase the
-    // speakerphone audio we actually want to capture. unprocessed bypasses
-    // that voice pre-processing, so ambient/speaker sound comes through.
-    //
-    // AndroidAudioSource.voiceCall (real call audio, no speakerphone needed)
-    // was considered too, but on devices that don't allow it, it doesn't
-    // throw — it silently records silence instead, with no reliable way to
-    // detect the failure and fall back automatically.
+    // Use Android's communication mode for speakerphone calls. Native cellular
+    // call audio is OS-restricted, so this captures the microphone/speaker mix
+    // as reliably as Android allows while the Phone app has focus.
     await _recorder.start(
       const RecordConfig(
         encoder: AudioEncoder.aacLc,
@@ -48,7 +40,9 @@ class _CallRecordingTaskHandler extends TaskHandler {
         echoCancel: false,
         noiseSuppress: false,
         androidConfig: AndroidRecordConfig(
-          audioSource: AndroidAudioSource.unprocessed,
+          audioSource: AndroidAudioSource.voiceCommunication,
+          speakerphone: true,
+          audioManagerMode: AudioManagerMode.modeInCommunication,
         ),
       ),
       path: filePath,
@@ -62,9 +56,9 @@ class _CallRecordingTaskHandler extends TaskHandler {
         ? Duration.zero
         : timestamp.difference(startedAt);
     FlutterForegroundTask.updateService(
-      notificationTitle: 'NeuroDesk görüşme kaydı',
-      notificationText:
-          'Kaydediliyor: ${_formatElapsed(elapsed)} • Durdurmak için uygulamaya dön.',
+      notificationTitle: _notificationTitle,
+      notificationText: 'Hoparlöre al - Kayıt açık '
+          '${_formatElapsed(elapsed)} - Uygulamaya dön',
       notificationButtons: const [
         NotificationButton(id: _openRecorderButtonId, text: 'Uygulamaya dön'),
       ],
@@ -92,10 +86,6 @@ class _CallRecordingTaskHandler extends TaskHandler {
   }
 }
 
-/// Records the phone's microphone (ambient/speaker audio) in a foreground
-/// service so the recording keeps running once the system Phone app takes
-/// over the screen for a native call. Android only — iOS does not allow
-/// third-party mic access during a phone call.
 class CallRecordingService {
   bool _initialized = false;
 
@@ -106,7 +96,7 @@ class CallRecordingService {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'call_recording_service',
-        channelName: 'Görüşme Kaydı',
+        channelName: 'Görüşme kaydı',
         channelDescription: 'Görüşme kaydı alınırken gösterilir.',
         channelImportance: NotificationChannelImportance.HIGH,
         priority: NotificationPriority.HIGH,
@@ -121,8 +111,6 @@ class CallRecordingService {
     );
   }
 
-  /// Requests the required permissions, starts the foreground recording
-  /// service and returns the path the recording will be written to.
   Future<String> start() async {
     if (!Platform.isAndroid) {
       throw Exception(
@@ -144,9 +132,7 @@ class CallRecordingService {
     }
 
     final supportDir = await getApplicationSupportDirectory();
-    final recordDir = Directory(
-      path.join(supportDir.path, _recordDirectoryName),
-    );
+    final recordDir = Directory(path.join(supportDir.path, _recordDirectoryName));
     await recordDir.create(recursive: true);
 
     final fileName = DateTime.now().toIso8601String().replaceAll(
@@ -163,9 +149,8 @@ class CallRecordingService {
     final result = await FlutterForegroundTask.startService(
       serviceId: 401,
       serviceTypes: const [ForegroundServiceTypes.microphone],
-      notificationTitle: 'NeuroDesk görüşme kaydı',
-      notificationText:
-          'Kayda başlandı • Hoparlörü açık tut, durdurmak için uygulamaya dön.',
+      notificationTitle: _notificationTitle,
+      notificationText: 'Hoparlöre al - Kayıt başlıyor - Uygulamaya dön',
       notificationButtons: const [
         NotificationButton(id: _openRecorderButtonId, text: 'Uygulamaya dön'),
       ],
@@ -179,8 +164,6 @@ class CallRecordingService {
     return filePath;
   }
 
-  /// Stops the foreground service, which stops and flushes the recorder,
-  /// then waits for the file to finish flushing and returns its bytes.
   Future<List<int>> stopAndRead() async {
     final filePath = await FlutterForegroundTask.getData<String>(
       key: _recordFilePathKey,

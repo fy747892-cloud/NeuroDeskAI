@@ -636,9 +636,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       },
     });
   } catch {
-    throw new Error(
-      `Sunucuya bağlanılamadı. Kullanılan backend adresi: ${API_BASE_URL}. Backend'in çalıştığını, NEXT_PUBLIC_API_BASE_URL ayarını ve CORS izinlerini kontrol edin.`,
-    );
+    throw new Error(`Sunucuya bağlanılamadı. Kullanılan backend adresi: ${API_BASE_URL}. Backend'in çalıştığını, NEXT_PUBLIC_API_BASE_URL ayarını ve CORS izinlerini kontrol edin.`);
   }
 
   if (!response.ok) {
@@ -1008,13 +1006,15 @@ export async function approveAction(
   accessToken: string,
   approvalId: string,
 ): Promise<AIActionApproval> {
-  return request<AIActionApproval>(`/api/v1/ai/approvals/${approvalId}/approve`, {
+  const approval = await request<AIActionApproval>(`/api/v1/ai/approvals/${approvalId}/approve`, {
     method: "POST",
     body: JSON.stringify({ approved_payload: null }),
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
   });
+  await materializeApprovedAction(accessToken, approval);
+  return approval;
 }
 
 export async function rejectAction(
@@ -1029,9 +1029,36 @@ export async function rejectAction(
   });
 }
 
-// Approving an AIActionApproval only flips its status — it does not create the
-// real record. A separate materialize call against the matching from-approval
-// endpoint is required to turn it into a real task/appointment/deal.
+// Newer backend deployments may materialize during approval; this fallback
+// keeps older deployments creating the task/appointment/deal as well.
+async function materializeApprovedAction(accessToken: string, approval: AIActionApproval): Promise<void> {
+  const endpoint =
+    approval.action_type === "task" || approval.action_type === "create_task" || approval.action_type === "task/create_task"
+      ? "/api/v1/tasks/from-approval"
+      : approval.action_type === "appointment" ||
+          approval.action_type === "create_appointment" ||
+          approval.action_type === "appointment/create_appointment"
+        ? "/api/v1/appointments/from-approval"
+        : approval.action_type === "deal" || approval.action_type === "create_deal" || approval.action_type === "deal/create_deal"
+          ? "/api/v1/deals/from-approval"
+          : null;
+
+  if (!endpoint) return;
+
+  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ approval_id: approval.id }),
+  });
+
+  if (!response.ok && response.status !== 409) {
+    throw new Error(await readErrorMessage(response));
+  }
+}
+
 export async function createTaskFromApproval(accessToken: string, approvalId: string): Promise<Task> {
   return request<Task>("/api/v1/tasks/from-approval", {
     method: "POST",
@@ -1634,9 +1661,7 @@ async function readErrorMessage(response: Response): Promise<string> {
       message?: unknown;
     };
     const message = friendlyPayloadMessage(payload, response.status);
-    if (message) {
-      return message;
-    }
+    if (message) return message;
   } catch {
     // Fall through to status text.
   }
@@ -1649,54 +1674,33 @@ function friendlyPayloadMessage(
 ): string | null {
   const message = extractPayloadMessage(payload);
   const translated = message ? translateBackendMessage(message, status) : null;
-  if (translated) {
-    return translated;
-  }
-  if (message && isTurkishMessage(message) && !looksTechnical(message)) {
-    return message;
-  }
+  if (translated) return translated;
+  if (message && isTurkishMessage(message) && !looksTechnical(message)) return message;
 
   switch (payload.error_code) {
-    case "auth_error":
-      return "Oturum bilgisi doğrulanamadı. Tekrar giriş yapın.";
-    case "forbidden":
-      return "Bu işlem için yetkiniz yok. Hesap rolünüzü veya ekip izinlerinizi kontrol edin.";
-    case "not_found":
-      return "İstenen kayıt bulunamadı. Listeyi yenileyip tekrar deneyin.";
-    case "conflict":
-      return "Bu işlem mevcut kayıtla çakışıyor. Sayfayı yenileyip son durumu kontrol edin.";
-    case "validation_error":
-      return "Gönderilen bilgiler eksik veya hatalı. Form alanlarını kontrol edip tekrar deneyin.";
-    case "rate_limited":
-      return "Kısa sürede çok fazla istek gönderildi. Biraz bekleyip tekrar deneyin.";
-    case "quota_exceeded":
-      return "Kullanım kotası doldu. Plan limitlerini kontrol edin veya daha sonra tekrar deneyin.";
-    case "provider_error":
-      return "AI sağlayıcısı isteği tamamlayamadı. API anahtarı, kota ve dosya formatını kontrol edip tekrar deneyin.";
-    default:
-      return status === 400 || status === 422
-        ? "Gönderilen bilgiler eksik veya hatalı. Form alanlarını kontrol edip tekrar deneyin."
-        : null;
+    case "auth_error": return "Oturum bilgisi doğrulanamadı. Tekrar giriş yapın.";
+    case "forbidden": return "Bu işlem için yetkiniz yok. Hesap rolünüzü veya ekip izinlerinizi kontrol edin.";
+    case "not_found": return "İstenen kayıt bulunamadı. Listeyi yenileyip tekrar deneyin.";
+    case "conflict": return "Bu işlem mevcut kayıtla çakışıyor. Sayfayı yenileyip son durumu kontrol edin.";
+    case "validation_error": return "Gönderilen bilgiler eksik veya hatalı. Form alanlarını kontrol edip tekrar deneyin.";
+    case "rate_limited": return "Kısa sürede çok fazla istek gönderildi. Biraz bekleyip tekrar deneyin.";
+    case "quota_exceeded": return "Kullanım kotası doldu. Plan limitlerini kontrol edin veya daha sonra tekrar deneyin.";
+    case "provider_error": return "AI sağlayıcısı isteği tamamlayamadı. API anahtarı, kota ve dosya formatını kontrol edip tekrar deneyin.";
+    default: return status === 400 || status === 422 ? "Gönderilen bilgiler eksik veya hatalı. Form alanlarını kontrol edip tekrar deneyin." : null;
   }
 }
 
 function extractPayloadMessage(payload: { detail?: unknown; error?: unknown; message?: unknown }): string | null {
   const source = payload.message ?? payload.detail ?? payload.error;
-  if (typeof source === "string") {
-    return source.trim() || null;
-  }
+  if (typeof source === "string") return source.trim() || null;
   if (Array.isArray(source)) {
-    const messages = source
-      .map((item) => {
-        if (typeof item === "object" && item !== null) {
-          const record = item as Record<string, unknown>;
-          return record.msg ?? record.message ?? record.detail;
-        }
-        return item;
-      })
-      .filter((item): item is string | number | boolean => ["string", "number", "boolean"].includes(typeof item))
-      .map(String)
-      .filter(Boolean);
+    const messages = source.map((item) => {
+      if (typeof item === "object" && item !== null) {
+        const record = item as Record<string, unknown>;
+        return record.msg ?? record.message ?? record.detail;
+      }
+      return item;
+    }).filter((item): item is string | number | boolean => ["string", "number", "boolean"].includes(typeof item)).map(String).filter(Boolean);
     return messages.length > 0 ? messages.join(" ") : null;
   }
   if (typeof source === "object" && source !== null) {
@@ -1708,50 +1712,20 @@ function extractPayloadMessage(payload: { detail?: unknown; error?: unknown; mes
 }
 
 function messageForStatus(status: number, statusText: string): string {
-  if (status === 400 || status === 422) {
-    return "Gönderilen bilgiler eksik veya hatalı. Form alanlarını kontrol edip tekrar deneyin.";
-  }
-  if (status === 401) {
-    return "Oturum süresi doldu. Tekrar giriş yapın.";
-  }
-  if (status === 403) {
-    return "Bu işlem için yetkiniz yok.";
-  }
-  if (status === 404) {
-    return "İstenen kayıt bulunamadı.";
-  }
-  if (status === 409) {
-    return "Bu işlem mevcut kayıtla çakışıyor. Sayfayı yenileyip son durumu kontrol edin.";
-  }
-  if (status === 429) {
-    return "Çok fazla istek gönderildi. Biraz bekleyip tekrar deneyin.";
-  }
-  if (status >= 500) {
-    return "Sunucu tarafında geçici bir sorun oluştu. Biraz sonra tekrar deneyin; devam ederse backend loglarını kontrol edin.";
-  }
+  if (status === 400 || status === 422) return "Gönderilen bilgiler eksik veya hatalı. Form alanlarını kontrol edip tekrar deneyin.";
+  if (status === 401) return "Oturum süresi doldu. Tekrar giriş yapın.";
+  if (status === 403) return "Bu işlem için yetkiniz yok.";
+  if (status === 404) return "İstenen kayıt bulunamadı.";
+  if (status === 409) return "Bu işlem mevcut kayıtla çakışıyor. Sayfayı yenileyip son durumu kontrol edin.";
+  if (status === 429) return "Çok fazla istek gönderildi. Biraz bekleyip tekrar deneyin.";
+  if (status >= 500) return "Sunucu tarafında geçici bir sorun oluştu. Biraz sonra tekrar deneyin; devam ederse backend loglarını kontrol edin.";
   const translatedStatus = statusText ? translateBackendMessage(statusText, status) : null;
   return translatedStatus ?? "İstek tamamlanamadı. Lütfen tekrar deneyin.";
 }
 
 function looksTechnical(message: string): boolean {
   const lower = message.toLowerCase();
-  return (
-    lower.includes("aadsts") ||
-    lower.includes("sqlalchemy") ||
-    lower.includes("psycopg") ||
-    lower.includes("syntaxerror") ||
-    lower.includes("typeerror") ||
-    lower.includes("valueerror") ||
-    lower.includes("dioexception") ||
-    lower.includes("httpexception") ||
-    lower.includes("runtimeerror") ||
-    lower.includes("traceback") ||
-    lower.includes("status code of") ||
-    lower.includes("requestoptions") ||
-    lower.includes("stack trace") ||
-    lower.includes("not-configured") ||
-    lower.includes("identifier")
-  );
+  return lower.includes("aadsts") || lower.includes("sqlalchemy") || lower.includes("psycopg") || lower.includes("syntaxerror") || lower.includes("typeerror") || lower.includes("valueerror") || lower.includes("dioexception") || lower.includes("httpexception") || lower.includes("runtimeerror") || lower.includes("traceback") || lower.includes("status code of") || lower.includes("requestoptions") || lower.includes("stack trace") || lower.includes("not-configured") || lower.includes("identifier");
 }
 
 function isTurkishMessage(message: string): boolean {
@@ -1760,77 +1734,29 @@ function isTurkishMessage(message: string): boolean {
 
 function translateBackendMessage(message: string, status: number): string | null {
   const normalized = message.trim();
-  if (!normalized) {
-    return null;
-  }
-
+  if (!normalized) return null;
   const lower = normalized.toLowerCase();
-
-  if (lower.includes("invalid credentials") || lower.includes("incorrect username") || lower.includes("invalid email")) {
-    return "E-posta veya şifre hatalı. Bilgileri kontrol edip tekrar deneyin.";
-  }
-  if (lower.includes("token expired") || lower.includes("not authenticated") || lower.includes("unauthorized")) {
-    return "Oturum süresi doldu. Tekrar giriş yapın.";
-  }
-  if (lower.includes("forbidden") || lower.includes("permission")) {
-    return "Bu işlem için yetkiniz yok. Hesap rolünüzü veya ekip izinlerinizi kontrol edin.";
-  }
-  if (lower.includes("not found")) {
-    return "İstenen kayıt bulunamadı. Listeyi yenileyip tekrar deneyin.";
-  }
-  if (lower.includes("already exists") || lower.includes("duplicate") || lower.includes("conflict")) {
-    return "Bu kayıt zaten mevcut veya son durumla çakışıyor. Sayfayı yenileyip tekrar deneyin.";
-  }
-  if (lower.includes("field required") || lower.includes("required") || lower.includes("validation")) {
-    return "Zorunlu alanları doldurup tekrar deneyin.";
-  }
-  if (lower.includes("quota") || lower.includes("limit exceeded") || lower.includes("insufficient_quota")) {
-    return "Kullanım hakkı doldu. Limitleri kontrol edip tekrar deneyin.";
-  }
-  if (lower.includes("rate limit") || lower.includes("too many requests")) {
-    return "Çok fazla istek gönderildi. Biraz bekleyip tekrar deneyin.";
-  }
-  if (lower.includes("failed to fetch") || lower.includes("network") || lower.includes("fetch failed")) {
-    return "Sunucuya ulaşılamadı. İnternet bağlantınızı ve backend adresini kontrol edin.";
-  }
-  if (lower.includes("gmail") || lower.includes("google oauth") || lower.includes("accounts.google")) {
-    return "Gmail bağlantısı tamamlanamadı. Google OAuth client ve redirect URI ayarlarını kontrol edin.";
-  }
-  if (lower.includes("outlook") || lower.includes("microsoft") || lower.includes("aadsts700016") || lower.includes("not-configured")) {
-    return "Outlook bağlantısı tamamlanamadı. Microsoft uygulama kimliği, client secret ve redirect URI ayarlarını kontrol edin.";
-  }
-  if (lower.includes("api key") || lower.includes("llm_api_key")) {
-    return "AI API anahtarı eksik veya geçersiz. Sunucu ortam değişkenlerini kontrol edin.";
-  }
-  if (lower.includes("transcription") || lower.includes("empty text") || lower.includes("audio")) {
-    return "Ses kaydı işlenemedi. Mikrofon, kayıt kalitesi ve AI ses çözümleme ayarlarını kontrol edin.";
-  }
-  if (lower.includes("not valid json") || lower.includes("json object")) {
-    return "AI yanıtı beklenen formatta gelmedi. İşlemi tekrar deneyin.";
-  }
-  if (lower.includes("unsupported llm provider")) {
-    return "AI sağlayıcısı ayarı desteklenmiyor. Sunucu yapılandırmasını kontrol edin.";
-  }
-  if (lower.includes("openai") || lower.includes("provider")) {
-    return "AI sağlayıcısı isteği tamamlayamadı. API anahtarı, kota ve dosya formatını kontrol edip tekrar deneyin.";
-  }
-  if (lower.includes("storage") || lower.includes("bucket") || lower.includes("s3") || lower.includes("minio")) {
-    return "Dosya depolama bağlantısında sorun oluştu. Storage endpoint, bucket ve erişim anahtarlarını kontrol edin.";
-  }
-  if (lower.includes("database") || lower.includes("db error") || lower.includes("sqlalchemy") || lower.includes("psycopg")) {
-    return "Veritabanı işleminde sorun oluştu. Bağlantı ayarlarını ve sunucu loglarını kontrol edin.";
-  }
-  if (lower.includes("bad request")) {
-    return "İstek hatalı. Girilen bilgileri kontrol edip tekrar deneyin.";
-  }
-  if (lower.includes("internal server error")) {
-    return "Sunucu tarafında geçici bir sorun oluştu. Biraz sonra tekrar deneyin.";
-  }
-
-  if (looksTechnical(normalized)) {
-    return messageForStatus(status, "");
-  }
-
+  if (lower.includes("invalid credentials") || lower.includes("incorrect username") || lower.includes("invalid email")) return "E-posta veya şifre hatalı. Bilgileri kontrol edip tekrar deneyin.";
+  if (lower.includes("token expired") || lower.includes("not authenticated") || lower.includes("unauthorized")) return "Oturum süresi doldu. Tekrar giriş yapın.";
+  if (lower.includes("forbidden") || lower.includes("permission")) return "Bu işlem için yetkiniz yok. Hesap rolünüzü veya ekip izinlerinizi kontrol edin.";
+  if (lower.includes("not found")) return "İstenen kayıt bulunamadı. Listeyi yenileyip tekrar deneyin.";
+  if (lower.includes("already exists") || lower.includes("duplicate") || lower.includes("conflict")) return "Bu kayıt zaten mevcut veya son durumla çakışıyor. Sayfayı yenileyip tekrar deneyin.";
+  if (lower.includes("field required") || lower.includes("required") || lower.includes("validation")) return "Zorunlu alanları doldurup tekrar deneyin.";
+  if (lower.includes("quota") || lower.includes("limit exceeded") || lower.includes("insufficient_quota")) return "Kullanım hakkı doldu. Limitleri kontrol edip tekrar deneyin.";
+  if (lower.includes("rate limit") || lower.includes("too many requests")) return "Çok fazla istek gönderildi. Biraz bekleyip tekrar deneyin.";
+  if (lower.includes("failed to fetch") || lower.includes("network") || lower.includes("fetch failed")) return "Sunucuya ulaşılamadı. İnternet bağlantınızı ve backend adresini kontrol edin.";
+  if (lower.includes("gmail") || lower.includes("google oauth") || lower.includes("accounts.google")) return "Gmail bağlantısı tamamlanamadı. Google OAuth client ve redirect URI ayarlarını kontrol edin.";
+  if (lower.includes("outlook") || lower.includes("microsoft") || lower.includes("aadsts700016") || lower.includes("not-configured")) return "Outlook bağlantısı tamamlanamadı. Microsoft uygulama kimliği, client secret ve redirect URI ayarlarını kontrol edin.";
+  if (lower.includes("api key") || lower.includes("llm_api_key")) return "AI API anahtarı eksik veya geçersiz. Sunucu ortam değişkenlerini kontrol edin.";
+  if (lower.includes("transcription") || lower.includes("empty text") || lower.includes("audio")) return "Ses kaydı işlenemedi. Mikrofon, kayıt kalitesi ve AI ses çözümleme ayarlarını kontrol edin.";
+  if (lower.includes("not valid json") || lower.includes("json object")) return "AI yanıtı beklenen formatta gelmedi. İşlemi tekrar deneyin.";
+  if (lower.includes("unsupported llm provider")) return "AI sağlayıcısı ayarı desteklenmiyor. Sunucu yapılandırmasını kontrol edin.";
+  if (lower.includes("openai") || lower.includes("provider")) return "AI sağlayıcısı isteği tamamlayamadı. API anahtarı, kota ve dosya formatını kontrol edip tekrar deneyin.";
+  if (lower.includes("storage") || lower.includes("bucket") || lower.includes("s3") || lower.includes("minio")) return "Dosya depolama bağlantısında sorun oluştu. Storage endpoint, bucket ve erişim anahtarlarını kontrol edin.";
+  if (lower.includes("database") || lower.includes("db error") || lower.includes("sqlalchemy") || lower.includes("psycopg")) return "Veritabanı işleminde sorun oluştu. Bağlantı ayarlarını ve sunucu loglarını kontrol edin.";
+  if (lower.includes("bad request")) return "İstek hatalı. Girilen bilgileri kontrol edip tekrar deneyin.";
+  if (lower.includes("internal server error")) return "Sunucu tarafında geçici bir sorun oluştu. Biraz sonra tekrar deneyin.";
+  if (looksTechnical(normalized)) return messageForStatus(status, "");
   return null;
 }
 

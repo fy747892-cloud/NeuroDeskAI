@@ -27,18 +27,30 @@ final callAutoRecordListenerProvider = Provider<void>((ref) {
 
   unawaited(_primePermissions());
 
+  PhoneStateStatus? lastStatus;
   final subscription = PhoneState.stream.listen((phoneState) {
+    final status = phoneState.status;
+    if (status == lastStatus) {
+      return;
+    }
+    lastStatus = status;
+
     final notifier = ref.read(callRecordingProvider.notifier);
-    switch (phoneState.status) {
+    switch (status) {
       case PhoneStateStatus.CALL_STARTED:
-        notifier.startRecording(phoneNumber: phoneState.number);
+        final current = ref.read(callRecordingProvider);
+        if (current.status == CallRecordingStatus.idle ||
+            current.status == CallRecordingStatus.completed ||
+            current.status == CallRecordingStatus.error) {
+          notifier.startRecording(phoneNumber: phoneState.number);
+        }
       case PhoneStateStatus.CALL_ENDED:
+      case PhoneStateStatus.NOTHING:
         final current = ref.read(callRecordingProvider);
         if (current.status == CallRecordingStatus.recording) {
           notifier.stopAndProcess();
         }
       case PhoneStateStatus.CALL_INCOMING:
-      case PhoneStateStatus.NOTHING:
         break;
     }
   });

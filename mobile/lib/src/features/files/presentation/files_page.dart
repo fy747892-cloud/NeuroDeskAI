@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:file_picker/file_picker.dart';
@@ -6,6 +8,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api/api_error.dart';
 import '../../ai_approvals/data/ai_approvals_repository.dart';
+import '../../ai_approvals/domain/ai_action_approval.dart';
+import '../../ai_approvals/presentation/quick_approval_card.dart';
+import '../../appointments/data/appointments_repository.dart';
+import '../../tasks/data/tasks_repository.dart';
 import '../data/files_repository.dart';
 import '../domain/file_record.dart';
 
@@ -20,10 +26,30 @@ class _FilesPageState extends ConsumerState<FilesPage> {
   String? _activeFileId;
   String? _notice;
   bool _isUploading = false;
+  Timer? _pollingTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted) return;
+      if (_activeFileId != null || _isUploading) {
+        ref.invalidate(filesProvider);
+        ref.invalidate(pendingAiApprovalsProvider);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _pollingTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final files = ref.watch(filesProvider);
+    final approvals = ref.watch(pendingAiApprovalsProvider);
     final theme = Theme.of(context);
 
     return RefreshIndicator(
@@ -89,6 +115,12 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                           onShowText: () => _showExtractedText(file),
                           onShowAnalysis: () => _showAnalysis(file),
                           onDelete: () => _confirmDelete(file),
+                          onApprovalsChanged: _refreshAfterApproval,
+                          approvals: approvals.maybeWhen(
+                            data: (list) =>
+                                _approvalsForFile(list, file).toList(),
+                            orElse: () => const [],
+                          ),
                         ),
                       ),
                     ],
@@ -380,6 +412,23 @@ class _FilesPageState extends ConsumerState<FilesPage> {
     }
   }
 
+  Iterable<AiActionApproval> _approvalsForFile(
+    List<AiActionApproval> approvals,
+    FileRecord file,
+  ) {
+    return approvals.where(
+      (approval) =>
+          approval.sourceType.toLowerCase() == 'file' &&
+          approval.sourceId == file.id,
+    );
+  }
+
+  void _refreshAfterApproval() {
+    ref.invalidate(filesProvider);
+    ref.invalidate(tasksProvider);
+    ref.invalidate(appointmentsProvider);
+  }
+
   void _showTemporaryNotice(String message) {
     if (!mounted) return;
     setState(() => _notice = message);
@@ -538,20 +587,24 @@ class _FileCard extends StatelessWidget {
   const _FileCard({
     required this.file,
     required this.isActive,
+    required this.approvals,
     required this.onAnalyze,
     required this.onDownload,
     required this.onShowText,
     required this.onShowAnalysis,
     required this.onDelete,
+    required this.onApprovalsChanged,
   });
 
   final FileRecord file;
   final bool isActive;
+  final List<AiActionApproval> approvals;
   final VoidCallback onAnalyze;
   final VoidCallback onDownload;
   final VoidCallback onShowText;
   final VoidCallback onShowAnalysis;
   final VoidCallback onDelete;
+  final VoidCallback onApprovalsChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -652,6 +705,10 @@ class _FileCard extends StatelessWidget {
                   label: const Text('Sil'),
                 ),
               ],
+            ),
+            QuickApprovalCard(
+              approvals: approvals,
+              onChanged: onApprovalsChanged,
             ),
           ],
         ),
