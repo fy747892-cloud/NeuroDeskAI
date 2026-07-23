@@ -4,9 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   AIActionApproval,
   approveAction,
-  createAppointmentFromApproval,
-  createDealFromApproval,
-  createTaskFromApproval,
   listApprovals,
   rejectAction,
 } from "@/lib/api";
@@ -77,13 +74,6 @@ export function ApprovalsView() {
     setError(null);
     try {
       await approveAction(tokens.accessToken, approval.id);
-      if (approval.action_type === "task") {
-        await createTaskFromApproval(tokens.accessToken, approval.id);
-      } else if (approval.action_type === "appointment") {
-        await createAppointmentFromApproval(tokens.accessToken, approval.id);
-      } else if (approval.action_type === "deal") {
-        await createDealFromApproval(tokens.accessToken, approval.id);
-      }
       await load();
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : t("approvals.errors.approveFailed"));

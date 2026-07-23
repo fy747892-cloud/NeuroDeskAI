@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:path/path.dart' as path;
@@ -10,8 +10,6 @@ const String _recordDirectoryName = 'call_recordings';
 const String _openRecorderButtonId = 'open_call_recorder';
 const String _notificationTitle = 'NeuroDesk AI';
 
-/// Foreground service entry point. Runs in a separate isolate so the
-/// microphone stays active while the system Phone app has focus.
 @pragma('vm:entry-point')
 void startCallRecordingTask() {
   FlutterForegroundTask.setTaskHandler(_CallRecordingTaskHandler());
@@ -29,10 +27,9 @@ class _CallRecordingTaskHandler extends TaskHandler {
     if (filePath == null) return;
     _startedAt = timestamp;
 
-    // Use the normal microphone source for real phone calls. Some Android
-    // devices record fine before the call with `unprocessed`, but switch that
-    // source to silence while the system Phone app owns the audio route. `mic`
-    // is the most compatible choice for speakerphone capture.
+    // Use Android's communication mode for speakerphone calls. Native cellular
+    // call audio is OS-restricted, so this captures the microphone/speaker mix
+    // as reliably as Android allows while the Phone app has focus.
     await _recorder.start(
       const RecordConfig(
         encoder: AudioEncoder.aacLc,
@@ -43,7 +40,9 @@ class _CallRecordingTaskHandler extends TaskHandler {
         echoCancel: false,
         noiseSuppress: false,
         androidConfig: AndroidRecordConfig(
-          audioSource: AndroidAudioSource.mic,
+          audioSource: AndroidAudioSource.voiceCommunication,
+          speakerphone: true,
+          audioManagerMode: AudioManagerMode.modeInCommunication,
         ),
       ),
       path: filePath,
@@ -58,10 +57,10 @@ class _CallRecordingTaskHandler extends TaskHandler {
         : timestamp.difference(startedAt);
     FlutterForegroundTask.updateService(
       notificationTitle: _notificationTitle,
-      notificationText: 'Hoparlore al - Kayit acik '
-          '${_formatElapsed(elapsed)} - Uygulamaya don',
+      notificationText: 'Hoparlöre al - Kayıt açık '
+          '${_formatElapsed(elapsed)} - Uygulamaya dön',
       notificationButtons: const [
-        NotificationButton(id: _openRecorderButtonId, text: 'Uygulamaya don'),
+        NotificationButton(id: _openRecorderButtonId, text: 'Uygulamaya dön'),
       ],
     );
   }
@@ -87,10 +86,6 @@ class _CallRecordingTaskHandler extends TaskHandler {
   }
 }
 
-/// Records the phone's microphone (ambient/speaker audio) in a foreground
-/// service so the recording keeps running once the system Phone app takes
-/// over the screen for a native call. Android only Ã¢â‚¬â€ iOS does not allow
-/// third-party mic access during a phone call.
 class CallRecordingService {
   bool _initialized = false;
 
@@ -101,8 +96,8 @@ class CallRecordingService {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'call_recording_service',
-        channelName: 'Gorusme kaydi',
-        channelDescription: 'Gorusme kaydi alinirken gosterilir.',
+        channelName: 'Görüşme kaydı',
+        channelDescription: 'Görüşme kaydı alınırken gösterilir.',
         channelImportance: NotificationChannelImportance.HIGH,
         priority: NotificationPriority.HIGH,
       ),
@@ -116,14 +111,12 @@ class CallRecordingService {
     );
   }
 
-  /// Requests the required permissions, starts the foreground recording
-  /// service and returns the path the recording will be written to.
   Future<String> start() async {
     if (!Platform.isAndroid) {
       throw Exception(
-        'GÃƒÂ¶rÃƒÂ¼Ã…Å¸me kaydÃ„Â± yalnÃ„Â±zca Android\'de destekleniyor: iOS ÃƒÂ¼ÃƒÂ§ÃƒÂ¼ncÃƒÂ¼ '
-        'parti uygulamalarÃ„Â±n telefon gÃƒÂ¶rÃƒÂ¼Ã…Å¸mesi sÃ„Â±rasÃ„Â±nda mikrofona '
-        'eriÃ…Å¸mesine izin vermiyor.',
+        'Görüşme kaydı yalnızca Android\'de destekleniyor: iOS üçüncü '
+        'parti uygulamaların telefon görüşmesi sırasında mikrofona '
+        'erişmesine izin vermiyor.',
       );
     }
 
@@ -139,9 +132,7 @@ class CallRecordingService {
     }
 
     final supportDir = await getApplicationSupportDirectory();
-    final recordDir = Directory(
-      path.join(supportDir.path, _recordDirectoryName),
-    );
+    final recordDir = Directory(path.join(supportDir.path, _recordDirectoryName));
     await recordDir.create(recursive: true);
 
     final fileName = DateTime.now().toIso8601String().replaceAll(
@@ -159,10 +150,9 @@ class CallRecordingService {
       serviceId: 401,
       serviceTypes: const [ForegroundServiceTypes.microphone],
       notificationTitle: _notificationTitle,
-      notificationText:
-          'Hoparlore al - Kayit basliyor - Uygulamaya don',
+      notificationText: 'Hoparlöre al - Kayıt başlıyor - Uygulamaya dön',
       notificationButtons: const [
-        NotificationButton(id: _openRecorderButtonId, text: 'Uygulamaya don'),
+        NotificationButton(id: _openRecorderButtonId, text: 'Uygulamaya dön'),
       ],
       callback: startCallRecordingTask,
     );
@@ -174,8 +164,6 @@ class CallRecordingService {
     return filePath;
   }
 
-  /// Stops the foreground service, which stops and flushes the recorder,
-  /// then waits for the file to finish flushing and returns its bytes.
   Future<List<int>> stopAndRead() async {
     final filePath = await FlutterForegroundTask.getData<String>(
       key: _recordFilePathKey,
@@ -187,13 +175,13 @@ class CallRecordingService {
     }
 
     if (filePath == null) {
-      throw Exception('KayÃ„Â±t dosyasÃ„Â± bulunamadÃ„Â±.');
+      throw Exception('Kayıt dosyası bulunamadı.');
     }
     final file = File(filePath);
 
-    // MediaRecorder, servis durdurulduktan hemen sonra dosyanÃ„Â±n trailer'Ã„Â±nÃ„Â±
-    // (moov atom) yazmayÃ„Â± bitirmemiÃ…Å¸ olabilir. Dosya boyutu iki ÃƒÂ¶lÃƒÂ§ÃƒÂ¼m
-    // arasÃ„Â±nda deÃ„Å¸iÃ…Å¸meyene kadar kÃ„Â±sa aralÃ„Â±klarla bekle.
+    // MediaRecorder, servis durdurulduktan hemen sonra dosyanın trailer'ını
+    // (moov atom) yazmayı bitirmemiş olabilir. Dosya boyutu iki ölçüm
+    // arasında değişmeyene kadar kısa aralıklarla bekle.
     int lastSize = -1;
     for (var i = 0; i < 15; i++) {
       if (await file.exists()) {
@@ -206,8 +194,8 @@ class CallRecordingService {
 
     if (!await file.exists() || await file.length() == 0) {
       throw Exception(
-        'KayÃ„Â±t dosyasÃ„Â± boÃ…Å¸ gÃƒÂ¶rÃƒÂ¼nÃƒÂ¼yor. HoparlÃƒÂ¶rÃƒÂ¼n aÃƒÂ§Ã„Â±k olduÃ„Å¸undan ve '
-        'mikrofon izninin verildiÃ„Å¸inden emin olup tekrar deneyin.',
+        'Kayıt dosyası boş görünüyor. Hoparlörün açık olduğundan ve '
+        'mikrofon izninin verildiğinden emin olup tekrar deneyin.',
       );
     }
 

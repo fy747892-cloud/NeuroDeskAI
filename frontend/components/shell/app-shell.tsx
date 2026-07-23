@@ -3,12 +3,13 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
-import { ReactNode, useState } from "react";
+import { ReactNode, useCallback, useEffect, useState } from "react";
 import { openSearchPalette, SearchPalette } from "@/components/shell/search-palette";
 import { NotificationBell } from "@/components/shell/notification-bell";
 import { UserMenu } from "@/components/shell/user-menu";
 import { LanguageSwitcher } from "@/components/shell/language-switcher";
 import { useSession } from "@/lib/session";
+import { getDashboard } from "@/lib/api";
 import { useLanguage } from "@/lib/i18n/context";
 import { getInitials } from "@/lib/format";
 
@@ -29,13 +30,33 @@ type Translate = (key: string, params?: Record<string, string | number>) => stri
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const { user } = useSession();
+  const { tokens, user } = useSession();
   const { t } = useLanguage();
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [navBadges, setNavBadges] = useState<Record<string, number>>({});
 
   const displayName = user?.profile?.full_name ?? user?.email ?? "NeuroDesk";
   const planLabel = t("shell.planLabel");
   const closeMobileMenu = () => setMobileMenuOpen(false);
+  const loadNavBadges = useCallback(async () => {
+    if (!tokens?.accessToken) return;
+    try {
+      const dashboard = await getDashboard(tokens.accessToken);
+      setNavBadges({
+        aiActionCenter: dashboard.summary.pending_ai_approvals_count,
+        tasks: dashboard.summary.open_tasks_count,
+        dashboard: dashboard.summary.pending_ai_approvals_count,
+      });
+    } catch {
+      setNavBadges({});
+    }
+  }, [tokens?.accessToken]);
+
+  useEffect(() => {
+    loadNavBadges();
+    const timer = window.setInterval(loadNavBadges, 15000);
+    return () => window.clearInterval(timer);
+  }, [loadNavBadges]);
 
   return (
     <div className="flex min-h-screen">
@@ -43,7 +64,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         className="fixed h-full w-[260px] left-0 top-0 bg-surface-container-low shadow-sm hidden lg:flex flex-col py-md z-50"
         aria-label={t("shell.ariaMainNav")}
       >
-        <SideNavContent displayName={displayName} pathname={pathname} planLabel={planLabel} t={t} />
+        <SideNavContent displayName={displayName} navBadges={navBadges} pathname={pathname} planLabel={planLabel} t={t} />
       </aside>
 
       {isMobileMenuOpen ? (
@@ -71,6 +92,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </div>
             <SideNavContent
               displayName={displayName}
+              navBadges={navBadges}
               onNavigate={closeMobileMenu}
               pathname={pathname}
               planLabel={planLabel}
@@ -147,12 +169,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 function SideNavContent({
   displayName,
+  navBadges,
   onNavigate,
   pathname,
   planLabel,
   t,
 }: {
   displayName: string;
+  navBadges: Record<string, number>;
   onNavigate?: () => void;
   pathname: string;
   planLabel: string;
@@ -183,6 +207,11 @@ function SideNavContent({
           >
             <span className="material-symbols-outlined">{item.icon}</span>
             <span>{t(`shell.nav.${item.labelKey}`)}</span>
+            {navBadges[item.labelKey] > 0 ? (
+              <span className="ml-auto min-w-5 h-5 px-1.5 rounded-full bg-error text-white text-[11px] font-bold flex items-center justify-center">
+                {navBadges[item.labelKey] > 99 ? "99+" : navBadges[item.labelKey]}
+              </span>
+            ) : null}
           </Link>
         ))}
         <button
@@ -196,7 +225,7 @@ function SideNavContent({
           <span className="material-symbols-outlined">search</span>
           <span>{t("shell.nav.search")}</span>
           <kbd className="ml-auto text-[10px] text-outline border border-outline-variant/40 rounded px-1.5 py-0.5">
-            ⌘K
+            ?K
           </kbd>
         </button>
       </nav>

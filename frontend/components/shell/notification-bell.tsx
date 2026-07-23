@@ -20,7 +20,7 @@ export function NotificationBell() {
     try {
       setNotifications(await listNotifications(tokens.accessToken));
     } catch {
-      // topbar affordance only — a failed fetch just leaves the bell without a badge
+      // Topbar affordance only; a failed fetch just leaves the bell without a badge.
     }
   }, [tokens?.accessToken]);
 
