@@ -29,16 +29,10 @@ class _CallRecordingTaskHandler extends TaskHandler {
     if (filePath == null) return;
     _startedAt = timestamp;
 
-    // AndroidAudioSource.mic/defaultSource goes through the voice-call
-    // tuned audio path on many devices during an active call, which applies
-    // noise suppression/echo cancellation aggressive enough to erase the
-    // speakerphone audio we actually want to capture. unprocessed bypasses
-    // that voice pre-processing, so ambient/speaker sound comes through.
-    //
-    // AndroidAudioSource.voiceCall (real call audio, no speakerphone needed)
-    // was considered too, but on devices that don't allow it, it doesn't
-    // throw Ã¢â‚¬â€ it silently records silence instead, with no reliable way to
-    // detect the failure and fall back automatically.
+    // Use the normal microphone source for real phone calls. Some Android
+    // devices record fine before the call with `unprocessed`, but switch that
+    // source to silence while the system Phone app owns the audio route. `mic`
+    // is the most compatible choice for speakerphone capture.
     await _recorder.start(
       const RecordConfig(
         encoder: AudioEncoder.aacLc,
@@ -49,7 +43,7 @@ class _CallRecordingTaskHandler extends TaskHandler {
         echoCancel: false,
         noiseSuppress: false,
         androidConfig: AndroidRecordConfig(
-          audioSource: AndroidAudioSource.unprocessed,
+          audioSource: AndroidAudioSource.mic,
         ),
       ),
       path: filePath,

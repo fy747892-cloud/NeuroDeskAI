@@ -104,7 +104,7 @@ class CallRecordingNotifier extends Notifier<CallRecordingState> {
             .requestAnalysis(result.conversationId);
         analysisFailed = job.isFailed;
       } catch (_) {
-        analysisFailed = true;
+        analysisFailed = false;
       }
 
       state = state.copyWith(
