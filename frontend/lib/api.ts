@@ -637,7 +637,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     });
   } catch {
     throw new Error(
-      `API bağlantısı kurulamadı. Kullanılan backend adresi: ${API_BASE_URL}. Backend'in çalıştığını, NEXT_PUBLIC_API_BASE_URL ayarını ve CORS izinlerini kontrol edin.`,
+      `Sunucuya bağlanılamadı. Kullanılan backend adresi: ${API_BASE_URL}. Backend'in çalıştığını, NEXT_PUBLIC_API_BASE_URL ayarını ve CORS izinlerini kontrol edin.`,
     );
   }
 
@@ -657,16 +657,16 @@ export async function getHealthStatus(): Promise<HealthStatus> {
     });
 
     if (!response.ok) {
-      return { ok: false, label: "Backend unavailable" };
+      return { ok: false, label: "Backend erişilemiyor" };
     }
 
     const payload = (await response.json()) as { status?: string };
     return {
       ok: payload.status === "ok",
-      label: payload.status === "ok" ? "Backend online" : "Backend degraded",
+      label: payload.status === "ok" ? "Backend çalışıyor" : "Backend kararsız",
     };
   } catch {
-    return { ok: false, label: "Backend offline" };
+    return { ok: false, label: "Backend çevrim dışı" };
   }
 }
 
@@ -1648,7 +1648,11 @@ function friendlyPayloadMessage(
   status: number,
 ): string | null {
   const message = extractPayloadMessage(payload);
-  if (message && !looksTechnical(message)) {
+  const translated = message ? translateBackendMessage(message, status) : null;
+  if (translated) {
+    return translated;
+  }
+  if (message && isTurkishMessage(message) && !looksTechnical(message)) {
     return message;
   }
 
@@ -1725,19 +1729,109 @@ function messageForStatus(status: number, statusText: string): string {
   if (status >= 500) {
     return "Sunucu tarafında geçici bir sorun oluştu. Biraz sonra tekrar deneyin; devam ederse backend loglarını kontrol edin.";
   }
-  return statusText || "İstek tamamlanamadı. Lütfen tekrar deneyin.";
+  const translatedStatus = statusText ? translateBackendMessage(statusText, status) : null;
+  return translatedStatus ?? "İstek tamamlanamadı. Lütfen tekrar deneyin.";
 }
 
 function looksTechnical(message: string): boolean {
   const lower = message.toLowerCase();
   return (
+    lower.includes("aadsts") ||
+    lower.includes("sqlalchemy") ||
+    lower.includes("psycopg") ||
+    lower.includes("syntaxerror") ||
+    lower.includes("typeerror") ||
+    lower.includes("valueerror") ||
     lower.includes("dioexception") ||
     lower.includes("httpexception") ||
     lower.includes("runtimeerror") ||
     lower.includes("traceback") ||
     lower.includes("status code of") ||
-    lower.includes("requestoptions")
+    lower.includes("requestoptions") ||
+    lower.includes("stack trace") ||
+    lower.includes("not-configured") ||
+    lower.includes("identifier")
   );
+}
+
+function isTurkishMessage(message: string): boolean {
+  return /[çğıöşüÇĞİÖŞÜ]/.test(message);
+}
+
+function translateBackendMessage(message: string, status: number): string | null {
+  const normalized = message.trim();
+  if (!normalized) {
+    return null;
+  }
+
+  const lower = normalized.toLowerCase();
+
+  if (lower.includes("invalid credentials") || lower.includes("incorrect username") || lower.includes("invalid email")) {
+    return "E-posta veya şifre hatalı. Bilgileri kontrol edip tekrar deneyin.";
+  }
+  if (lower.includes("token expired") || lower.includes("not authenticated") || lower.includes("unauthorized")) {
+    return "Oturum süresi doldu. Tekrar giriş yapın.";
+  }
+  if (lower.includes("forbidden") || lower.includes("permission")) {
+    return "Bu işlem için yetkiniz yok. Hesap rolünüzü veya ekip izinlerinizi kontrol edin.";
+  }
+  if (lower.includes("not found")) {
+    return "İstenen kayıt bulunamadı. Listeyi yenileyip tekrar deneyin.";
+  }
+  if (lower.includes("already exists") || lower.includes("duplicate") || lower.includes("conflict")) {
+    return "Bu kayıt zaten mevcut veya son durumla çakışıyor. Sayfayı yenileyip tekrar deneyin.";
+  }
+  if (lower.includes("field required") || lower.includes("required") || lower.includes("validation")) {
+    return "Zorunlu alanları doldurup tekrar deneyin.";
+  }
+  if (lower.includes("quota") || lower.includes("limit exceeded") || lower.includes("insufficient_quota")) {
+    return "Kullanım hakkı doldu. Limitleri kontrol edip tekrar deneyin.";
+  }
+  if (lower.includes("rate limit") || lower.includes("too many requests")) {
+    return "Çok fazla istek gönderildi. Biraz bekleyip tekrar deneyin.";
+  }
+  if (lower.includes("failed to fetch") || lower.includes("network") || lower.includes("fetch failed")) {
+    return "Sunucuya ulaşılamadı. İnternet bağlantınızı ve backend adresini kontrol edin.";
+  }
+  if (lower.includes("gmail") || lower.includes("google oauth") || lower.includes("accounts.google")) {
+    return "Gmail bağlantısı tamamlanamadı. Google OAuth client ve redirect URI ayarlarını kontrol edin.";
+  }
+  if (lower.includes("outlook") || lower.includes("microsoft") || lower.includes("aadsts700016") || lower.includes("not-configured")) {
+    return "Outlook bağlantısı tamamlanamadı. Microsoft uygulama kimliği, client secret ve redirect URI ayarlarını kontrol edin.";
+  }
+  if (lower.includes("api key") || lower.includes("llm_api_key")) {
+    return "AI API anahtarı eksik veya geçersiz. Sunucu ortam değişkenlerini kontrol edin.";
+  }
+  if (lower.includes("transcription") || lower.includes("empty text") || lower.includes("audio")) {
+    return "Ses kaydı işlenemedi. Mikrofon, kayıt kalitesi ve AI ses çözümleme ayarlarını kontrol edin.";
+  }
+  if (lower.includes("not valid json") || lower.includes("json object")) {
+    return "AI yanıtı beklenen formatta gelmedi. İşlemi tekrar deneyin.";
+  }
+  if (lower.includes("unsupported llm provider")) {
+    return "AI sağlayıcısı ayarı desteklenmiyor. Sunucu yapılandırmasını kontrol edin.";
+  }
+  if (lower.includes("openai") || lower.includes("provider")) {
+    return "AI sağlayıcısı isteği tamamlayamadı. API anahtarı, kota ve dosya formatını kontrol edip tekrar deneyin.";
+  }
+  if (lower.includes("storage") || lower.includes("bucket") || lower.includes("s3") || lower.includes("minio")) {
+    return "Dosya depolama bağlantısında sorun oluştu. Storage endpoint, bucket ve erişim anahtarlarını kontrol edin.";
+  }
+  if (lower.includes("database") || lower.includes("db error") || lower.includes("sqlalchemy") || lower.includes("psycopg")) {
+    return "Veritabanı işleminde sorun oluştu. Bağlantı ayarlarını ve sunucu loglarını kontrol edin.";
+  }
+  if (lower.includes("bad request")) {
+    return "İstek hatalı. Girilen bilgileri kontrol edip tekrar deneyin.";
+  }
+  if (lower.includes("internal server error")) {
+    return "Sunucu tarafında geçici bir sorun oluştu. Biraz sonra tekrar deneyin.";
+  }
+
+  if (looksTechnical(normalized)) {
+    return messageForStatus(status, "");
+  }
+
+  return null;
 }
 
 function mimeTypeForFile(file: File): string {
