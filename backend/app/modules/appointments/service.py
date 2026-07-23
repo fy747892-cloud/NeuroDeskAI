@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import NotFoundError, ValidationAppError
+from app.core.errors import ConflictError, NotFoundError, ValidationAppError
 from app.modules.ai.repository import AIRepository
 from app.modules.appointments.models import Appointment
 from app.modules.appointments.repository import AppointmentRepository
@@ -79,7 +79,7 @@ class AppointmentService:
         )
         if approval is None:
             raise NotFoundError("AI action approval not found.")
-        if approval.action_type not in {"appointment", "create_appointment"}:
+        if approval.action_type not in {"appointment", "create_appointment", "appointment/create_appointment"}:
             raise ValidationAppError("Only appointment approvals can create appointments.")
         if approval.status != "approved":
             raise ValidationAppError("Only approved AI appointment suggestions can create appointments.")

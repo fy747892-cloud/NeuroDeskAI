@@ -65,7 +65,7 @@ class TaskService:
         )
         if approval is None:
             raise NotFoundError("AI action approval not found.")
-        if approval.action_type not in {"task", "create_task"}:
+        if approval.action_type not in {"task", "create_task", "task/create_task"}:
             raise ValidationAppError("Only task approvals can create tasks.")
         if approval.status != "approved":
             raise ValidationAppError("Only approved AI task suggestions can create tasks.")
