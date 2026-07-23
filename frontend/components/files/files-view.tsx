@@ -444,7 +444,7 @@ function statusLabel(status: string): string {
     case "completed":
       return "Tamamlandı";
     default:
-      return status;
+      return "Bilinmeyen durum";
   }
 }
 
