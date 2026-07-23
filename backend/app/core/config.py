@@ -1,3 +1,4 @@
+import ssl
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -84,7 +85,10 @@ class Settings(BaseSettings):
         if mode in {"disable", "false", "0", "off", "no"}:
             return {"ssl": False}
         if mode in {"require", "true", "1", "on", "yes"}:
-            return {"ssl": True}
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            return {"ssl": ssl_context}
         return {}
 
 
