@@ -157,14 +157,17 @@ String? _translateBackendMessage(String? message) {
       (lower.contains('identifier') && lower.contains('not-configured'))) {
     return 'Outlook OAuth uygulaması yapılandırılmamış görünüyor. Microsoft client id değeri gerçek uygulama id ile değiştirilmelidir.';
   }
-  if (lower.contains('google token exchange failed') || lower.contains('invalid_request')) {
+  if (lower.contains('google token exchange failed') ||
+      lower.contains('invalid_request')) {
     return 'Gmail yetkilendirmesi tamamlanamadı. Google OAuth client ve redirect URI ayarlarını kontrol edin.';
   }
   if (lower.contains('llm_api_key') || lower.contains('api key')) {
     return 'AI API anahtarı eksik veya geçersiz. Sunucu ortam değişkenlerini kontrol edin.';
   }
-  if (lower.contains('transcription returned empty text')) {
-    return 'Ses çözümlendi ama transkript boş döndü. Kaydı daha net alıp tekrar deneyin.';
+  if (lower.contains('transcription returned empty text') ||
+      lower.contains('transcription did not contain enough speech') ||
+      lower.contains('subtitle noise')) {
+    return 'Kayıtta yeterli ve anlaşılır konuşma algılanamadı. Aramayı hoparlöre alıp telefonu hoparlöre yakın tutarak tekrar deneyin.';
   }
   if (lower.contains('not valid json') || lower.contains('json object')) {
     return 'AI yanıtı beklenen formatta gelmedi. İşlemi tekrar deneyin.';

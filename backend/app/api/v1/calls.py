@@ -117,22 +117,22 @@ async def create_call_from_audio(
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
             raise ProviderError(
-                "AI transkripsiyon kotası dolu. OpenAI planını/faturalandırmasını kontrol edin "
-                "veya backend'i geçici olarak LLM_PROVIDER=mock ile çalıştırın."
+                "AI transkripsiyon kotas\u0131 dolu. OpenAI plan\u0131n\u0131/faturaland\u0131rmas\u0131n\u0131 kontrol edin "
+                "veya backend\'i ge\u00e7ici olarak LLM_PROVIDER=mock ile \u00e7al\u0131\u015ft\u0131r\u0131n."
             ) from exc
         if exc.response.status_code in {
             status.HTTP_401_UNAUTHORIZED,
             status.HTTP_403_FORBIDDEN,
         }:
             raise ProviderError(
-                "AI transkripsiyon anahtarı yetkisiz. OpenAI API anahtarını ve model erişimini kontrol edin."
+                "AI transkripsiyon anahtar\u0131 yetkisiz. OpenAI API anahtar\u0131n\u0131 ve model eri\u015fimini kontrol edin."
             ) from exc
         raise ProviderError(
-            "Ses metne çevrilemedi. AI sağlayıcısı isteği kabul etmedi; kota, anahtar veya ses formatını kontrol edin."
+            "Ses metne \u00e7evrilemedi. AI sa\u011flay\u0131c\u0131s\u0131 iste\u011fi kabul etmedi; kota, anahtar veya ses format\u0131n\u0131 kontrol edin."
         ) from exc
     except Exception as exc:
         raise ProviderError(
-            "Ses metne çevrilemedi. AI sağlayıcısını, kotayı veya ses dosyası formatını kontrol edin."
+            "Ses metne \u00e7evrilemedi. AI sa\u011flay\u0131c\u0131s\u0131n\u0131, kotay\u0131 veya ses dosyas\u0131 format\u0131n\u0131 kontrol edin."
         ) from exc
 
     names = [name.strip() for name in participant_names.split(",") if name.strip()]
@@ -187,7 +187,7 @@ async def _create_transcript_file(
     created_at: datetime,
 ) -> None:
     local_label = created_at.strftime("%d.%m.%Y, %H:%M")
-    filename = f"{local_label} - isim eklemek için düzenleyin.txt"
+    filename = f"{local_label} - isim eklemek i\u00e7in d\u00fczenleyin.txt"
     file = await FileRepository(db).create(
         tenant_id=tenant_id,
         organization_id=organization_id,

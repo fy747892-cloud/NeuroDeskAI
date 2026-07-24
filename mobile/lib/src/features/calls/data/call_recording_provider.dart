@@ -23,34 +23,35 @@ class CallRecordingState {
     this.phoneNumber,
     this.errorMessage,
     this.analysisFailed = false,
+    this.startedAt,
   });
 
   final CallRecordingStatus status;
   final String? phoneNumber;
   final String? errorMessage;
   final bool analysisFailed;
+  final DateTime? startedAt;
 
   CallRecordingState copyWith({
     CallRecordingStatus? status,
     String? phoneNumber,
     String? errorMessage,
     bool? analysisFailed,
+    DateTime? startedAt,
   }) {
     return CallRecordingState(
       status: status ?? this.status,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       errorMessage: errorMessage,
       analysisFailed: analysisFailed ?? this.analysisFailed,
+      startedAt: startedAt ?? this.startedAt,
     );
   }
 }
 
-/// Drives the record → upload → transcribe → analyze pipeline for a
-/// speakerphone call. The recording itself always happens locally (the
-/// [CallRecordingService] foreground service); this notifier is what turns
-/// the finished audio into a Call + AI analysis job on the existing backend
-/// pipeline, reusing the same `/calls/*` + `/ai/analysis/*` endpoints the
-/// manual transcript-paste flow already uses.
+/// Drives the record -> upload -> transcribe -> analyze pipeline for a
+/// speakerphone call. The recording itself always happens locally; this
+/// notifier turns the finished audio into a Call + AI analysis job.
 class CallRecordingNotifier extends Notifier<CallRecordingState> {
   @override
   CallRecordingState build() => const CallRecordingState();
@@ -66,6 +67,7 @@ class CallRecordingNotifier extends Notifier<CallRecordingState> {
     state = CallRecordingState(
       status: CallRecordingStatus.recording,
       phoneNumber: phoneNumber,
+      startedAt: DateTime.now(),
     );
     try {
       await ref.read(callRecordingServiceProvider).start();
@@ -83,10 +85,19 @@ class CallRecordingNotifier extends Notifier<CallRecordingState> {
 
     state = state.copyWith(status: CallRecordingStatus.uploading);
     try {
+      final startedAt = state.startedAt;
+      final elapsed = startedAt == null
+          ? Duration.zero
+          : DateTime.now().difference(startedAt);
       final bytes = await ref.read(callRecordingServiceProvider).stopAndRead();
+      if (elapsed.inSeconds < 4) {
+        throw Exception(
+          'Kayıt çok kısa. Arama başladıktan sonra hoparlörü açıp en az birkaç saniye konuşma kaydedin.',
+        );
+      }
 
       final title = state.phoneNumber?.isNotEmpty == true
-          ? 'Çağrı — ${state.phoneNumber}'
+          ? 'Çağrı - ${state.phoneNumber}'
           : 'Hoparlörden kaydedilen görüşme';
 
       final result = await ref.read(callsRepositoryProvider).createFromAudio(
@@ -122,7 +133,7 @@ class CallRecordingNotifier extends Notifier<CallRecordingState> {
     }
   }
 
-  /// Stops recording without uploading — used when the user cancels.
+  /// Stops recording without uploading - used when the user cancels.
   Future<void> discard() async {
     try {
       await ref.read(callRecordingServiceProvider).stopAndRead();

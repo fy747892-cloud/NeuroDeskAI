@@ -27,9 +27,9 @@ class _CallRecordingTaskHandler extends TaskHandler {
     if (filePath == null) return;
     _startedAt = timestamp;
 
-    // Use Android's communication mode for speakerphone calls. Native cellular
-    // call audio is OS-restricted, so this captures the microphone/speaker mix
-    // as reliably as Android allows while the Phone app has focus.
+    // Android telefon görüşmesi sesini doğrudan üçüncü parti uygulamalara
+    // açmaz. En güvenilir yöntem, hoparlörden çıkan sesi düz mikrofonla
+    // yakalamaktır; iletişim modu bazı cihazlarda karşı taraf sesini bastırır.
     await _recorder.start(
       const RecordConfig(
         encoder: AudioEncoder.aacLc,
@@ -40,9 +40,8 @@ class _CallRecordingTaskHandler extends TaskHandler {
         echoCancel: false,
         noiseSuppress: false,
         androidConfig: AndroidRecordConfig(
-          audioSource: AndroidAudioSource.voiceCommunication,
-          speakerphone: true,
-          audioManagerMode: AudioManagerMode.modeInCommunication,
+          audioSource: AndroidAudioSource.mic,
+          audioManagerMode: AudioManagerMode.modeNormal,
         ),
       ),
       path: filePath,

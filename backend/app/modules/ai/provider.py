@@ -1,4 +1,5 @@
-﻿import json
+import json
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -39,13 +40,13 @@ class MockAIProvider:
 
         clean_text = " ".join(transcript_text.split())
         preview = clean_text[:240]
-        summary_text = preview if preview else f"Görüşme: {title}"
+        summary_text = preview if preview else f"G\u00f6r\u00fc\u015fme: {title}"
 
         tasks = {
             "items": [
                 {
                     "title": f"Takip et: {title}",
-                    "description": "Görüşmeyi incele ve sonraki adımları netleştir.",
+                    "description": "G\u00f6r\u00fc\u015fmeyi incele ve sonraki ad\u0131mlar\u0131 netle\u015ftir.",
                     "confidence": 0.72,
                 }
             ]
@@ -53,7 +54,7 @@ class MockAIProvider:
         appointments = {
             "items": [
                 {
-                    "title": f"{title} için takip randevusu planla",
+                    "title": f"{title} i\u00e7in takip randevusu planla",
                     "proposed_datetime": "2026-07-17T09:00:00+03:00",
                     "time_hint": "gelecek hafta",
                     "confidence": 0.61,
@@ -63,7 +64,7 @@ class MockAIProvider:
         deals = {
             "items": [
                 {
-                    "title": f"{title} kaynaklı fırsat",
+                    "title": f"{title} kaynakl\u0131 f\u0131rsat",
                     "stage": "proposal_sent",
                     "confidence": 0.55,
                 }
@@ -109,16 +110,22 @@ class OpenAICompatibleAIProvider:
                 language=language,
             )
         )
-        transcript = transcript.strip()
-        if not transcript:
-            raise RuntimeError("Transcription returned empty text.")
-        return transcript
+        return _validate_transcript_text(transcript)
 
     async def _post_transcription(
         self, *, audio_bytes: bytes, filename: str, content_type: str, language: str | None
     ) -> str:
         headers = {"Authorization": f"Bearer {self._api_key}"}
-        data = {"model": self.stt_model_name, "response_format": "text"}
+        data = {
+            "model": self.stt_model_name,
+            "response_format": "text",
+            "temperature": "0",
+            "prompt": (
+                "This is a Turkish phone call recording. Transcribe only "
+                "speech that is actually audible. Do not invent subtitles, "
+                "credits, signatures, music, or inaudible sections."
+            ),
+        }
         if language:
             data["language"] = language
         files = {"file": (filename, audio_bytes, content_type)}
@@ -144,25 +151,25 @@ class OpenAICompatibleAIProvider:
                 {
                     "role": "system",
                     "content": (
-                        "Sen Türkçe çalışan bir CRM asistanısın. Görüşme "
-                        "transkriptlerinden özet, görev, randevu ve fırsat "
-                        "önerileri çıkarırsın. Kullanıcıya gösterilecek tüm "
-                        "metinleri Türkçe yaz: summary_text, title, description, "
-                        "reason, time_hint ve benzeri alanlar İngilizce olmamalı. "
-                        "Yalnızca geçerli JSON döndür ve anahtarlar summary, tasks, "
+                        "Sen T\u00fcrk\u00e7e \u00e7al\u0131\u015fan bir CRM asistan\u0131s\u0131n. G\u00f6r\u00fc\u015fme "
+                        "transkriptlerinden \u00f6zet, g\u00f6rev, randevu ve f\u0131rsat "
+                        "\u00f6nerileri \u00e7\u0131kar\u0131rs\u0131n. Kullan\u0131c\u0131ya g\u00f6sterilecek t\u00fcm "
+                        "metinleri T\u00fcrk\u00e7e yaz: summary_text, title, description, "
+                        "reason, time_hint ve benzeri alanlar \u0130ngilizce olmamal\u0131. "
+                        "Yaln\u0131zca ge\u00e7erli JSON d\u00f6nd\u00fcr ve anahtarlar summary, tasks, "
                         "appointments, deals olsun. tasks.items, appointments.items "
-                        "ve deals.items dizi olmalı. Her item title ve 0-1 arasında "
-                        "confidence içermeli. Randevu itemları mümkünse "
-                        "proposed_datetime içermeli. Fırsat itemları görüşmede geçen "
-                        "satış/teklif ihtimallerini temsil eder ve stage şu "
-                        "değerlerden biri olmalı: lead, proposal_sent, negotiation, "
-                        "invoiced, won, lost. Tutar geçtiyse value sayısal olmalı."
+                        "ve deals.items dizi olmal\u0131. Her item title ve 0-1 aras\u0131nda "
+                        "confidence i\u00e7ermeli. Randevu itemlar\u0131 m\u00fcmk\u00fcnse "
+                        "proposed_datetime i\u00e7ermeli. F\u0131rsat itemlar\u0131 g\u00f6r\u00fc\u015fmede ge\u00e7en "
+                        "sat\u0131\u015f/teklif ihtimallerini temsil eder ve stage \u015fu "
+                        "de\u011ferlerden biri olmal\u0131: lead, proposal_sent, negotiation, "
+                        "invoiced, won, lost. Tutar ge\u00e7tiyse value say\u0131sal olmal\u0131."
                     ),
                 },
                 {
                     "role": "user",
                     "content": (
-                        f"Görüşme başlığı: {title}\n\n"
+                        f"G\u00f6r\u00fc\u015fme ba\u015fl\u0131\u011f\u0131: {title}\n\n"
                         f"Transkript:\n{transcript_text}"
                     ),
                 },
@@ -226,7 +233,7 @@ def _normalize_summary(payload: Any, *, title: str) -> dict:
         payload = {}
     summary_text = str(payload.get("summary_text") or payload.get("text") or "").strip()
     if not summary_text:
-        summary_text = f"Görüşme: {title}"
+        summary_text = f"G\u00f6r\u00fc\u015fme: {title}"
     return {
         "summary_text": summary_text,
         "summary_type": str(payload.get("summary_type") or "conversation_summary"),
@@ -271,3 +278,31 @@ def _normalize_confidence(value: Any, *, default: float) -> float:
     except (TypeError, ValueError):
         confidence = default
     return max(0.0, min(1.0, confidence))
+
+
+_BOGUS_TRANSCRIPT_PATTERNS = [
+    re.compile(pattern, re.IGNORECASE)
+    for pattern in (
+        "^altyaz",
+        r"^subtitle[s]?\s*(by|:)",
+        r"^caption[s]?\s*(by|:)",
+        r"^abone ol",
+        "^izlediginiz icin tesekkur",
+        r"^thanks for watching",
+        r"^\[?(music|silence|inaudible)\]?$",
+    )
+]
+
+
+def _validate_transcript_text(transcript: str) -> str:
+    cleaned = " ".join(transcript.split()).strip()
+    if not cleaned:
+        raise RuntimeError("Transcription returned empty text.")
+    if len(cleaned) < 12:
+        raise RuntimeError("Transcription did not contain enough speech.")
+    if any(pattern.search(cleaned) for pattern in _BOGUS_TRANSCRIPT_PATTERNS):
+        raise RuntimeError("Transcription looks like subtitle noise instead of speech.")
+    words = re.findall(r"\w+", cleaned, flags=re.UNICODE)
+    if len(words) < 3:
+        raise RuntimeError("Transcription did not contain enough speech.")
+    return cleaned
