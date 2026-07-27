@@ -72,8 +72,8 @@ class CallsRepository {
       'language': language,
       'audio': MultipartFile.fromBytes(
         audioBytes,
-        filename: 'recording.m4a',
-        contentType: DioMediaType('audio', 'mp4'),
+        filename: 'recording.wav',
+        contentType: DioMediaType('audio', 'wav'),
       ),
     });
 

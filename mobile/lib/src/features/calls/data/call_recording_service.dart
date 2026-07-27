@@ -32,9 +32,8 @@ class _CallRecordingTaskHandler extends TaskHandler {
     // yakalamaktır; iletişim modu bazı cihazlarda karşı taraf sesini bastırır.
     await _recorder.start(
       const RecordConfig(
-        encoder: AudioEncoder.aacLc,
-        bitRate: 256000,
-        sampleRate: 48000,
+        encoder: AudioEncoder.wav,
+        sampleRate: 16000,
         numChannels: 1,
         autoGain: true,
         echoCancel: false,
@@ -138,7 +137,7 @@ class CallRecordingService {
           RegExp(r'[:.]'),
           '-',
         );
-    final filePath = path.join(recordDir.path, '$fileName.m4a');
+    final filePath = path.join(recordDir.path, '$fileName.wav');
 
     await FlutterForegroundTask.saveData(
       key: _recordFilePathKey,
