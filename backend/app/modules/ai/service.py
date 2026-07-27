@@ -16,6 +16,25 @@ from app.modules.deals.service import DealService
 from app.modules.tasks.service import TaskService
 
 
+ACTION_PAYLOAD_DEFAULTS = {
+    "task": {
+        "title": "Görüşmeyi takip et",
+        "description": "Görüşmeden çıkarılan görevi kontrol et.",
+        "reason": "Bu görev görüşme içeriğinde geçen aksiyon ihtiyacından çıkarıldı.",
+    },
+    "appointment": {
+        "title": "Takip randevusu planla",
+        "description": "Görüşmeden çıkarılan randevu önerisini kontrol et.",
+        "reason": "Bu randevu önerisi görüşmede geçen tarih veya takip ihtiyacından çıkarıldı.",
+    },
+    "deal": {
+        "title": "Fırsatı değerlendir",
+        "description": "Görüşmeden çıkarılan fırsat bilgisini kontrol et.",
+        "reason": "Bu fırsat görüşmede geçen satış, teklif veya iş ihtimalinden çıkarıldı.",
+    },
+}
+
+
 class AIAnalysisService:
     def __init__(self, db: AsyncSession):
         self._db = db
@@ -216,6 +235,14 @@ class AIAnalysisService:
         )
         if approval is None:
             raise NotFoundError("AI action approval not found.")
+        if approval.status == "approved":
+            await self._materialize_approved_action(
+                tenant_id=tenant_id,
+                organization_id=organization_id,
+                user_id=user_id,
+                approval=approval,
+            )
+            return approval
         self._ensure_pending(approval)
         payload = approved_payload if approved_payload is not None else approval.suggested_payload
         self._validate_approved_payload(approval.action_type, payload)
@@ -276,6 +303,9 @@ class AIAnalysisService:
         items: list[dict],
     ) -> None:
         for item in items:
+            item = _prepare_approval_payload(item, action_type=action_type)
+            if item is None:
+                continue
             await self._ai.create_action_approval(
                 tenant_id=tenant_id,
                 organization_id=organization_id,
@@ -367,3 +397,41 @@ class AIAnalysisService:
                 owner_user_id=user_id,
                 approval_id=approval.id,
             )
+
+
+def _prepare_approval_payload(item: dict, *, action_type: str) -> dict | None:
+    if not isinstance(item, dict):
+        return None
+
+    defaults = ACTION_PAYLOAD_DEFAULTS.get(action_type, ACTION_PAYLOAD_DEFAULTS["task"])
+    payload = dict(item)
+    title = str(payload.get("title") or payload.get("name") or payload.get("subject") or "").strip()
+    payload["title"] = title or defaults["title"]
+
+    description = str(payload.get("description") or payload.get("notes") or "").strip()
+    payload["description"] = description or defaults["description"]
+
+    reason = str(
+        payload.get("reason")
+        or payload.get("source_excerpt")
+        or payload.get("evidence")
+        or payload.get("matched_text")
+        or ""
+    ).strip()
+    payload["reason"] = reason or defaults["reason"]
+
+    if action_type == "task":
+        priority = str(payload.get("priority") or "medium").lower()
+        payload["priority"] = priority if priority in {"low", "medium", "high"} else "medium"
+    if action_type == "deal":
+        stage = str(payload.get("stage") or "lead").lower()
+        payload["stage"] = stage if stage in {
+            "lead",
+            "proposal_sent",
+            "negotiation",
+            "invoiced",
+            "won",
+            "lost",
+        } else "lead"
+
+    return payload

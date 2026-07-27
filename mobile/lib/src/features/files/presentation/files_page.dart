@@ -83,6 +83,12 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                       )
                     : const Icon(Icons.upload_file),
               ),
+              const SizedBox(width: 8),
+              IconButton.outlined(
+                tooltip: 'Dosyaları temizle',
+                onPressed: _confirmClearFiles,
+                icon: const Icon(Icons.cleaning_services_outlined),
+              ),
             ],
           ),
           if (_notice != null) ...[
@@ -114,6 +120,7 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                           onDownload: () => _download(file),
                           onShowText: () => _showExtractedText(file),
                           onShowAnalysis: () => _showAnalysis(file),
+                          onRename: () => _rename(file),
                           onDelete: () => _confirmDelete(file),
                           onApprovalsChanged: _refreshAfterApproval,
                           approvals: approvals.maybeWhen(
@@ -279,6 +286,40 @@ class _FilesPageState extends ConsumerState<FilesPage> {
     }
   }
 
+  Future<void> _confirmClearFiles() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Dosyaları temizle'),
+        content: const Text('Listedeki tüm dosyalar silinsin mi?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(context).pop(true),
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('Temizle'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    setState(() => _notice = null);
+    try {
+      await ref.read(filesRepositoryProvider).clearFiles();
+      _showTemporaryNotice('Dosya listesi temizlendi.');
+      ref.invalidate(filesProvider);
+      ref.invalidate(pendingAiApprovalsProvider);
+    } catch (error) {
+      setState(() {
+        _notice = readableApiError(error, 'Dosyalar temizlenemedi.');
+      });
+    }
+  }
+
   Future<void> _download(FileRecord file) async {
     setState(() {
       _activeFileId = file.id;
@@ -347,6 +388,57 @@ class _FilesPageState extends ConsumerState<FilesPage> {
     } catch (error) {
       setState(() {
         _notice = readableApiError(error, 'Analiz özeti alınamadı.');
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _activeFileId = null);
+      }
+    }
+  }
+
+  Future<void> _rename(FileRecord file) async {
+    final controller = TextEditingController(text: file.filename);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Dosya adını değiştir'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          textInputAction: TextInputAction.done,
+          decoration: const InputDecoration(
+            labelText: 'Dosya adı',
+            prefixIcon: Icon(Icons.drive_file_rename_outline),
+          ),
+          onSubmitted: (value) => Navigator.of(context).pop(value),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text),
+            child: const Text('Kaydet'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+
+    final trimmed = newName?.trim();
+    if (trimmed == null || trimmed.isEmpty || trimmed == file.filename) return;
+    setState(() {
+      _activeFileId = file.id;
+      _notice = null;
+    });
+    try {
+      await ref.read(filesRepositoryProvider).renameFile(file.id, trimmed);
+      _showTemporaryNotice('Dosya adı güncellendi.');
+      ref.invalidate(filesProvider);
+    } catch (error) {
+      setState(() {
+        _notice = readableApiError(error, 'Dosya adı değiştirilemedi.');
       });
     } finally {
       if (mounted) {
@@ -592,6 +684,7 @@ class _FileCard extends StatelessWidget {
     required this.onDownload,
     required this.onShowText,
     required this.onShowAnalysis,
+    required this.onRename,
     required this.onDelete,
     required this.onApprovalsChanged,
   });
@@ -603,6 +696,7 @@ class _FileCard extends StatelessWidget {
   final VoidCallback onDownload;
   final VoidCallback onShowText;
   final VoidCallback onShowAnalysis;
+  final VoidCallback onRename;
   final VoidCallback onDelete;
   final VoidCallback onApprovalsChanged;
 
@@ -698,6 +792,11 @@ class _FileCard extends StatelessWidget {
                   onPressed: isActive ? null : onDownload,
                   icon: const Icon(Icons.open_in_new),
                   label: const Text('Aç'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: isActive ? null : onRename,
+                  icon: const Icon(Icons.drive_file_rename_outline),
+                  label: const Text('Ad'),
                 ),
                 OutlinedButton.icon(
                   onPressed: isActive ? null : onDelete,

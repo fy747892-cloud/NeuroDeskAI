@@ -57,6 +57,19 @@ class FilesRepository {
     await _dio.delete<void>('/api/v1/files/$fileId');
   }
 
+  Future<void> clearFiles() async {
+    final files = await listFiles();
+    await Future.wait(files.map((file) => deleteFile(file.id)));
+  }
+
+  Future<FileRecord> renameFile(String fileId, String filename) async {
+    final response = await _dio.patch<Map<String, dynamic>>(
+      '/api/v1/files/$fileId',
+      data: {'filename': filename.trim()},
+    );
+    return FileRecord.fromJson(response.data!);
+  }
+
   Future<FileRecord> uploadFile({
     required String filename,
     required String mimeType,

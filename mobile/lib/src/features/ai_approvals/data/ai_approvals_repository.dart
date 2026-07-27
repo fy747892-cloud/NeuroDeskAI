@@ -38,9 +38,7 @@ class AiApprovalsRepository {
       '/api/v1/ai/approvals/${approval.id}/approve',
       data: {'approved_payload': approvedPayload ?? approval.suggestedPayload},
     );
-    final approved = AiActionApproval.fromJson(response.data!);
-    await _materializeApprovedAction(approved);
-    return approved;
+    return AiActionApproval.fromJson(response.data!);
   }
 
   Future<AiActionApproval> reject(String approvalId) async {
@@ -63,34 +61,6 @@ class AiApprovalsRepository {
   Future<void> rejectMany(Iterable<AiActionApproval> approvals) async {
     for (final approval in approvals) {
       await reject(approval.id);
-    }
-  }
-
-  Future<void> _materializeApprovedAction(AiActionApproval approval) async {
-    final endpoint = switch (approval.actionType) {
-      'task' || 'create_task' || 'task/create_task' =>
-        '/api/v1/tasks/from-approval',
-      'appointment' ||
-      'create_appointment' ||
-      'appointment/create_appointment' =>
-        '/api/v1/appointments/from-approval',
-      'deal' || 'create_deal' || 'deal/create_deal' =>
-        '/api/v1/deals/from-approval',
-      _ => null,
-    };
-    if (endpoint == null) return;
-
-    try {
-      await _dio.post<Map<String, dynamic>>(
-        endpoint,
-        data: {'approval_id': approval.id},
-      );
-    } on DioException catch (error) {
-      final status = error.response?.statusCode;
-      if (status == 409) {
-        return;
-      }
-      rethrow;
     }
   }
 

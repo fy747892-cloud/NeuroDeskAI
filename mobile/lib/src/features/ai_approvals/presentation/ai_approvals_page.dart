@@ -356,7 +356,7 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
               children: [
                 _MetaLine(
                   icon: Icons.hub_outlined,
-                  text: 'Kaynak: ${approval.sourceType}',
+                  text: 'Kaynak: ${approval.sourceLabel}',
                 ),
                 if (confidence != null)
                   _MetaLine(

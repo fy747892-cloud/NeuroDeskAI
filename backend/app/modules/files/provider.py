@@ -111,8 +111,11 @@ class OpenAICompatibleDocumentSummaryProvider:
                 {
                     "role": "system",
                     "content": (
-                        "Summarize the given document text in 2-4 concise sentences. "
-                        "Only use information present in the text, do not invent details."
+                        "Belge metnini Türkçe olarak 2-4 kısa cümlede özetle. "
+                        "Yalnızca metinde açıkça bulunan bilgileri kullan, ayrıntı uydurma. "
+                        "OCR veya PDF çıkarımı bozuk görünüyorsa ham sembolleri kopyalama; "
+                        "anlaşılabilen kişi, tarih, konu ve aksiyonları sade bir dille yaz. "
+                        "Kullanıcıya gösterilecek metinde İngilizce başlık veya açıklama kullanma."
                     ),
                 },
                 {"role": "user", "content": text},

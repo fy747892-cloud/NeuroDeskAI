@@ -31,4 +31,13 @@ class TasksRepository {
     );
     return Task.fromJson(response.data!);
   }
+
+  Future<void> deleteTask(String taskId) async {
+    await _dio.delete<void>('/api/v1/tasks/$taskId');
+  }
+
+  Future<void> clearTasks() async {
+    final tasks = await listTasks();
+    await Future.wait(tasks.map((task) => deleteTask(task.id)));
+  }
 }

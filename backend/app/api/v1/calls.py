@@ -1,4 +1,5 @@
 import uuid
+import re
 from datetime import datetime
 
 import httpx
@@ -47,12 +48,13 @@ async def create_call_from_text(
         raise NotFoundError("Current organization not found.")
 
     conversations = ConversationRepository(db)
+    transcript_text = _format_transcript_text(body.transcript_text)
     conversation, call, transcription = await conversations.create_call_with_transcription(
         tenant_id=current_user.tenant_id,
         organization_id=current_user.organization_id,
         user_id=current_user.id,
         title=body.title,
-        transcript_text=body.transcript_text,
+        transcript_text=transcript_text,
         participant_names=body.participant_names,
         call_direction=body.call_direction,
         phone_number=body.phone_number,
@@ -143,7 +145,7 @@ async def create_call_from_audio(
         organization_id=current_user.organization_id,
         user_id=current_user.id,
         title=title,
-        transcript_text=transcript_text,
+        transcript_text=_format_transcript_text(transcript_text),
         participant_names=names,
         call_direction=call_direction,
         phone_number=phone_number,
@@ -204,6 +206,20 @@ async def _create_transcript_file(
         extracted_text=transcript_text,
         status="extracted",
     )
+
+
+def _format_transcript_text(text: str) -> str:
+    cleaned = " ".join(text.split()).strip()
+    cleaned = re.sub(r"\s+([,.!?;:])", r"\1", cleaned)
+    cleaned = re.sub(r"([.!?])\s+(?=[A-ZÇĞİÖŞÜ0-9])", r"\1\n", cleaned)
+    cleaned = re.sub(
+        r"\s+(?=(Müşteri|Temsilci|Konuşmacı|Kişi|Kisi)\s*:)",
+        "\n",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    lines = [" ".join(line.split()) for line in cleaned.splitlines()]
+    return "\n".join(line for line in lines if line)
 
 
 @router.get("/{call_id}", response_model=CallOut)

@@ -59,7 +59,7 @@ class AiActionApproval {
     if (description is String && description.trim().isNotEmpty) {
       return description;
     }
-    return 'Kaynak: $sourceType';
+    return 'Kaynak: $sourceLabel';
   }
 
   String get reasonText {
@@ -70,7 +70,7 @@ class AiActionApproval {
     if (reason is String && reason.trim().isNotEmpty) {
       return reason.trim();
     }
-    return 'Bu öneri $sourceType kaynağındaki konuşma, dosya veya mesaj içeriğinden çıkarıldı.';
+    return 'Bu öneri ${sourceLabel.toLowerCase()} içeriğinden çıkarıldı.';
   }
 
   String get actionLabel {
@@ -81,6 +81,16 @@ class AiActionApproval {
       'deal' || 'create_deal' || 'deal/create_deal' => 'Fırsat',
       'send_email' => 'E-posta',
       _ => actionType,
+    };
+  }
+
+  String get sourceLabel {
+    return switch (sourceType) {
+      'conversation' || 'call' => 'Görüşme',
+      'file' => 'Dosya',
+      'email' => 'E-posta',
+      'chat' => 'AI sohbet',
+      _ => sourceType,
     };
   }
 }

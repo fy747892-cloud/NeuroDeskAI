@@ -150,8 +150,8 @@ class FileService:
         if not suggestions["tasks"] and not suggestions["appointments"]:
             suggestions["tasks"].append(
                 {
-                    "title": f"Dosyayı takip et: {file.filename}",
-                    "description": _document_excerpt(text),
+                    "title": f"Dosyayı gözden geçir: {file.filename}",
+                    "description": _document_follow_up_description(text),
                     "priority": "medium",
                     "reason": "Dosya analizi tamamlandı ancak net görev/randevu satırı bulunamadı.",
                     "confidence": 0.5,
@@ -225,6 +225,9 @@ def _extract_action_suggestions(text: str) -> dict[str, list[dict]]:
         title = cells[1]
         raw_date = cells[2] if len(cells) > 2 else None
         if kind == "task" and title:
+            title = _clean_suggestion_text(title, fallback="Dosyadan çıkan görevi gözden geçir")
+            if _looks_like_extraction_noise(title):
+                continue
             tasks.append(
                 {
                     "title": title,
@@ -235,6 +238,9 @@ def _extract_action_suggestions(text: str) -> dict[str, list[dict]]:
                 }
             )
         if kind == "appointment" and title:
+            title = _clean_suggestion_text(title, fallback="Dosyadan çıkan randevuyu planla")
+            if _looks_like_extraction_noise(title):
+                continue
             start_at = _parse_document_datetime(raw_date) or _default_future_datetime()
             appointments.append(
                 {
@@ -275,3 +281,34 @@ def _add_minutes(value: str, minutes: int) -> str:
 def _document_excerpt(text: str) -> str:
     excerpt = " ".join(text.split())[:240]
     return excerpt or "Dosya içeriğini inceleyip sonraki adımı belirle."
+
+
+def _document_follow_up_description(text: str) -> str:
+    excerpt = _document_excerpt(text)
+    if _looks_like_extraction_noise(excerpt):
+        return (
+            "Metin çıkarımı düşük kalitede görünüyor. Dosyayı açıp okunabilir "
+            "bölümleri kontrol et ve gerekirse daha net bir PDF/TXT sürümü yükle."
+        )
+    return f"Belgedeki okunabilir bölümleri kontrol et: {excerpt}"
+
+
+def _clean_suggestion_text(value: str, *, fallback: str) -> str:
+    cleaned = " ".join(value.split()).strip(" -:|")
+    if len(cleaned) > 120:
+        cleaned = f"{cleaned[:117].rstrip()}..."
+    return cleaned or fallback
+
+
+def _looks_like_extraction_noise(value: str) -> bool:
+    if not value:
+        return True
+    chars = [char for char in value if not char.isspace()]
+    if not chars:
+        return True
+    symbol_count = sum(1 for char in chars if not char.isalnum() and char not in ".,:/@+-")
+    if symbol_count / len(chars) > 0.18:
+        return True
+    words = value.split()
+    long_upper_runs = sum(1 for word in words if len(word) > 14 and word.upper() == word)
+    return long_upper_runs >= 2

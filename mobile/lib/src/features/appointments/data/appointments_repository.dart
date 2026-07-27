@@ -34,4 +34,15 @@ class AppointmentsRepository {
         .map(Appointment.fromJson)
         .toList(growable: false);
   }
+
+  Future<void> deleteAppointment(String appointmentId) async {
+    await _dio.delete<void>('/api/v1/appointments/$appointmentId');
+  }
+
+  Future<void> clearAppointments() async {
+    final appointments = await listAppointments();
+    await Future.wait(
+      appointments.map((appointment) => deleteAppointment(appointment.id)),
+    );
+  }
 }

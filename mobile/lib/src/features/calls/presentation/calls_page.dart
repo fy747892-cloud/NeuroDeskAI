@@ -68,7 +68,18 @@ class _CallsPageState extends ConsumerState<CallsPage> {
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Text('Çağrılar', style: theme.textTheme.headlineMedium),
+            Row(
+              children: [
+                Expanded(
+                  child: Text('Çağrılar', style: theme.textTheme.headlineMedium),
+                ),
+                IconButton.outlined(
+                  tooltip: 'Çağrıları temizle',
+                  onPressed: _confirmClearCalls,
+                  icon: const Icon(Icons.cleaning_services_outlined),
+                ),
+              ],
+            ),
             const SizedBox(height: 6),
             Text(
               'Telefon çalarken kayıt otomatik başlar; istersen aşağıdan '
@@ -165,6 +176,32 @@ class _CallsPageState extends ConsumerState<CallsPage> {
         route: result.analysisFailed ? '/app/calls' : '/app/approvals',
       );
     }
+  }
+
+  Future<void> _confirmClearCalls() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Çağrıları temizle'),
+        content: const Text('Listedeki tüm çağrı kayıtları silinsin mi?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(context).pop(true),
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('Temizle'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(callsRepositoryProvider).clearCalls();
+    ref.invalidate(callsProvider);
+    ref.invalidate(callAnalysisJobsProvider);
+    ref.invalidate(pendingAiApprovalsProvider);
   }
 
   void _showActionSnack(

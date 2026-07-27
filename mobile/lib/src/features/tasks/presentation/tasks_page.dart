@@ -18,7 +18,18 @@ class TasksPage extends ConsumerWidget {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Görevler', style: theme.textTheme.headlineMedium),
+          Row(
+            children: [
+              Expanded(
+                child: Text('Görevler', style: theme.textTheme.headlineMedium),
+              ),
+              IconButton.outlined(
+                tooltip: 'Görevleri temizle',
+                onPressed: () => _confirmClear(context, ref),
+                icon: const Icon(Icons.cleaning_services_outlined),
+              ),
+            ],
+          ),
           const SizedBox(height: 6),
           Text(
             'Operasyon akışındaki açık işleri, öncelikleri ve teslim tarihlerini takip et.',
@@ -43,6 +54,30 @@ class TasksPage extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _confirmClear(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Görevleri temizle'),
+        content: const Text('Listedeki tüm görevler silinsin mi?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(context).pop(true),
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('Temizle'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(tasksRepositoryProvider).clearTasks();
+    ref.invalidate(tasksProvider);
   }
 }
 

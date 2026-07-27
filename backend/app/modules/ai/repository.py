@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -168,6 +168,17 @@ class AIRepository:
         suggested_payload: dict,
         confidence_score: float | None = None,
     ) -> AIActionApproval:
+        existing = await self.get_existing_action_approval_for_payload(
+            tenant_id=tenant_id,
+            organization_id=organization_id,
+            action_type=action_type,
+            source_type=source_type,
+            source_id=source_id,
+            suggested_payload=suggested_payload,
+        )
+        if existing is not None:
+            return existing
+
         approval = AIActionApproval(
             tenant_id=tenant_id,
             organization_id=organization_id,
@@ -183,6 +194,36 @@ class AIRepository:
         self._db.add(approval)
         await self._db.flush()
         return approval
+
+    async def get_existing_action_approval_for_payload(
+        self,
+        *,
+        tenant_id: uuid.UUID,
+        organization_id: uuid.UUID,
+        action_type: str,
+        source_type: str,
+        source_id: uuid.UUID,
+        suggested_payload: dict,
+    ) -> AIActionApproval | None:
+        title = _normalize_payload_title(suggested_payload)
+        if not title:
+            return None
+
+        result = await self._db.execute(
+            select(AIActionApproval)
+            .where(
+                AIActionApproval.tenant_id == tenant_id,
+                AIActionApproval.organization_id == organization_id,
+                AIActionApproval.action_type == action_type,
+                AIActionApproval.source_type == source_type,
+                AIActionApproval.source_id == source_id,
+                AIActionApproval.status.in_(("pending", "approved")),
+                func.lower(AIActionApproval.suggested_payload["title"].astext) == title,
+            )
+            .order_by(AIActionApproval.created_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
 
     async def list_action_approvals(
         self,
@@ -215,3 +256,11 @@ class AIRepository:
             )
         )
         return result.scalar_one_or_none()
+
+
+def _normalize_payload_title(payload: dict) -> str | None:
+    title = payload.get("title")
+    if not isinstance(title, str):
+        return None
+    normalized = " ".join(title.split()).strip().lower()
+    return normalized or None

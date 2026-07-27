@@ -106,6 +106,15 @@ class CallsRepository {
     return AiAnalysisJob.fromJson(response.data!);
   }
 
+  Future<void> deleteCall(String callId) async {
+    await _dio.delete<void>('/api/v1/calls/$callId');
+  }
+
+  Future<void> clearCalls() async {
+    final calls = await listCalls();
+    await Future.wait(calls.map((call) => deleteCall(call.id)));
+  }
+
   String? _emptyToNull(String? value) {
     final trimmed = value?.trim();
     return trimmed == null || trimmed.isEmpty ? null : trimmed;
