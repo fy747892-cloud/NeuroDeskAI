@@ -1,4 +1,5 @@
 import uuid
+import logging
 import re
 from datetime import datetime
 
@@ -19,6 +20,7 @@ from app.modules.files.repository import DocumentTextRepository, FileRepository
 from app.modules.users.models import User
 
 router = APIRouter(prefix="/calls", tags=["calls"])
+logger = logging.getLogger(__name__)
 
 MAX_AUDIO_BYTES = 25 * 1024 * 1024
 
@@ -117,6 +119,13 @@ async def create_call_from_audio(
             language=language,
         )
     except httpx.HTTPStatusError as exc:
+        logger.warning(
+            "Call audio transcription failed. status=%s content_type=%s filename=%s body=%s",
+            exc.response.status_code,
+            audio.content_type,
+            audio.filename,
+            exc.response.text.replace("\n", " ").strip()[:500],
+        )
         if exc.response.status_code == status.HTTP_429_TOO_MANY_REQUESTS:
             raise ProviderError(
                 "AI transkripsiyon kotas\u0131 dolu. OpenAI plan\u0131n\u0131/faturaland\u0131rmas\u0131n\u0131 kontrol edin "

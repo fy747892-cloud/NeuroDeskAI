@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from dataclasses import dataclass
 from typing import Any
@@ -7,6 +8,8 @@ import httpx
 
 from app.core.config import settings
 from app.core.llm_retry import with_retry
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -102,33 +105,60 @@ class OpenAICompatibleAIProvider:
         if not self._api_key:
             raise RuntimeError("LLM_API_KEY is required when LLM_PROVIDER is openai.")
 
-        transcript = await with_retry(
-            lambda: self._post_transcription(
-                audio_bytes=audio_bytes,
-                filename=filename,
-                content_type=content_type,
-                language=language,
+        try:
+            transcript = await with_retry(
+                lambda: self._post_transcription(
+                    audio_bytes=audio_bytes,
+                    filename=filename,
+                    content_type=content_type,
+                    language=language,
+                    include_guidance=True,
+                )
             )
-        )
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code not in {400, 415, 422}:
+                raise
+            logger.warning(
+                "STT provider rejected guided request; retrying minimal request. "
+                "status=%s body=%s",
+                exc.response.status_code,
+                _safe_response_preview(exc.response),
+            )
+            transcript = await with_retry(
+                lambda: self._post_transcription(
+                    audio_bytes=audio_bytes,
+                    filename=filename,
+                    content_type=content_type,
+                    language=None,
+                    include_guidance=False,
+                )
+            )
         return _validate_transcript_text(transcript)
 
     async def _post_transcription(
-        self, *, audio_bytes: bytes, filename: str, content_type: str, language: str | None
+        self,
+        *,
+        audio_bytes: bytes,
+        filename: str,
+        content_type: str,
+        language: str | None,
+        include_guidance: bool,
     ) -> str:
         headers = {"Authorization": f"Bearer {self._api_key}"}
         data = {
             "model": self.stt_model_name,
             "response_format": "text",
             "temperature": "0",
-            "prompt": (
+        }
+        if include_guidance:
+            data["prompt"] = (
                 "This is a Turkish phone call recording. Transcribe only "
                 "speech that is actually audible. Write clear Turkish with "
                 "normal punctuation and sentence breaks. If speakers are "
                 "clearly distinguishable, use short labels such as Müşteri: "
                 "and Temsilci:. Do not invent subtitles, credits, signatures, "
                 "music, or inaudible sections."
-            ),
-        }
+            )
         if language:
             data["language"] = language
         files = {"file": (filename, audio_bytes, content_type)}
@@ -225,6 +255,11 @@ def get_ai_provider():
     if provider in {"openai", "openai-compatible"}:
         return OpenAICompatibleAIProvider()
     raise RuntimeError(f"Unsupported LLM provider: {settings.llm_provider}")
+
+
+def _safe_response_preview(response: httpx.Response, *, max_length: int = 500) -> str:
+    text = response.text.replace("\n", " ").strip()
+    return text[:max_length]
 
 
 def _parse_json_object(content: str) -> dict[str, Any]:
