@@ -1,5 +1,5 @@
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -332,12 +332,13 @@ class AIAnalysisService:
         title: str,
         transcript_text: str,
     ):
+        has_task_items = isinstance(output.tasks, dict) and bool(output.tasks.get("items"))
         has_items = any(
             bool(payload.get("items"))
             for payload in (output.tasks, output.appointments, output.deals)
             if isinstance(payload, dict)
         )
-        if has_items:
+        if has_task_items:
             return output
 
         excerpt = " ".join(transcript_text.split())[:240]
@@ -348,7 +349,7 @@ class AIAnalysisService:
                 or "AI analizi aksiyon üretmedi; görüşmeyi kontrol edip sonraki adımı belirle.",
                 "priority": "medium",
                 "reason": "Analiz tamamlandı ancak net aksiyon üretilemediği için takip görevi önerildi.",
-                "confidence": 0.5,
+                "confidence": 0.55 if has_items else 0.5,
             }
         ]
         return output
@@ -433,5 +434,42 @@ def _prepare_approval_payload(item: dict, *, action_type: str) -> dict | None:
             "won",
             "lost",
         } else "lead"
+    if action_type == "appointment":
+        _normalize_future_appointment_datetime(payload)
 
     return payload
+
+
+def _normalize_future_appointment_datetime(payload: dict) -> None:
+    start_at = _parse_datetime_or_none(payload.get("proposed_datetime") or payload.get("start_at"))
+    if start_at is None:
+        return
+    if start_at.tzinfo is None:
+        start_at = start_at.replace(tzinfo=timezone.utc)
+
+    now = datetime.now(timezone.utc)
+    if start_at <= now - timedelta(minutes=5):
+        if start_at.year < now.year:
+            start_at = start_at.replace(year=now.year)
+        while start_at <= now - timedelta(minutes=5):
+            start_at = start_at.replace(year=start_at.year + 1)
+
+    end_at = _parse_datetime_or_none(payload.get("end_datetime"))
+    if end_at is None or end_at <= start_at:
+        end_at = start_at + timedelta(minutes=30)
+    elif end_at.tzinfo is None:
+        end_at = end_at.replace(tzinfo=timezone.utc)
+
+    payload["proposed_datetime"] = start_at.isoformat()
+    payload["end_datetime"] = end_at.isoformat()
+
+
+def _parse_datetime_or_none(value) -> datetime | None:
+    if isinstance(value, datetime):
+        return value
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None

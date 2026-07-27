@@ -2,6 +2,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -176,6 +177,7 @@ class OpenAICompatibleAIProvider:
         if not self._api_key:
             raise RuntimeError("LLM_API_KEY is required when LLM_PROVIDER is openai.")
 
+        today = datetime.now(timezone.utc).date().isoformat()
         payload = {
             "model": self.model_name,
             "temperature": 0.2,
@@ -199,6 +201,9 @@ class OpenAICompatibleAIProvider:
                         "value/currency varsa onlar ve confidence i\u00e7ersin. stage teknik enumdur "
                         "ve sadece lead, proposal_sent, negotiation, invoiced, won, lost olabilir. "
                         "priority teknik enumdur ve sadece low, medium, high olabilir. "
+                        f"Bugünün tarihi {today}. Tarih önerirken geçmiş yıl veya geçmiş "
+                        "tarih kullanma; yıl belirtilmemişse bugünden sonraki en yakın "
+                        "uygun tarihi seç. "
                         "Kesin bilgi yoksa kullan\u0131c\u0131ya a\u00e7\u0131k bir kontrol/takip \u00f6nerisi yaz; "
                         "ham transkript veya anlams\u0131z OCR metni kopyalama."
                     ),
