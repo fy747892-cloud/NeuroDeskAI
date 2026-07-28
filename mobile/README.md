@@ -21,6 +21,12 @@ For Android emulator against a host backend, use:
 flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
 ```
 
+For production/Railway builds, use:
+
+```bash
+flutter run --dart-define=API_BASE_URL=https://neurodeskai-production-d4d5.up.railway.app
+```
+
 ## Scope
 
 - Login with `/api/v1/auth/login`
@@ -58,10 +64,10 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8000
 ```bash
 flutter analyze
 flutter test
-flutter build apk --debug --dart-define=API_BASE_URL=http://10.0.2.2:8000
+flutter build apk --debug --dart-define=API_BASE_URL=https://neurodeskai-production-d4d5.up.railway.app
 ```
 
-Backend must answer `GET http://localhost:8000/health`, and Android emulator builds must use `http://10.0.2.2:8000`.
+Backend must answer `GET https://neurodeskai-production-d4d5.up.railway.app/health`. Android emulator-only local builds can still override with `http://10.0.2.2:8000`.
 
 ## Android release signing
 

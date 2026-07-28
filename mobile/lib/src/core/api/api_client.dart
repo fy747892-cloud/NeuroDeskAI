@@ -6,7 +6,7 @@ import '../../features/auth/domain/auth_tokens.dart';
 
 const apiBaseUrl = String.fromEnvironment(
   'API_BASE_URL',
-  defaultValue: 'http://10.0.2.2:8000',
+  defaultValue: 'https://neurodeskai-production-d4d5.up.railway.app',
 );
 
 final dioProvider = Provider<Dio>((ref) {
