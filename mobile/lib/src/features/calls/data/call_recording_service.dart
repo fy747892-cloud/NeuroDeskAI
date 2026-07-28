@@ -72,13 +72,20 @@ class _CallRecordingTaskHandler extends TaskHandler {
   }
 
   Future<void> _startBestEffortSpeakerphoneRecording(String filePath) async {
-    // Android usually blocks direct access to phone-call line audio. The
-    // practical path is speakerphone plus a high-quality mic capture, with
-    // fallbacks for devices that reject raw/unprocessed sources.
+    // AOSP blocks the plain call-audio line for third-party apps, but some
+    // OEM Android builds (Xiaomi/MIUI, some Oppo/Vivo/Realme, older Samsung)
+    // still tolerate MediaRecorder's VOICE_CALL-family sources, which tap the
+    // call audio directly -- no speakerphone needed, works even with the
+    // phone held normally. Try those first; only fall back to the
+    // speakerphone + mic workaround (the only thing that works on stock
+    // Android / Pixel / newer Samsung) if the device rejects them.
     final configs = <RecordConfig>[
-      _speakerphoneConfig(AndroidAudioSource.unprocessed),
-      _speakerphoneConfig(AndroidAudioSource.voiceRecognition),
-      _speakerphoneConfig(AndroidAudioSource.mic),
+      _recordConfig(AndroidAudioSource.voiceCall, speakerphone: false),
+      _recordConfig(AndroidAudioSource.voiceDownlink, speakerphone: false),
+      _recordConfig(AndroidAudioSource.voiceUplink, speakerphone: false),
+      _recordConfig(AndroidAudioSource.unprocessed, speakerphone: true),
+      _recordConfig(AndroidAudioSource.voiceRecognition, speakerphone: true),
+      _recordConfig(AndroidAudioSource.mic, speakerphone: true),
     ];
 
     Object? lastError;
@@ -93,7 +100,10 @@ class _CallRecordingTaskHandler extends TaskHandler {
     throw lastError ?? Exception('Call recording could not start.');
   }
 
-  RecordConfig _speakerphoneConfig(AndroidAudioSource audioSource) {
+  RecordConfig _recordConfig(
+    AndroidAudioSource audioSource, {
+    required bool speakerphone,
+  }) {
     return RecordConfig(
       encoder: AudioEncoder.wav,
       bitRate: _callBitRate,
@@ -104,7 +114,7 @@ class _CallRecordingTaskHandler extends TaskHandler {
       noiseSuppress: false,
       androidConfig: AndroidRecordConfig(
         audioSource: audioSource,
-        speakerphone: true,
+        speakerphone: speakerphone,
         manageBluetooth: false,
         audioManagerMode: AudioManagerMode.modeNormal,
       ),

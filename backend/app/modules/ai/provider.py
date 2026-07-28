@@ -436,7 +436,13 @@ _BOGUS_TRANSCRIPT_PATTERNS = [
         r"^caption[s]?\s*(by|:)",
         r"^abone ol",
         "^izlediginiz icin tesekkur",
-        r"^thanks for watching",
+        # Whisper's most common hallucinations on silent/near-silent audio --
+        # it was trained on captioned YouTube videos, so quiet/empty input
+        # tends to produce these outro phrases instead of an empty string.
+        r"^thank(s| you)( so much)? for watching",
+        r"^(please |don'?t forget to )?(like( and)? )?subscribe",
+        r"^see you (in the )?next (video|time)",
+        r"^(bye+\s*){1,2}[.!]?$",
         r"^\[?(music|silence|inaudible)\]?$",
     )
 ]
