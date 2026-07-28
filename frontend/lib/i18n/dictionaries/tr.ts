@@ -45,7 +45,7 @@ export const tr: TranslationDictionary = {
     topSearchPlaceholder: "Görev, fırsat ara ya da AI'a sor...",
     nav: {
       dashboard: "Özet",
-      aiActionCenter: "AI Onay Merkezi",
+      aiActionCenter: "AI Önerileri",
       conversations: "Görüşmeler",
       tasks: "Görevler",
       contacts: "Kişiler",
@@ -472,7 +472,7 @@ export const tr: TranslationDictionary = {
       rejectFailed: "Öneri reddedilemedi.",
     },
     aiIntelligentProcessing: "AI Akıllı İşleme",
-    title: "AI Onay Merkezi",
+    title: "AI Önerileri",
     subtitle: "Son etkinliklerinden tespit edilen önerilen görev ve aksiyonları incele, onayla.",
     pending: "Bekleyen",
     resolved: "Sonuçlanan",
@@ -510,7 +510,7 @@ export const tr: TranslationDictionary = {
     requiresApproval: "Onay gerekiyor",
     noApprovalNeeded: "Onay gerekmiyor",
     addToChat: "Sohbete Ekle",
-    goToApprovalCenter: "Onay Merkezine Git",
+    goToApprovalCenter: "Önerileri Gör",
     voicePrompt: "Komutunu yazıp mikrofon düğmesine bas.",
   },
 };

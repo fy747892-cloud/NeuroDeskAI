@@ -49,7 +49,6 @@ NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
 - `/dosyalar` files and document analysis actions
 - `/mailler` email accounts, messages, sync
 - `/bildirimler` notifications
-- `/onay-merkezi` AI action approvals
 - `/analitik` analytics overview
 - `/ayarlar` account, subscription, usage
 

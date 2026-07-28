@@ -15,7 +15,6 @@ import { getInitials } from "@/lib/format";
 
 const navItems = [
   { icon: "dashboard", labelKey: "dashboard", href: "/" },
-  { icon: "auto_awesome", labelKey: "aiActionCenter", href: "/onay-merkezi" },
   { icon: "forum", labelKey: "conversations", href: "/gorusmeler" },
   { icon: "task_alt", labelKey: "tasks", href: "/gorevler" },
   { icon: "contacts", labelKey: "contacts", href: "/kisiler" },
@@ -43,7 +42,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     try {
       const dashboard = await getDashboard(tokens.accessToken);
       setNavBadges({
-        aiActionCenter: dashboard.summary.pending_ai_approvals_count,
         tasks: dashboard.summary.open_tasks_count,
         dashboard: dashboard.summary.pending_ai_approvals_count,
       });

@@ -151,11 +151,6 @@ class MobileShell extends ConsumerWidget {
             selectedIcon: _BadgeIcon(icon: Icons.calendar_today, count: dashboard?.summary.upcomingAppointmentsCount ?? 0),
             label: 'Takvim',
           ),
-          NavigationDestination(
-            icon: _BadgeIcon(icon: Icons.verified_outlined, count: dashboard?.summary.pendingAiApprovalsCount ?? 0),
-            selectedIcon: _BadgeIcon(icon: Icons.verified, count: dashboard?.summary.pendingAiApprovalsCount ?? 0),
-            label: 'Onay',
-          ),
         ],
       ),
       floatingActionButton: FloatingActionButton(
@@ -193,7 +188,6 @@ class MobileShell extends ConsumerWidget {
     if (location.startsWith('/app/conversations')) return 2;
     if (location.startsWith('/app/calls')) return 2;
     if (location.startsWith('/app/appointments')) return 3;
-    if (location.startsWith('/app/approvals')) return 4;
     return 0;
   }
 
@@ -202,7 +196,6 @@ class MobileShell extends ConsumerWidget {
       1 => '/app/tasks',
       2 => '/app/calls',
       3 => '/app/appointments',
-      4 => '/app/approvals',
       _ => '/app/dashboard',
     };
   }

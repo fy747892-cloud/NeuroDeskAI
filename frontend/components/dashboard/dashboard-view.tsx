@@ -233,9 +233,6 @@ export function DashboardView() {
               </span>
               {t("dashboard.aiSuggestions")}
             </h3>
-            <Link href="/onay-merkezi" className="text-on-surface-variant text-[11px] hover:text-primary">
-              {t("common.viewAll")}
-            </Link>
           </div>
           <div className="space-y-md">
             {approvals.length === 0 ? (

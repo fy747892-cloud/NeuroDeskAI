@@ -173,7 +173,7 @@ class _CallsPageState extends ConsumerState<CallsPage> {
             ? 'Çağrı kaydedildi, AI analizi tekrar denenebilir.'
             : 'Çağrı kaydedildi ve AI analizi başlatıldı.',
         actionLabel: result.analysisFailed ? 'Çağrıya git' : 'Onay',
-        route: result.analysisFailed ? '/app/calls' : '/app/approvals',
+        route: '/app/calls',
       );
     }
   }
@@ -260,7 +260,7 @@ class _RecordingControlCard extends ConsumerWidget {
                   messenger.hideCurrentSnackBar();
                   ref.read(callRecordingProvider.notifier).reset();
                   context.go(
-                    next.analysisFailed ? '/app/calls' : '/app/approvals',
+                    '/app/calls',
                   );
                 },
               ),
@@ -1041,7 +1041,7 @@ class _CompletedAnalysisStatus extends StatelessWidget {
             Text(
               '${job.suggestedTaskCount} görev, '
               '${job.suggestedAppointmentCount} randevu, '
-              "${job.suggestedDealCount} fırsat önerisi Onay Merkezi'nde.",
+              "${job.suggestedDealCount} fırsat önerisi bu kartta hazır.",
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),

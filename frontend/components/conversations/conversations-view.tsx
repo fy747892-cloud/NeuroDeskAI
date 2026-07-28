@@ -551,7 +551,7 @@ export function ConversationsView() {
 
               {summaryText ? (
                 <div className="bg-primary-container/5 rounded-xl p-lg border border-primary/10 relative overflow-hidden">
-                  <div className="flex items-center gap-2 mb-3">
+                  <div className="flex items-center gap-2 mb-3 min-w-0">
                     <span className="material-symbols-outlined text-primary text-[20px]" style={{ fontVariationSettings: "'FILL' 1" }}>
                       smart_toy
                     </span>
@@ -559,7 +559,7 @@ export function ConversationsView() {
                       {t("conversations.aiInsightSummary")}
                     </p>
                   </div>
-                  <p className="font-body-lg text-body-lg text-on-surface leading-relaxed max-w-4xl">
+                  <p className="font-body-md text-body-md text-on-surface leading-relaxed max-w-4xl whitespace-pre-wrap break-words">
                     {summaryText}
                   </p>
                 </div>
@@ -572,16 +572,18 @@ export function ConversationsView() {
                   <p className="font-label-sm text-label-sm uppercase tracking-widest text-on-surface-variant mb-4">
                     {t("conversations.extractedItemsTitle")}
                   </p>
-                  <div className="flex flex-wrap gap-3">
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
                     {extractedItems.map((item, index) => (
                       <div
                         key={`${item.type}-${index}`}
-                        className="flex items-center gap-2 px-4 py-2 bg-surface-container-high rounded-full border border-surface-container-highest"
+                        className="flex items-start gap-2 px-3 py-2.5 bg-surface-container-high rounded-lg border border-surface-container-highest min-w-0"
                       >
-                        <span className="material-symbols-outlined text-[18px] text-primary">
+                        <span className="material-symbols-outlined text-[18px] text-primary shrink-0 mt-0.5">
                           {EXTRACT_ICON[item.type] ?? "auto_awesome"}
                         </span>
-                        <span className="font-label-md text-label-md">{item.title}</span>
+                        <span className="font-label-md text-label-md leading-snug break-words min-w-0">
+                          {item.title}
+                        </span>
                       </div>
                     ))}
                   </div>
