@@ -169,6 +169,12 @@ export function AuthForm({ mode }: AuthFormProps) {
           {isRegister ? t("auth.loginSubmit") : t("auth.registerLink")}
         </a>
       </p>
+
+      <p className="text-body-sm text-on-surface-variant text-center">
+        <a href="/gizlilik" className="hover:underline">
+          Gizlilik Politikası
+        </a>
+      </p>
     </form>
   );
 }

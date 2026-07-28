@@ -141,6 +141,13 @@ async def create_call_from_audio(
         raise ProviderError(
             "Ses metne \u00e7evrilemedi. AI sa\u011flay\u0131c\u0131s\u0131 iste\u011fi kabul etmedi; kota, anahtar veya ses format\u0131n\u0131 kontrol edin."
         ) from exc
+    except RuntimeError as exc:
+        # _validate_transcript_text raises specific, already user-actionable
+        # messages (empty/too-short/subtitle-hallucination transcripts) --
+        # forward them as-is instead of masking with a generic message, since
+        # the mobile/web clients translate these exact phrases into guidance
+        # like "put the call on speaker and try again".
+        raise ProviderError(str(exc)) from exc
     except Exception as exc:
         raise ProviderError(
             "Ses metne \u00e7evrilemedi. AI sa\u011flay\u0131c\u0131s\u0131n\u0131, kotay\u0131 veya ses dosyas\u0131 format\u0131n\u0131 kontrol edin."

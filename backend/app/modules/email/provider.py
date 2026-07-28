@@ -7,7 +7,7 @@ import httpx
 
 from app.core.config import settings
 
-GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
+GMAIL_METADATA_SCOPE = "https://www.googleapis.com/auth/gmail.metadata"
 GOOGLE_AUTHORIZE_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_ENDPOINT = "https://www.googleapis.com/oauth2/v2/userinfo"
@@ -38,7 +38,7 @@ class MockGoogleOAuthProvider:
         params = {
             "client_id": settings.google_client_id or "not-configured",
             "response_type": "code",
-            "scope": GMAIL_READONLY_SCOPE,
+            "scope": GMAIL_METADATA_SCOPE,
             "access_type": "offline",
             "prompt": "consent",
             "state": state,
@@ -53,7 +53,7 @@ class MockGoogleOAuthProvider:
             "email_address": "connected-user@gmail.com",
             "access_token": f"mock-access-{secrets.token_urlsafe(16)}",
             "refresh_token": f"mock-refresh-{secrets.token_urlsafe(16)}",
-            "scope": GMAIL_READONLY_SCOPE,
+            "scope": GMAIL_METADATA_SCOPE,
             "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
         }
 
@@ -64,7 +64,7 @@ class MockGoogleOAuthProvider:
         return {
             "access_token": f"mock-access-refreshed-{secrets.token_urlsafe(16)}",
             "refresh_token": f"mock-refresh-refreshed-{secrets.token_urlsafe(16)}",
-            "scope": GMAIL_READONLY_SCOPE,
+            "scope": GMAIL_METADATA_SCOPE,
             "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
         }
 
@@ -79,7 +79,7 @@ class GoogleOAuthProvider:
             "client_id": settings.google_client_id,
             "redirect_uri": _google_redirect_uri(),
             "response_type": "code",
-            "scope": f"{GMAIL_READONLY_SCOPE} openid email",
+            "scope": f"{GMAIL_METADATA_SCOPE} openid email",
             "access_type": "offline",
             "prompt": "consent",
             "state": state,
@@ -113,7 +113,7 @@ class GoogleOAuthProvider:
             "email_address": email_address,
             "access_token": payload["access_token"],
             "refresh_token": payload.get("refresh_token", ""),
-            "scope": payload.get("scope", GMAIL_READONLY_SCOPE),
+            "scope": payload.get("scope", GMAIL_METADATA_SCOPE),
             "expires_at": datetime.now(timezone.utc)
             + timedelta(seconds=payload.get("expires_in", 3600)),
         }
@@ -137,7 +137,7 @@ class GoogleOAuthProvider:
             "access_token": payload["access_token"],
             # Google does not always return a new refresh_token on refresh; keep the old one.
             "refresh_token": payload.get("refresh_token", refresh_token),
-            "scope": payload.get("scope", GMAIL_READONLY_SCOPE),
+            "scope": payload.get("scope", GMAIL_METADATA_SCOPE),
             "expires_at": datetime.now(timezone.utc)
             + timedelta(seconds=payload.get("expires_in", 3600)),
         }
