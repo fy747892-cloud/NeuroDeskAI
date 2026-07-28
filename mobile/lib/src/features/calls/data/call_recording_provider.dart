@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_error.dart';
@@ -123,12 +124,20 @@ class CallRecordingNotifier extends Notifier<CallRecordingState> {
         analysisFailed: analysisFailed,
       );
     } catch (e) {
+      // Local failures (empty/too-short recording, mic permission, missing
+      // file) are already specific, actionable Turkish messages thrown by
+      // stopAndRead()/this method -- readableApiError only knows how to
+      // translate DioException and would otherwise flatten them all into
+      // the generic network-error fallback below.
+      final message = e is DioException
+          ? readableApiError(
+              e,
+              'Kayıt işlenemedi. Backend bağlantısını ve AI ses çözümleme ayarlarını kontrol edin.',
+            )
+          : e.toString().replaceFirst('Exception: ', '');
       state = state.copyWith(
         status: CallRecordingStatus.error,
-        errorMessage: readableApiError(
-          e,
-          'Kayıt işlenemedi. Backend bağlantısını ve AI ses çözümleme ayarlarını kontrol edin.',
-        ),
+        errorMessage: message,
       );
     }
   }
