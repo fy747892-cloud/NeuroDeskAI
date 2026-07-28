@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:path/path.dart' as path;
@@ -29,9 +29,9 @@ class _CallRecordingTaskHandler extends TaskHandler {
     if (filePath == null) return;
     _startedAt = timestamp;
 
-    // Android telefon görüşmesi sesini doğrudan üçüncü parti uygulamalara
-    // açmaz. En güvenilir yöntem, hoparlörden çıkan sesi düz mikrofonla
-    // yakalamaktır; iletişim modu bazı cihazlarda karşı taraf sesini bastırır.
+    // Android telefon gÃ¶rÃ¼ÅŸmesi sesini doÄŸrudan Ã¼Ã§Ã¼ncÃ¼ parti uygulamalara
+    // aÃ§maz. En gÃ¼venilir yÃ¶ntem, hoparlÃ¶rden Ã§Ä±kan sesi dÃ¼z mikrofonla
+    // yakalamaktÄ±r; iletiÅŸim modu bazÄ± cihazlarda karÅŸÄ± taraf sesini bastÄ±rÄ±r.
     await _startBestEffortSpeakerphoneRecording(filePath);
   }
 
@@ -43,10 +43,10 @@ class _CallRecordingTaskHandler extends TaskHandler {
         : timestamp.difference(startedAt);
     FlutterForegroundTask.updateService(
       notificationTitle: _notificationTitle,
-      notificationText: 'Hoparlöre al - Kayıt açık '
-          '${_formatElapsed(elapsed)} - Uygulamaya dön',
+      notificationText: 'HoparlÃ¶re al - KayÄ±t aÃ§Ä±k '
+          '${_formatElapsed(elapsed)} - Uygulamaya dÃ¶n',
       notificationButtons: const [
-        NotificationButton(id: _openRecorderButtonId, text: 'Uygulamaya dön'),
+        NotificationButton(id: _openRecorderButtonId, text: 'Uygulamaya dÃ¶n'),
       ],
     );
   }
@@ -122,8 +122,8 @@ class CallRecordingService {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'call_recording_service',
-        channelName: 'Görüşme kaydı',
-        channelDescription: 'Görüşme kaydı alınırken gösterilir.',
+        channelName: 'GÃ¶rÃ¼ÅŸme kaydÄ±',
+        channelDescription: 'GÃ¶rÃ¼ÅŸme kaydÄ± alÄ±nÄ±rken gÃ¶sterilir.',
         channelImportance: NotificationChannelImportance.HIGH,
         priority: NotificationPriority.HIGH,
       ),
@@ -140,9 +140,9 @@ class CallRecordingService {
   Future<String> start() async {
     if (!Platform.isAndroid) {
       throw Exception(
-        'Görüşme kaydı yalnızca Android\'de destekleniyor: iOS üçüncü '
-        'parti uygulamaların telefon görüşmesi sırasında mikrofona '
-        'erişmesine izin vermiyor.',
+        'GÃ¶rÃ¼ÅŸme kaydÄ± yalnÄ±zca Android\'de destekleniyor: iOS Ã¼Ã§Ã¼ncÃ¼ '
+        'parti uygulamalarÄ±n telefon gÃ¶rÃ¼ÅŸmesi sÄ±rasÄ±nda mikrofona '
+        'eriÅŸmesine izin vermiyor.',
       );
     }
 
@@ -176,9 +176,9 @@ class CallRecordingService {
       serviceId: 401,
       serviceTypes: const [ForegroundServiceTypes.microphone],
       notificationTitle: _notificationTitle,
-      notificationText: 'Hoparlöre al - Kayıt başlıyor - Uygulamaya dön',
+      notificationText: 'HoparlÃ¶re al - KayÄ±t baÅŸlÄ±yor - Uygulamaya dÃ¶n',
       notificationButtons: const [
-        NotificationButton(id: _openRecorderButtonId, text: 'Uygulamaya dön'),
+        NotificationButton(id: _openRecorderButtonId, text: 'Uygulamaya dÃ¶n'),
       ],
       callback: startCallRecordingTask,
     );
@@ -201,13 +201,13 @@ class CallRecordingService {
     }
 
     if (filePath == null) {
-      throw Exception('Kayıt dosyası bulunamadı.');
+      throw Exception('KayÄ±t dosyasÄ± bulunamadÄ±.');
     }
     final file = File(filePath);
 
-    // MediaRecorder, servis durdurulduktan hemen sonra dosyanın trailer'ını
-    // (moov atom) yazmayı bitirmemiş olabilir. Dosya boyutu iki ölçüm
-    // arasında değişmeyene kadar kısa aralıklarla bekle.
+    // MediaRecorder, servis durdurulduktan hemen sonra dosyanÄ±n trailer'Ä±nÄ±
+    // (moov atom) yazmayÄ± bitirmemiÅŸ olabilir. Dosya boyutu iki Ã¶lÃ§Ã¼m
+    // arasÄ±nda deÄŸiÅŸmeyene kadar kÄ±sa aralÄ±klarla bekle.
     int lastSize = -1;
     for (var i = 0; i < 15; i++) {
       if (await file.exists()) {
@@ -220,8 +220,8 @@ class CallRecordingService {
 
     if (!await file.exists() || await file.length() == 0) {
       throw Exception(
-        'Kayıt dosyası boş görünüyor. Hoparlörün açık olduğundan ve '
-        'mikrofon izninin verildiğinden emin olup tekrar deneyin.',
+        'KayÄ±t dosyasÄ± boÅŸ gÃ¶rÃ¼nÃ¼yor. HoparlÃ¶rÃ¼n aÃ§Ä±k olduÄŸundan ve '
+        'mikrofon izninin verildiÄŸinden emin olup tekrar deneyin.',
       );
     }
 

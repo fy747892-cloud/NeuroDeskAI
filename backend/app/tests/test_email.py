@@ -48,7 +48,7 @@ async def test_connect_returns_minimal_scope_authorize_url_and_state(client: Asy
     headers = await _auth_headers(client, "email-connect@example.com")
     start = await _start_connect(client, headers)
 
-    assert "gmail.readonly" in start["authorize_url"]
+    assert "gmail.metadata" in start["authorize_url"]
     assert "gmail.send" not in start["authorize_url"]
     assert "gmail.modify" not in start["authorize_url"]
     assert start["state"]
@@ -122,7 +122,7 @@ async def test_connect_records_consent(client: AsyncClient):
 
     assert account["status"] == "connected"
     assert account["consent_granted_at"] is not None
-    assert account["consent_scope"] == "https://www.googleapis.com/auth/gmail.readonly"
+    assert account["consent_scope"] == "https://www.googleapis.com/auth/gmail.metadata"
 
 
 async def test_revoke_stops_further_sync_and_deletes_tokens(

@@ -1,4 +1,7 @@
+import pytest
 from httpx import AsyncClient
+
+from app.api.v1 import calls as calls_module
 
 
 async def _auth_headers(client: AsyncClient, email: str) -> dict[str, str]:
@@ -55,3 +58,30 @@ async def test_create_call_from_audio_rejects_empty_file(client: AsyncClient):
     )
 
     assert response.status_code == 422
+
+
+async def test_create_call_from_audio_forwards_speech_validation_message(
+    client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+):
+    """A too-quiet/hallucinated transcript must surface its specific, actionable
+    reason (which mobile/web translate into "put the call on speaker") instead
+    of being masked by the generic provider-error fallback message."""
+
+    class _NoSpeechProvider:
+        async def transcribe_audio(self, **_kwargs):
+            raise RuntimeError("Transcription did not contain enough speech.")
+
+    monkeypatch.setattr(calls_module, "get_ai_provider", lambda: _NoSpeechProvider())
+
+    headers = await _auth_headers(client, "audio-call-no-speech@example.com")
+    response = await client.post(
+        "/api/v1/calls/audio",
+        headers=headers,
+        data={"title": "Silent call"},
+        files={"audio": ("recording.m4a", b"fake-audio-bytes", "audio/mp4")},
+    )
+
+    assert response.status_code == 502
+    body = response.json()
+    assert body["error_code"] == "provider_error"
+    assert body["message"] == "Transcription did not contain enough speech."
