@@ -1,0 +1,7 @@
+# Flutter regenerates these on every `flutter pub get`/`flutter build`, and
+# on Windows the regenerated line endings don't always match what's
+# committed -- git then shows a whitespace-only "modified" diff with no real
+# content change. Turn off line-ending conversion for them so that stops.
+**/generated_plugin_registrant.* -text
+**/generated_plugins.cmake -text
+**/GeneratedPluginRegistrant.swift -text

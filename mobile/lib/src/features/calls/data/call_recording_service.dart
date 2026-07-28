@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
 import 'package:path/path.dart' as path;
@@ -29,9 +29,9 @@ class _CallRecordingTaskHandler extends TaskHandler {
     if (filePath == null) return;
     _startedAt = timestamp;
 
-    // Android telefon gÃ¶rÃ¼ÅŸmesi sesini doÄŸrudan Ã¼Ã§Ã¼ncÃ¼ parti uygulamalara
-    // aÃ§maz. En gÃ¼venilir yÃ¶ntem, hoparlÃ¶rden Ã§Ä±kan sesi dÃ¼z mikrofonla
-    // yakalamaktÄ±r; iletiÅŸim modu bazÄ± cihazlarda karÅŸÄ± taraf sesini bastÄ±rÄ±r.
+    // Android telefon görüşmesi sesini doğrudan üçüncü parti uygulamalara
+    // açmaz. En güvenilir yöntem, hoparlörden çıkan sesi düz mikrofonla
+    // yakalamaktır; iletişim modu bazı cihazlarda karşı taraf sesini bastırır.
     await _startBestEffortSpeakerphoneRecording(filePath);
   }
 
@@ -43,10 +43,10 @@ class _CallRecordingTaskHandler extends TaskHandler {
         : timestamp.difference(startedAt);
     FlutterForegroundTask.updateService(
       notificationTitle: _notificationTitle,
-      notificationText: 'HoparlÃ¶re al - KayÄ±t aÃ§Ä±k '
-          '${_formatElapsed(elapsed)} - Uygulamaya dÃ¶n',
+      notificationText: 'Hoparlöre al - Kayıt açık '
+          '${_formatElapsed(elapsed)} - Uygulamaya dön',
       notificationButtons: const [
-        NotificationButton(id: _openRecorderButtonId, text: 'Uygulamaya dÃ¶n'),
+        NotificationButton(id: _openRecorderButtonId, text: 'Uygulamaya dön'),
       ],
     );
   }
@@ -72,17 +72,18 @@ class _CallRecordingTaskHandler extends TaskHandler {
   }
 
   Future<void> _startBestEffortSpeakerphoneRecording(String filePath) async {
-    // AOSP blocks the plain call-audio line for third-party apps, but some
-    // OEM Android builds (Xiaomi/MIUI, some Oppo/Vivo/Realme, older Samsung)
-    // still tolerate MediaRecorder's VOICE_CALL-family sources, which tap the
-    // call audio directly -- no speakerphone needed, works even with the
-    // phone held normally. Try those first; only fall back to the
-    // speakerphone + mic workaround (the only thing that works on stock
-    // Android / Pixel / newer Samsung) if the device rejects them.
+    // AOSP blocks the plain call-audio line for third-party apps. The
+    // VOICE_CALL/VOICE_UPLINK/VOICE_DOWNLINK sources that tap it directly on
+    // some OEM builds are deliberately NOT attempted here: on this device
+    // (Samsung Galaxy A33) they didn't throw -- recorder.start() returned
+    // normally -- but produced zero audio bytes, and because "no exception"
+    // is our only success signal, that silently swallowed the fall-through
+    // to the sources below that are actually known to capture real audio on
+    // this device. Speakerphone + mic is worse quality but verified to
+    // produce non-empty recordings; don't reintroduce the other sources
+    // without also verifying the file is non-trivially sized before
+    // accepting a source as successful.
     final configs = <RecordConfig>[
-      _recordConfig(AndroidAudioSource.voiceCall, speakerphone: false),
-      _recordConfig(AndroidAudioSource.voiceDownlink, speakerphone: false),
-      _recordConfig(AndroidAudioSource.voiceUplink, speakerphone: false),
       _recordConfig(AndroidAudioSource.unprocessed, speakerphone: true),
       _recordConfig(AndroidAudioSource.voiceRecognition, speakerphone: true),
       _recordConfig(AndroidAudioSource.mic, speakerphone: true),
@@ -132,8 +133,8 @@ class CallRecordingService {
     FlutterForegroundTask.init(
       androidNotificationOptions: AndroidNotificationOptions(
         channelId: 'call_recording_service',
-        channelName: 'GÃ¶rÃ¼ÅŸme kaydÄ±',
-        channelDescription: 'GÃ¶rÃ¼ÅŸme kaydÄ± alÄ±nÄ±rken gÃ¶sterilir.',
+        channelName: 'Görüşme kaydı',
+        channelDescription: 'Görüşme kaydı alınırken gösterilir.',
         channelImportance: NotificationChannelImportance.HIGH,
         priority: NotificationPriority.HIGH,
       ),
@@ -150,9 +151,9 @@ class CallRecordingService {
   Future<String> start() async {
     if (!Platform.isAndroid) {
       throw Exception(
-        'GÃ¶rÃ¼ÅŸme kaydÄ± yalnÄ±zca Android\'de destekleniyor: iOS Ã¼Ã§Ã¼ncÃ¼ '
-        'parti uygulamalarÄ±n telefon gÃ¶rÃ¼ÅŸmesi sÄ±rasÄ±nda mikrofona '
-        'eriÅŸmesine izin vermiyor.',
+        'Görüşme kaydı yalnızca Android\'de destekleniyor: iOS üçüncü '
+        'parti uygulamaların telefon görüşmesi sırasında mikrofona '
+        'erişmesine izin vermiyor.',
       );
     }
 
@@ -186,9 +187,9 @@ class CallRecordingService {
       serviceId: 401,
       serviceTypes: const [ForegroundServiceTypes.microphone],
       notificationTitle: _notificationTitle,
-      notificationText: 'HoparlÃ¶re al - KayÄ±t baÅŸlÄ±yor - Uygulamaya dÃ¶n',
+      notificationText: 'Hoparlöre al - Kayıt başlıyor - Uygulamaya dön',
       notificationButtons: const [
-        NotificationButton(id: _openRecorderButtonId, text: 'Uygulamaya dÃ¶n'),
+        NotificationButton(id: _openRecorderButtonId, text: 'Uygulamaya dön'),
       ],
       callback: startCallRecordingTask,
     );
@@ -211,13 +212,13 @@ class CallRecordingService {
     }
 
     if (filePath == null) {
-      throw Exception('KayÄ±t dosyasÄ± bulunamadÄ±.');
+      throw Exception('Kayıt dosyası bulunamadı.');
     }
     final file = File(filePath);
 
-    // MediaRecorder, servis durdurulduktan hemen sonra dosyanÄ±n trailer'Ä±nÄ±
-    // (moov atom) yazmayÄ± bitirmemiÅŸ olabilir. Dosya boyutu iki Ã¶lÃ§Ã¼m
-    // arasÄ±nda deÄŸiÅŸmeyene kadar kÄ±sa aralÄ±klarla bekle.
+    // MediaRecorder, servis durdurulduktan hemen sonra dosyanın trailer'ını
+    // (moov atom) yazmayı bitirmemiş olabilir. Dosya boyutu iki ölçüm
+    // arasında değişmeyene kadar kısa aralıklarla bekle.
     int lastSize = -1;
     for (var i = 0; i < 15; i++) {
       if (await file.exists()) {
@@ -230,8 +231,8 @@ class CallRecordingService {
 
     if (!await file.exists() || await file.length() == 0) {
       throw Exception(
-        'KayÄ±t dosyasÄ± boÅŸ gÃ¶rÃ¼nÃ¼yor. HoparlÃ¶rÃ¼n aÃ§Ä±k olduÄŸundan ve '
-        'mikrofon izninin verildiÄŸinden emin olup tekrar deneyin.',
+        'Kayıt dosyası boş görünüyor. Hoparlörün açık olduğundan ve '
+        'mikrofon izninin verildiğinden emin olup tekrar deneyin.',
       );
     }
 
