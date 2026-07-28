@@ -30,6 +30,10 @@ class _CallRecordingTaskHandler extends TaskHandler {
     // Android telefon görüşmesi sesini doğrudan üçüncü parti uygulamalara
     // açmaz. En güvenilir yöntem, hoparlörden çıkan sesi düz mikrofonla
     // yakalamaktır; iletişim modu bazı cihazlarda karşı taraf sesini bastırır.
+    // speakerphone:true, kullanıcının bildirime bakıp elle hoparlöre almasını
+    // beklemek yerine kaydı native tarafta otomatik hoparlöre alır (ve kayıt
+    // bitince eski duruma otomatik döner) — sessiz/anlaşılmaz kayıtların asıl
+    // nedeni genelde konuşmanın kulaklıkta geçip mikrofona hiç ulaşmamasıydı.
     await _recorder.start(
       const RecordConfig(
         encoder: AudioEncoder.wav,
@@ -41,6 +45,7 @@ class _CallRecordingTaskHandler extends TaskHandler {
         androidConfig: AndroidRecordConfig(
           audioSource: AndroidAudioSource.mic,
           audioManagerMode: AudioManagerMode.modeNormal,
+          speakerphone: true,
         ),
       ),
       path: filePath,
