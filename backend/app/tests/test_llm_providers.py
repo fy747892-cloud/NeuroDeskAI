@@ -77,6 +77,60 @@ async def test_ai_provider_maps_successful_response():
     assert output.output_tokens == 7
 
 
+@pytest.mark.parametrize(
+    "hallucinated_text",
+    [
+        "Thank you for watching",
+        "Thanks for watching!",
+        "Thank you so much for watching.",
+        "Please subscribe",
+        "Like and subscribe",
+        "See you in the next video",
+        "Bye bye",
+    ],
+)
+async def test_ai_provider_rejects_whisper_hallucinations(hallucinated_text):
+    """Whisper commonly hallucinates YouTube-outro phrases on silent/near-
+    silent audio (e.g. a call recording where the far side never came
+    through the mic) -- these must not be treated as a real transcript."""
+    with _openai_settings():
+        provider = OpenAICompatibleAIProvider()
+        with patch.object(
+            OpenAICompatibleAIProvider,
+            "_post_transcription",
+            new=AsyncMock(return_value=hallucinated_text),
+        ):
+            with pytest.raises(RuntimeError):
+                await provider.transcribe_audio(
+                    audio_bytes=b"fake-audio",
+                    filename="call.wav",
+                    content_type="audio/wav",
+                    language="tr",
+                )
+
+
+async def test_ai_provider_accepts_real_transcript_mentioning_watching():
+    """Guard against over-matching: real speech that happens to start with
+    "thank you" must still go through."""
+    with _openai_settings():
+        provider = OpenAICompatibleAIProvider()
+        with patch.object(
+            OpenAICompatibleAIProvider,
+            "_post_transcription",
+            new=AsyncMock(
+                return_value="Thank you for the meeting today, let's proceed with pricing."
+            ),
+        ):
+            text = await provider.transcribe_audio(
+                audio_bytes=b"fake-audio",
+                filename="call.wav",
+                content_type="audio/wav",
+                language="tr",
+            )
+
+    assert "pricing" in text.lower()
+
+
 async def test_ai_provider_retries_then_raises_on_persistent_failure():
     with _openai_settings():
         provider = OpenAICompatibleAIProvider()
