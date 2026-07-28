@@ -390,14 +390,6 @@ function VoiceOverlay({
                   >
                     {t("aiChat.addToChat")}
                   </button>
-                  {actionMeta?.requiresApproval ? (
-                    <a
-                      href="/onay-merkezi"
-                      className="px-4 py-2 bg-surface-container-high text-on-surface rounded-lg text-sm font-medium hover:bg-surface-container-highest active:scale-95 transition-all"
-                    >
-                      {t("aiChat.goToApprovalCenter")}
-                    </a>
-                  ) : null}
                 </div>
               </div>
             </div>

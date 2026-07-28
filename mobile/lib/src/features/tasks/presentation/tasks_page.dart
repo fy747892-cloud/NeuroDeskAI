@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../data/tasks_repository.dart';
 import '../domain/task.dart';
@@ -38,7 +37,7 @@ class TasksPage extends ConsumerWidget {
           const SizedBox(height: 16),
           tasks.when(
             data: (items) => items.isEmpty
-                ? _EmptyList(message: 'Henüz görev yok.', actionLabel: 'Onayları kontrol et', onAction: () => context.go('/app/approvals'))
+                ? const _EmptyList(message: 'Henüz görev yok.')
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [

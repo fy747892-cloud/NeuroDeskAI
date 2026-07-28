@@ -160,6 +160,14 @@ class OpenAICompatibleAIProvider:
                 "and Temsilci:. Do not invent subtitles, credits, signatures, "
                 "music, or inaudible sections."
             )
+        if include_guidance:
+            data["prompt"] += (
+                " This is a speakerphone capture: the remote speaker may be "
+                "quieter, echoey, or farther from the microphone. Carefully "
+                "listen for both sides and do not omit the quieter remote "
+                "speaker when audible. Prefer speaker labels Temsilci: and "
+                "Musteri: when turns can be separated."
+            )
         if language:
             data["language"] = language
         files = {"file": (filename, audio_bytes, content_type)}
@@ -212,6 +220,10 @@ class OpenAICompatibleAIProvider:
                     "role": "user",
                     "content": (
                         f"G\u00f6r\u00fc\u015fme ba\u015fl\u0131\u011f\u0131: {title}\n\n"
+                        "Not: Bu transkript telefon hoparl\u00f6r\u00fcnden kaydedilmi\u015f olabilir; "
+                        "kar\u015f\u0131 taraf\u0131n sesi daha k\u0131s\u0131k veya yank\u0131l\u0131 gelebilir. "
+                        "Belirsiz yerlerde kesin bilgi uydurma; g\u00f6rev/randevu/f\u0131rsat "
+                        "\u00f6nerilerini yaln\u0131zca transkriptte duyulan kan\u0131tlara dayand\u0131r.\n\n"
                         f"Transkript:\n{transcript_text}"
                     ),
                 },

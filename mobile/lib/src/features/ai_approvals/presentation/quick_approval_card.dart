@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_error.dart';
 import '../data/ai_approvals_repository.dart';
@@ -61,10 +60,6 @@ class _QuickApprovalCardState extends ConsumerState<QuickApprovalCard> {
                   ),
                 ),
               ),
-              TextButton(
-                onPressed: _isSubmitting ? null : () => context.go('/app/approvals'),
-                child: const Text('Onay Merkezi'),
-              ),
             ],
           ),
           const SizedBox(height: 6),
@@ -93,25 +88,28 @@ class _QuickApprovalCardState extends ConsumerState<QuickApprovalCard> {
             ),
           ],
           const SizedBox(height: 10),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Expanded(
+              SizedBox(
+                width: 112,
                 child: OutlinedButton.icon(
                   onPressed: _isSubmitting ? null : _rejectFirst,
                   icon: const Icon(Icons.close, size: 18),
                   label: const Text('Reddet'),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
+              SizedBox(
+                width: 120,
                 child: OutlinedButton.icon(
                   onPressed: _isSubmitting ? null : () => _editAndApprove(first),
                   icon: const Icon(Icons.edit_outlined, size: 18),
                   label: const Text('Düzenle'),
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
+              SizedBox(
+                width: 112,
                 child: FilledButton.icon(
                   onPressed: _isSubmitting ? null : _approveFirst,
                   icon: const Icon(Icons.check, size: 18),

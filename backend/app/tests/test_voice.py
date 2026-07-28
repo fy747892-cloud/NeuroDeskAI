@@ -33,6 +33,19 @@ async def test_voice_command_interprets_task_intent(client: AsyncClient):
     assert body["action"]["requires_approval"] is True
 
 
+async def test_voice_command_cleans_task_title_from_command_words(client: AsyncClient):
+    headers = await _auth_headers(client, "voice-clean-title@example.com")
+
+    response = await client.post(
+        "/api/v1/voice/commands/interpret",
+        headers=headers,
+        json={"text": "Yarın acil görev olarak teklif takibini ekle"},
+    )
+    assert response.status_code == 200
+    payload = response.json()["action"]["suggested_payload"]
+    assert payload["title"].lower() == "teklif takibini"
+
+
 async def test_voice_command_accepts_mock_base64_audio(client: AsyncClient):
     headers = await _auth_headers(client, "voice-audio@example.com")
     encoded = base64.b64encode("Bugün toplantı planla".encode()).decode()

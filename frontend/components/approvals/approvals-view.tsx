@@ -261,13 +261,13 @@ function ActionCard({
       </div>
 
       {fields.length > 0 ? (
-        <div className="grid grid-cols-2 gap-md mb-xl">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-md mb-xl">
           {fields.map(([key, value]) => (
-            <div key={key} className="bg-white/50 border border-outline-variant/30 rounded-lg p-3">
+            <div key={key} className="bg-white/50 border border-outline-variant/30 rounded-lg p-3 min-w-0">
               <label className="block text-[10px] font-bold text-on-surface-variant opacity-60 uppercase mb-1">
                 {key}
               </label>
-              <span className="text-[13px] text-on-surface font-medium">{value}</span>
+              <span className="block text-[13px] text-on-surface font-medium break-words leading-snug">{value}</span>
             </div>
           ))}
         </div>

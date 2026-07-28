@@ -36,7 +36,7 @@ class AppNotification {
       return switch (type) {
         'task' || 'task_reminder' => '/app/tasks',
         'appointment' || 'appointment_reminder' => '/app/appointments',
-        'approval' || 'ai_action_approval' => '/app/approvals',
+        'approval' || 'ai_action_approval' => '/app/calls',
         'call' || 'call_analysis' => '/app/calls',
         'file' => '/app/files',
         'email' || 'email_account' || 'email_message' => '/app/email',
@@ -49,7 +49,7 @@ class AppNotification {
       'appointment' => '/app/appointments/$id',
       'conversation' => '/app/conversations/$id',
       'call' => '/app/calls',
-      'approval' || 'ai_action_approval' => '/app/approvals/$id',
+      'approval' || 'ai_action_approval' => '/app/calls',
       'file' => '/app/files/$id',
       'contact' => '/app/contacts/$id',
       'email' || 'email_account' || 'email_message' => '/app/email',

@@ -151,7 +151,7 @@ class _FilesPageState extends ConsumerState<FilesPage> {
     try {
       await ref.read(filesRepositoryProvider).analyzeFile(file.id);
       _showTemporaryNotice(
-        '${file.filename} analiz edildi. Görev/randevu önerileri varsa Onay Merkezi’nde bekliyor.',
+        '${file.filename} analiz edildi. Görev/randevu önerileri dosya kartında hazır.',
       );
       ref.invalidate(filesProvider);
       ref.invalidate(pendingAiApprovalsProvider);
@@ -160,7 +160,7 @@ class _FilesPageState extends ConsumerState<FilesPage> {
         messenger.hideCurrentSnackBar();
         messenger.showSnackBar(
           SnackBar(
-            content: const Text('Analiz tamamlandı. Onay Merkezi’ne geçebilirsin.'),
+            content: const Text('Analiz tamamlandı. Öneriler dosya kartında görünecek.'),
             action: SnackBarAction(
               label: 'Aç',
               onPressed: () {
@@ -168,7 +168,7 @@ class _FilesPageState extends ConsumerState<FilesPage> {
                 if (mounted) {
                   setState(() => _notice = null);
                 }
-                context.go('/app/approvals');
+                  context.go('/app/files');
               },
             ),
           ),
@@ -239,7 +239,7 @@ class _FilesPageState extends ConsumerState<FilesPage> {
         await ref.read(filesRepositoryProvider).analyzeFile(uploaded.id);
         ref.invalidate(pendingAiApprovalsProvider);
         _showTemporaryNotice(
-          '${uploaded.filename} yüklendi ve analiz edildi. Öneriler varsa Onay Merkezi’nde bekliyor.',
+          '${uploaded.filename} yüklendi ve analiz edildi. Öneriler varsa dosya kartında hazır.',
         );
       } catch (error) {
         setState(() {

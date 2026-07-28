@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../features/ai_approvals/presentation/ai_approvals_page.dart';
 import '../features/ai_chat/presentation/ai_chat_page.dart';
 import '../features/analytics/presentation/analytics_page.dart';
 import '../features/appointments/presentation/appointments_page.dart';
@@ -107,14 +106,6 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/app/appointments/:appointmentId',
             builder: (context, state) => const AppointmentsPage(),
-          ),
-          GoRoute(
-            path: '/app/approvals',
-            builder: (context, state) => const AiApprovalsPage(),
-          ),
-          GoRoute(
-            path: '/app/approvals/:approvalId',
-            builder: (context, state) => const AiApprovalsPage(),
           ),
           GoRoute(
             path: '/app/chat',

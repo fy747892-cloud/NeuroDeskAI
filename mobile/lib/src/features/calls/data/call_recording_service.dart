@@ -9,6 +9,8 @@ const String _recordFilePathKey = 'callRecordingFilePath';
 const String _recordDirectoryName = 'call_recordings';
 const String _openRecorderButtonId = 'open_call_recorder';
 const String _notificationTitle = 'NeuroDesk AI';
+const int _callSampleRate = 48000;
+const int _callBitRate = 256000;
 
 @pragma('vm:entry-point')
 void startCallRecordingTask() {
@@ -30,21 +32,7 @@ class _CallRecordingTaskHandler extends TaskHandler {
     // Android telefon görüşmesi sesini doğrudan üçüncü parti uygulamalara
     // açmaz. En güvenilir yöntem, hoparlörden çıkan sesi düz mikrofonla
     // yakalamaktır; iletişim modu bazı cihazlarda karşı taraf sesini bastırır.
-    await _recorder.start(
-      const RecordConfig(
-        encoder: AudioEncoder.wav,
-        sampleRate: 16000,
-        numChannels: 1,
-        autoGain: true,
-        echoCancel: false,
-        noiseSuppress: false,
-        androidConfig: AndroidRecordConfig(
-          audioSource: AndroidAudioSource.mic,
-          audioManagerMode: AudioManagerMode.modeNormal,
-        ),
-      ),
-      path: filePath,
-    );
+    await _startBestEffortSpeakerphoneRecording(filePath);
   }
 
   @override
@@ -81,6 +69,46 @@ class _CallRecordingTaskHandler extends TaskHandler {
       await _recorder.stop();
     }
     await _recorder.dispose();
+  }
+
+  Future<void> _startBestEffortSpeakerphoneRecording(String filePath) async {
+    // Android usually blocks direct access to phone-call line audio. The
+    // practical path is speakerphone plus a high-quality mic capture, with
+    // fallbacks for devices that reject raw/unprocessed sources.
+    final configs = <RecordConfig>[
+      _speakerphoneConfig(AndroidAudioSource.unprocessed),
+      _speakerphoneConfig(AndroidAudioSource.voiceRecognition),
+      _speakerphoneConfig(AndroidAudioSource.mic),
+    ];
+
+    Object? lastError;
+    for (final config in configs) {
+      try {
+        await _recorder.start(config, path: filePath);
+        return;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError ?? Exception('Call recording could not start.');
+  }
+
+  RecordConfig _speakerphoneConfig(AndroidAudioSource audioSource) {
+    return RecordConfig(
+      encoder: AudioEncoder.wav,
+      bitRate: _callBitRate,
+      sampleRate: _callSampleRate,
+      numChannels: 2,
+      autoGain: true,
+      echoCancel: false,
+      noiseSuppress: false,
+      androidConfig: AndroidRecordConfig(
+        audioSource: audioSource,
+        speakerphone: true,
+        manageBluetooth: false,
+        audioManagerMode: AudioManagerMode.modeNormal,
+      ),
+    );
   }
 }
 
