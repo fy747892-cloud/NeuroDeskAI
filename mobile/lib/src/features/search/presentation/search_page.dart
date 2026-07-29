@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/screen_header.dart';
 import '../data/search_repository.dart';
 import '../domain/search_result.dart';
 
@@ -30,10 +33,13 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     final theme = Theme.of(context);
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: kScreenPadding,
       children: [
-        Text('Arama', style: theme.textTheme.headlineMedium),
-        const SizedBox(height: 6),
+        StitchDetailHeader(
+          title: 'Arama',
+          onBack: () =>
+              context.canPop() ? context.pop() : context.go('/app/more'),
+        ),
         Text(
           'Görev, randevu, görüşme ve kişiler arasında anlamsal arama yap.',
           style: theme.textTheme.bodyMedium,
@@ -107,10 +113,9 @@ class _SearchForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
+    return AppCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
           children: [
             TextField(
               controller: controller,
@@ -152,7 +157,6 @@ class _SearchForm extends StatelessWidget {
               ],
             ),
           ],
-        ),
       ),
     );
   }
@@ -170,80 +174,22 @@ class _SearchSummary extends StatelessWidget {
     final contactCount =
         results.where((result) => result.sourceType == 'contact').length;
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF17152F),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _SummaryMetric(
-              label: 'Sonuç',
-              value: results.length.toString(),
-              icon: Icons.search,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _SummaryMetric(
-              label: 'Görev/Kişi',
-              value: '${taskCount + contactCount}',
-              icon: Icons.hub_outlined,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SummaryMetric extends StatelessWidget {
-  const _SummaryMetric({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: Colors.white, size: 20),
-        ),
-        const SizedBox(width: 10),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.72),
-                    ),
-              ),
-            ],
+          child: BentoStatTile(
+            icon: Icons.search,
+            label: 'Sonuç',
+            value: results.length.toString(),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: InfoTile(
+            icon: Icons.hub_outlined,
+            label: 'Görev/Kişi',
+            text: '${taskCount + contactCount} eşleşme',
           ),
         ),
       ],
@@ -258,9 +204,9 @@ class _ResultCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: AppCard(
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -322,15 +268,7 @@ class _SourceIcon extends StatelessWidget {
       _ => Icons.search,
     };
 
-    return Container(
-      width: 38,
-      height: 38,
-      decoration: BoxDecoration(
-        color: const Color(0x1A3525CD),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Icon(icon, color: const Color(0xFF3525CD), size: 20),
-    );
+    return TintedIcon(icon: icon, color: const Color(0xFF3525CD), size: 38);
   }
 }
 
@@ -352,11 +290,6 @@ class _PageMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(message),
-      ),
-    );
+    return AppCard(child: Text(message));
   }
 }

@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/screen_header.dart';
+import '../../tasks/data/tasks_repository.dart';
 import '../data/appointments_repository.dart';
 import '../domain/appointment.dart';
 
@@ -19,16 +22,20 @@ class _AppointmentsPageState extends ConsumerState<AppointmentsPage> {
   @override
   Widget build(BuildContext context) {
     final appointments = ref.watch(appointmentsForMonthProvider(_visibleMonth));
-    final theme = Theme.of(context);
+    final tasks = ref.watch(tasksProvider).valueOrNull ?? const [];
+    final todayTasks = tasks.where((task) {
+      final due = task.dueAt?.toLocal();
+      final now = DateTime.now();
+      return due != null && due.year == now.year && due.month == now.month && due.day == now.day;
+    }).toList(growable: false);
 
     return Scaffold(
       body: RefreshIndicator(
         onRefresh: () => ref.refresh(appointmentsForMonthProvider(_visibleMonth).future),
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: kScreenPadding,
           children: [
-            Text('Takvim', style: theme.textTheme.headlineMedium),
-            const SizedBox(height: 16),
+            const StitchScreenHeader(title: 'Takvim'),
             appointments.when(
               data: (items) => Column(
                 children: [
@@ -48,6 +55,30 @@ class _AppointmentsPageState extends ConsumerState<AppointmentsPage> {
                         .toList(growable: false)
                       ..sort((a, b) => a.startAt.compareTo(b.startAt)),
                     onAdd: () => _showCreateSheet(context, ref),
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: BentoStatTile(
+                          icon: Icons.task_alt,
+                          label: 'Tamamlanan',
+                          value:
+                              '${todayTasks.where((task) => task.status == 'completed').length}/${todayTasks.length}',
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: InfoTile(
+                          icon: Icons.forum,
+                          label: 'AI Özeti',
+                          text: items.isEmpty
+                              ? 'Bu ay için planlanmış randevu yok.'
+                              : 'Bu ay ${items.length} randevun var.',
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -112,13 +143,8 @@ class _MonthCalendar extends StatelessWidget {
         .map((a) => _dateOnly(a.startAt.toLocal()))
         .toSet();
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE5E7F1)),
-      ),
+    return AppCard(
+      radius: kLargeCardRadius,
       child: Column(
         children: [
           Row(
@@ -211,7 +237,8 @@ class _DayCell extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: isSelected ? theme.colorScheme.primary : null,
+            color: isSelected ? theme.colorScheme.secondary : null,
+            boxShadow: isSelected ? kFabShadow : null,
           ),
           child: Center(
             child: Column(
@@ -233,7 +260,7 @@ class _DayCell extends StatelessWidget {
                     height: 4,
                     margin: const EdgeInsets.only(top: 2),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.primary,
+                      color: theme.colorScheme.secondary,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -316,64 +343,71 @@ class _AppointmentCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border(
-          left: BorderSide(color: theme.colorScheme.primary, width: 4),
-          top: const BorderSide(color: Color(0xFFE5E7F1)),
-          right: const BorderSide(color: Color(0xFFE5E7F1)),
-          bottom: const BorderSide(color: Color(0xFFE5E7F1)),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Column(
-            children: [
-              Text(
-                _formatTime(appointment.startAt),
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              Text(_formatTime(appointment.endAt), style: theme.textTheme.bodySmall),
-            ],
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(kCardRadius),
+        child: Container(
+          decoration: BoxDecoration(color: Colors.white, boxShadow: kCardShadow),
+          child: IntrinsicHeight(
+            child: Row(
               children: [
-                Text(appointment.title, style: theme.textTheme.titleMedium),
-                if (appointment.location != null && appointment.location!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(appointment.location!, style: theme.textTheme.bodySmall),
+                Container(width: 4, color: theme.colorScheme.primary),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Column(
+                          children: [
+                            Text(
+                              _formatTime(appointment.startAt),
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            Text(_formatTime(appointment.endAt), style: theme.textTheme.bodySmall),
+                          ],
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(appointment.title, style: theme.textTheme.titleMedium),
+                              if (appointment.location != null && appointment.location!.isNotEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(appointment.location!, style: theme.textTheme.bodySmall),
+                                ),
+                            ],
+                          ),
+                        ),
+                        PopupMenuButton<String>(
+                          onSelected: (value) async {
+                            if (value == 'delete') {
+                              await ref
+                                  .read(appointmentsRepositoryProvider)
+                                  .deleteAppointment(appointment.id);
+                              ref.invalidate(appointmentsForMonthProvider(
+                                DateTime(appointment.startAt.year, appointment.startAt.month),
+                              ));
+                            }
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(value: 'delete', child: Text('Sil')),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
+                ),
               ],
             ),
           ),
-          PopupMenuButton<String>(
-            onSelected: (value) async {
-              if (value == 'delete') {
-                await ref
-                    .read(appointmentsRepositoryProvider)
-                    .deleteAppointment(appointment.id);
-                ref.invalidate(appointmentsForMonthProvider(
-                  DateTime(appointment.startAt.year, appointment.startAt.month),
-                ));
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: 'delete', child: Text('Sil')),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -511,11 +545,6 @@ class _EmptyList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(message),
-      ),
-    );
+    return AppCard(child: Text(message));
   }
 }

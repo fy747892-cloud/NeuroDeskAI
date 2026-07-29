@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/screen_header.dart';
 import '../../contacts/data/contacts_repository.dart';
 import '../../contacts/domain/contact.dart';
 import '../data/deals_repository.dart';
@@ -22,37 +24,14 @@ class _DealsPageState extends ConsumerState<DealsPage> {
   Widget build(BuildContext context) {
     final deals = ref.watch(dealsProvider);
     final contacts = ref.watch(contactsProvider(null));
-    final theme = Theme.of(context);
 
-    return RefreshIndicator(
+    return Scaffold(
+      body: RefreshIndicator(
       onRefresh: _refresh,
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: kScreenPadding,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Fırsatlar', style: theme.textTheme.headlineMedium),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Pipeline değerini ve aşama hareketlerini takip et.',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  ],
-                ),
-              ),
-              FilledButton.icon(
-                onPressed: () => _showCreateDialog(context),
-                icon: const Icon(Icons.add),
-                label: const Text('Yeni'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
+          const StitchScreenHeader(title: 'Fırsatlar'),
           deals.when(
             data: (items) {
               final contactMap = contacts.valueOrNull == null
@@ -70,8 +49,6 @@ class _DealsPageState extends ConsumerState<DealsPage> {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _PipelineSummary(deals: items),
-                  const SizedBox(height: 14),
                   _StageFilter(
                     selectedStage: _selectedStage,
                     deals: items,
@@ -79,18 +56,18 @@ class _DealsPageState extends ConsumerState<DealsPage> {
                       setState(() => _selectedStage = stage);
                     },
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 16),
                   if (visible.isEmpty)
                     const _PageMessage(message: 'Bu aşamada fırsat yok.')
                   else
-                    ...visible.map(
-                      (deal) => _DealCard(
-                        deal: deal,
-                        contact: contactMap[deal.contactId],
-                        isUpdating: _activeDealId == deal.id,
-                        onStageChanged: (stage) => _updateStage(deal, stage),
+                    for (var i = 0; i < visible.length; i++)
+                      _DealCard(
+                        deal: visible[i],
+                        contact: contactMap[visible[i].contactId],
+                        isUpdating: _activeDealId == visible[i].id,
+                        colorIndex: i,
+                        onStageChanged: (stage) => _updateStage(visible[i], stage),
                       ),
-                    ),
                 ],
               );
             },
@@ -100,6 +77,12 @@ class _DealsPageState extends ConsumerState<DealsPage> {
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
         ],
+      ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        tooltip: 'Fırsat ekle',
+        onPressed: () => _showCreateDialog(context),
+        child: const Icon(Icons.add),
       ),
     );
   }
@@ -147,92 +130,6 @@ class _DealsPageState extends ConsumerState<DealsPage> {
   }
 }
 
-class _PipelineSummary extends StatelessWidget {
-  const _PipelineSummary({required this.deals});
-
-  final List<Deal> deals;
-
-  @override
-  Widget build(BuildContext context) {
-    final openDeals = deals
-        .where((deal) => openDealStages.contains(deal.stage))
-        .toList(growable: false);
-    final totalValue = openDeals.fold<double>(
-      0,
-      (sum, deal) => sum + (deal.value ?? 0),
-    );
-    final currency = openDeals.isEmpty ? 'TRY' : openDeals.first.currency;
-    final theme = Theme.of(context);
-
-    return Row(
-      children: [
-        Expanded(
-          child: _StatTile(
-            icon: Icons.account_tree_outlined,
-            label: 'Açık fırsat',
-            value: openDeals.length.toString(),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _StatTile(
-            icon: Icons.payments_outlined,
-            label: 'Açık değer',
-            value: '${_formatNumber(totalValue)} $currency',
-            accent: theme.colorScheme.primary,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatTile extends StatelessWidget {
-  const _StatTile({
-    required this.icon,
-    required this.label,
-    required this.value,
-    this.accent,
-  });
-
-  final IconData icon;
-  final String label;
-  final String value;
-  final Color? accent;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = accent ?? theme.colorScheme.onSurface;
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7F1)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: theme.colorScheme.primary, size: 20),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          Text(label, style: theme.textTheme.bodySmall),
-        ],
-      ),
-    );
-  }
-}
-
 class _StageFilter extends StatelessWidget {
   const _StageFilter({
     required this.selectedStage,
@@ -246,20 +143,19 @@ class _StageFilter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
+    return SizedBox(
+      height: 40,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
         children: [
-          _StageChip(
+          _StageTab(
             label: 'Tüm',
-            count: deals.length,
             selected: selectedStage == 'all',
             onSelected: () => onChanged('all'),
           ),
           for (final stage in dealStages)
-            _StageChip(
+            _StageTab(
               label: dealStageLabel(stage),
-              count: deals.where((deal) => deal.stage == stage).length,
               selected: selectedStage == stage,
               onSelected: () => onChanged(stage),
             ),
@@ -269,58 +165,86 @@ class _StageFilter extends StatelessWidget {
   }
 }
 
-class _StageChip extends StatelessWidget {
-  const _StageChip({
+class _StageTab extends StatelessWidget {
+  const _StageTab({
     required this.label,
-    required this.count,
     required this.selected,
     required this.onSelected,
   });
 
   final String label;
-  final int count;
   final bool selected;
   final VoidCallback onSelected;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: ChoiceChip(
-        label: Text('$label $count'),
-        selected: selected,
-        onSelected: (_) => onSelected(),
+      padding: const EdgeInsets.only(right: 24),
+      child: InkWell(
+        onTap: onSelected,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? theme.colorScheme.secondary : theme.colorScheme.onSurfaceVariant,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.normal,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Container(
+              height: 3,
+              width: 32,
+              decoration: BoxDecoration(
+                color: selected ? theme.colorScheme.secondary : Colors.transparent,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
+
+// Cycling icon/color pairs, matching the same decorative palette used in the
+// Daha Fazla module grid -- purely visual variety, not tied to deal data.
+const _dealAccents = [
+  (Color(0xFF059669), Icons.business_outlined),
+  (Color(0xFF4F46E5), Icons.rocket_launch_outlined),
+  (Color(0xFFD97706), Icons.bolt_outlined),
+  (Color(0xFF7C3AED), Icons.palette_outlined),
+  (Color(0xFFE11D48), Icons.storefront_outlined),
+  (Color(0xFF0891B2), Icons.apartment_outlined),
+];
 
 class _DealCard extends StatelessWidget {
   const _DealCard({
     required this.deal,
     required this.isUpdating,
     required this.onStageChanged,
+    required this.colorIndex,
     this.contact,
   });
 
   final Deal deal;
   final Contact? contact;
   final bool isUpdating;
+  final int colorIndex;
   final ValueChanged<String> onStageChanged;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isAiSourced = deal.sourceType != 'manual';
+    final (accentColor, accentIcon) =
+        _dealAccents[colorIndex % _dealAccents.length];
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: AppCard(
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7F1)),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -331,85 +255,120 @@ class _DealCard extends StatelessWidget {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                  color: accentColor,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(Icons.business_center_outlined,
-                    color: theme.colorScheme.primary, size: 20),
+                child: Icon(accentIcon, color: Colors.white, size: 20),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(deal.title, style: theme.textTheme.titleMedium),
-              ),
-              if (isAiSourced)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    'AI',
-                    style: TextStyle(
-                      color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 11,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-            if (contact != null) ...[
-              const SizedBox(height: 8),
-              _MetaLine(
-                icon: Icons.person_outline,
-                text: [
-                  contact!.fullName,
-                  if (contact!.company != null) contact!.company!,
-                ].join(' - '),
-              ),
-            ],
-            if (deal.expectedCloseDate != null) ...[
-              const SizedBox(height: 8),
-              _MetaLine(
-                icon: Icons.event_outlined,
-                text: 'Kapanış: ${_formatDate(deal.expectedCloseDate!)}',
-              ),
-            ],
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${_formatNumber(deal.value ?? 0)} ${deal.currency}',
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      color: const Color(0xFF3525CD),
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-                DropdownButton<String>(
-                  value: deal.stage,
-                  onChanged: isUpdating || !dealStages.contains(deal.stage)
-                      ? null
-                      : (stage) {
-                          if (stage != null) {
-                            onStageChanged(stage);
-                          }
-                        },
-                  items: [
-                    for (final stage in dealStages)
-                      DropdownMenuItem(
-                        value: stage,
-                        child: Text(dealStageLabel(stage)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(deal.title, style: theme.textTheme.titleMedium),
+                    if (contact != null)
+                      Text(
+                        [
+                          contact!.fullName,
+                          if (contact!.company != null) contact!.company!,
+                        ].join(' - '),
+                        style: theme.textTheme.bodySmall,
                       ),
                   ],
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+              const SizedBox(width: 8),
+              _StageBadge(
+                deal: deal,
+                isUpdating: isUpdating,
+                onStageChanged: onStageChanged,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Tutar', style: theme.textTheme.bodySmall),
+                    Text(
+                      '${_formatNumber(deal.value ?? 0)} ${deal.currency}',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: theme.colorScheme.secondary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (deal.expectedCloseDate != null)
+                Row(
+                  children: [
+                    Icon(Icons.schedule,
+                        size: 16, color: theme.colorScheme.outline),
+                    const SizedBox(width: 4),
+                    Text(_formatDate(deal.expectedCloseDate!),
+                        style: theme.textTheme.bodySmall),
+                  ],
+                ),
+            ],
+          ),
+        ],
+      ),
+      ),
+    );
+  }
+}
+
+class _StageBadge extends StatelessWidget {
+  const _StageBadge({
+    required this.deal,
+    required this.isUpdating,
+    required this.onStageChanged,
+  });
+
+  final Deal deal;
+  final bool isUpdating;
+  final ValueChanged<String> onStageChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    if (isUpdating) {
+      return const SizedBox(
+        width: 16,
+        height: 16,
+        child: CircularProgressIndicator(strokeWidth: 2),
       );
+    }
+    return PopupMenuButton<String>(
+      tooltip: 'Aşamayı değiştir',
+      onSelected: onStageChanged,
+      itemBuilder: (context) => [
+        for (final stage in dealStages)
+          PopupMenuItem(value: stage, child: Text(dealStageLabel(stage))),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          dealStages.contains(deal.stage)
+              ? dealStageLabel(deal.stage)
+              : deal.stage,
+          style: TextStyle(
+            color: theme.colorScheme.primary,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -584,30 +543,6 @@ class _CreateDealSheetState extends ConsumerState<_CreateDealSheet> {
   }
 }
 
-class _MetaLine extends StatelessWidget {
-  const _MetaLine({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          size: 16,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(text, style: Theme.of(context).textTheme.bodySmall),
-        ),
-      ],
-    );
-  }
-}
-
 class _PageMessage extends StatelessWidget {
   const _PageMessage({required this.message});
 
@@ -615,12 +550,7 @@ class _PageMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(message),
-      ),
-    );
+    return AppCard(child: Text(message));
   }
 }
 

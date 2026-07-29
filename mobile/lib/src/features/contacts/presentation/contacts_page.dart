@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/screen_header.dart';
 import '../../calls/data/call_recording_provider.dart';
 import '../data/contacts_repository.dart';
 import '../domain/contact.dart';
@@ -33,28 +35,36 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        tooltip: 'Kişi ekle',
-        onPressed: () => _showCreateContactSheet(context),
-        child: const Icon(Icons.person_add_alt_1),
-      ),
       body: RefreshIndicator(
         onRefresh: () => ref.refresh(contactsProvider(_search).future),
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: kScreenPadding,
           children: [
-            Text('Kişiler', style: theme.textTheme.headlineMedium),
-            const SizedBox(height: 6),
-            Text(
-              'Müşteri hafızasına, notlara ve son temaslara mobil erişim.',
-              style: theme.textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 16),
-            _SearchBar(
-              controller: _searchController,
-              onSearch: () {
-                setState(() => _search = _searchController.text.trim());
-              },
+            const StitchScreenHeader(title: 'Kişiler'),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (_) =>
+                        setState(() => _search = _searchController.text.trim()),
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search),
+                      hintText: 'Kişilerde ara...',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                IconButton.filled(
+                  style: IconButton.styleFrom(
+                    backgroundColor: theme.colorScheme.secondary,
+                  ),
+                  tooltip: 'Kişi ekle',
+                  onPressed: () => _showCreateContactSheet(context),
+                  icon: const Icon(Icons.person_add_alt_1),
+                ),
+              ],
             ),
             const SizedBox(height: 10),
             FilledButton.tonalIcon(
@@ -75,11 +85,20 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                     : 'Telefon rehberinden içe aktar',
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             contacts.when(
               data: (items) => items.isEmpty
                   ? const _PageMessage(message: 'Kişi kaydı yok.')
-                  : _GroupedContactList(contacts: items),
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (_search == null || _search!.isEmpty) ...[
+                          _RecentContactsStrip(contacts: items),
+                          const SizedBox(height: 20),
+                        ],
+                        _GroupedContactList(contacts: items),
+                      ],
+                    ),
               error: (error, stackTrace) => _PageMessage(
                 message: readableApiError(error, 'Kişiler alınamadı.'),
               ),
@@ -176,35 +195,87 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
   }
 }
 
-class _SearchBar extends StatelessWidget {
-  const _SearchBar({required this.controller, required this.onSearch});
+/// Stitch's mockup shows a "Favoriler" quick-access strip, but the backend
+/// Contact model has no favorite flag -- fabricating one would misrepresent
+/// real data. This reuses the same avatar-strip visual, honestly sourced
+/// from the most recently added contacts instead.
+class _RecentContactsStrip extends StatelessWidget {
+  const _RecentContactsStrip({required this.contacts});
 
-  final TextEditingController controller;
-  final VoidCallback onSearch;
+  final List<Contact> contacts;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final theme = Theme.of(context);
+    final recent = [...contacts]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final shown = recent.take(8).toList(growable: false);
+    if (shown.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: TextField(
-            controller: controller,
-            textInputAction: TextInputAction.search,
-            onSubmitted: (_) => onSearch(),
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search),
-              hintText: 'Kişi, şirket veya email ara',
-            ),
+        Text(
+          'SON EKLENENLER',
+          style: TextStyle(
+            color: theme.colorScheme.outline,
+            fontWeight: FontWeight.w700,
+            fontSize: 11,
+            letterSpacing: 1,
           ),
         ),
-        const SizedBox(width: 10),
-        IconButton.filled(
-          tooltip: 'Ara',
-          onPressed: onSearch,
-          icon: const Icon(Icons.search),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 78,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: shown.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 16),
+            itemBuilder: (context, index) {
+              final contact = shown[index];
+              return GestureDetector(
+                onTap: () => context.go('/app/contacts/${contact.id}'),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: theme.colorScheme.primary, width: 2),
+                      ),
+                      child: CircleAvatar(
+                        backgroundColor: theme.colorScheme.surfaceContainerHigh,
+                        child: Text(
+                          _initials(contact.fullName),
+                          style: TextStyle(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      contact.fullName.split(' ').first,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ],
     );
+  }
+
+  String _initials(String name) {
+    final parts = name.split(' ').where((part) => part.isNotEmpty);
+    return parts.map((part) => part[0]).take(2).join().toUpperCase();
   }
 }
 
@@ -267,17 +338,10 @@ class _ContactCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Card(
-      margin: EdgeInsets.zero,
-      color: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Color(0xFFE5E7F1)),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () => context.go('/app/contacts/${contact.id}'),
-        child: Padding(
+    return AppCard(
+      padding: EdgeInsets.zero,
+      onTap: () => context.go('/app/contacts/${contact.id}'),
+      child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
@@ -320,7 +384,6 @@ class _ContactCard extends ConsumerWidget {
             ],
           ),
         ),
-      ),
     );
   }
 }

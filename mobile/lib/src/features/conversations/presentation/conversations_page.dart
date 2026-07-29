@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/screen_header.dart';
 import '../../ai_approvals/data/ai_approvals_repository.dart';
 import '../../calls/data/calls_repository.dart';
 import '../../calls/domain/ai_analysis_job.dart';
@@ -36,19 +38,39 @@ class _ConversationsPageState extends ConsumerState<ConversationsPage> {
       body: RefreshIndicator(
         onRefresh: () => ref.refresh(conversationsProvider.future),
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: kScreenPadding,
           children: [
-            Text('Görüşmeler', style: theme.textTheme.headlineMedium),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _searchController,
-              onChanged: (value) => setState(() => _query = value),
-              decoration: const InputDecoration(
-                hintText: 'Görüşme veya kişi ara...',
-                prefixIcon: Icon(Icons.search),
+            const StitchScreenHeader(title: 'Görüşmeler'),
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(kCardRadius),
+                boxShadow: kCardShadow,
+              ),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) => setState(() => _query = value),
+                decoration: const InputDecoration(
+                  hintText: 'Görüşme veya kişi ara...',
+                  prefixIcon: Icon(Icons.search),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(kCardRadius)),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
+            SectionHeading(
+              title: 'Son Görüşmeler',
+              trailing: _query.isNotEmpty ? 'Tümünü Gör' : null,
+              onTrailingTap: () => setState(() {
+                _query = '';
+                _searchController.clear();
+              }),
+            ),
+            const SizedBox(height: 10),
             conversations.when(
               data: (items) {
                 final filtered = items
@@ -83,8 +105,12 @@ class _ConversationsPageState extends ConsumerState<ConversationsPage> {
       ),
       floatingActionButton: FloatingActionButton(
         tooltip: 'Görüşme ekle',
+        backgroundColor: theme.colorScheme.secondary,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
         onPressed: () => _showCreateCallSheet(context, ref),
-        child: const Icon(Icons.add),
+        child: const Icon(Icons.add_call),
       ),
     );
   }
@@ -129,66 +155,54 @@ class _ConversationCardState extends ConsumerState<_ConversationCard> {
     final job = widget.job;
     final theme = Theme.of(context);
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Material(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(16),
-          onTap: () => context.go('/app/conversations/${conversation.id}'),
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE5E7F1)),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: AppCard(
+        onTap: () => context.go('/app/conversations/${conversation.id}'),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHigh,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.person, color: theme.colorScheme.primary, size: 26),
             ),
-            child: Row(
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.08),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.person, color: theme.colorScheme.primary),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              conversation.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.titleMedium,
-                            ),
-                          ),
-                          Text(
-                            _formatDate(conversation.createdAt),
-                            style: theme.textTheme.bodySmall,
-                          ),
-                        ],
+                      Expanded(
+                        child: Text(
+                          conversation.title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium,
+                        ),
                       ),
-                      const SizedBox(height: 6),
-                      _JobStatusBadge(job: job),
+                      Text(
+                        _formatDate(conversation.createdAt),
+                        style: theme.textTheme.bodySmall,
+                      ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 8),
-                _TrailingAction(
-                  job: job,
-                  isSubmitting: _isSubmitting,
-                  onRequestAnalysis: _requestAnalysis,
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  _JobStatusBadge(job: job),
+                ],
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            _TrailingAction(
+              job: job,
+              isSubmitting: _isSubmitting,
+              onRequestAnalysis: _requestAnalysis,
+            ),
+          ],
         ),
       ),
     );
@@ -244,21 +258,7 @@ class _JobStatusBadge extends StatelessWidget {
       _ => ('Analiz edildi', const Color(0xFF15803D)),
     };
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.w700,
-          fontSize: 11,
-        ),
-      ),
-    );
+    return StatusPill(label: label.toUpperCase(), color: color, dense: true);
   }
 }
 
@@ -438,11 +438,6 @@ class _PageMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(message),
-      ),
-    );
+    return AppCard(child: Text(message));
   }
 }

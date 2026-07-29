@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/screen_header.dart';
 import '../../auth/presentation/auth_controller.dart';
 import '../../email/data/email_repository.dart';
 import '../../email/domain/email_models.dart';
@@ -25,28 +27,40 @@ class SettingsPage extends ConsumerWidget {
         await ref.read(currentUserProvider.future);
       },
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: kScreenPadding,
         children: [
-          Text('Ayarlar', style: theme.textTheme.headlineMedium),
-          const SizedBox(height: 16),
+          const StitchScreenHeader(title: 'Ayarlar'),
           userState.when(
             data: (user) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                _ProfileCard(user: user),
-                const SizedBox(height: 14),
-                const _ConnectedAccountsCard(),
-                const SizedBox(height: 14),
-                _AccountCard(user: user),
-                const SizedBox(height: 14),
-                const _SupportCard(),
+                _UserBriefCard(user: user),
                 const SizedBox(height: 20),
+                const _SectionLabel('Genel'),
+                _ProfileCard(user: user),
+                const SizedBox(height: 10),
+                _NavRow(
+                  icon: Icons.notifications_active_outlined,
+                  label: 'Bildirimler',
+                  onTap: () => context.go('/app/notifications'),
+                ),
+                const SizedBox(height: 20),
+                const _SectionLabel('Bağlı Hesaplar'),
+                const _ConnectedAccountsCard(),
+                const SizedBox(height: 20),
+                const _SectionLabel('Hesap'),
+                _AccountCard(user: user),
+                const SizedBox(height: 20),
+                const _SectionLabel('Destek'),
+                const _SupportCard(),
+                const SizedBox(height: 24),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
                     foregroundColor: theme.colorScheme.error,
                     side: BorderSide(
                       color: theme.colorScheme.error.withValues(alpha: 0.3),
                     ),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
                   ),
                   onPressed: () {
                     ref.read(authControllerProvider.notifier).logout();
@@ -61,6 +75,97 @@ class SettingsPage extends ConsumerWidget {
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 4, bottom: 8),
+      child: Text(
+        label.toUpperCase(),
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.outline,
+          fontWeight: FontWeight.w700,
+          fontSize: 12,
+          letterSpacing: 0.6,
+        ),
+      ),
+    );
+  }
+}
+
+class _UserBriefCard extends StatelessWidget {
+  const _UserBriefCard({required this.user});
+
+  final CurrentUser user;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final name = user.profile?.fullName.trim();
+
+    return AppCard(
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: theme.colorScheme.surfaceContainerHigh,
+            child: Icon(Icons.person, color: theme.colorScheme.primary),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name?.isNotEmpty == true ? name! : user.email,
+                  style: theme.textTheme.titleMedium,
+                ),
+                Text(user.email, style: theme.textTheme.bodySmall),
+              ],
+            ),
+          ),
+          StatusPill(
+            label: _accountStatusLabel(user.status),
+            color: theme.colorScheme.primary,
+            dense: true,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NavRow extends StatelessWidget {
+  const _NavRow({required this.icon, required this.label, required this.onTap});
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      onTap: onTap,
+      child: Row(
+        children: [
+          TintedIcon(icon: icon, color: theme.colorScheme.primary),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(label, style: theme.textTheme.bodyLarge),
+          ),
+          Icon(Icons.chevron_right, color: theme.colorScheme.outline),
         ],
       ),
     );
@@ -100,46 +205,43 @@ class _ProfileCardState extends ConsumerState<_ProfileCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Profil', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _fullNameController,
-              decoration: const InputDecoration(
-                labelText: 'Ad soyad',
-                prefixIcon: Icon(Icons.person_outline),
-              ),
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Profil', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _fullNameController,
+            decoration: const InputDecoration(
+              labelText: 'Ad soyad',
+              prefixIcon: Icon(Icons.person_outline),
             ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _titleController,
+            decoration: const InputDecoration(
+              labelText: 'Unvan',
+              prefixIcon: Icon(Icons.badge_outlined),
+            ),
+          ),
+          if (_message != null) ...[
             const SizedBox(height: 10),
-            TextField(
-              controller: _titleController,
-              decoration: const InputDecoration(
-                labelText: 'Unvan',
-                prefixIcon: Icon(Icons.badge_outlined),
-              ),
-            ),
-            if (_message != null) ...[
-              const SizedBox(height: 10),
-              Text(_message!),
-            ],
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: _isSaving ? null : _save,
-              icon: _isSaving
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.save_outlined),
-              label: const Text('Profili kaydet'),
-            ),
+            Text(_message!),
           ],
-        ),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: _isSaving ? null : _save,
+            icon: _isSaving
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.save_outlined),
+            label: const Text('Profili kaydet'),
+          ),
+        ],
       ),
     );
   }
@@ -192,12 +294,8 @@ class _ConnectedAccountsCard extends ConsumerWidget {
     final gmail = forProvider('gmail');
     final outlook = forProvider('outlook');
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7F1)),
-      ),
+    return AppCard(
+      padding: EdgeInsets.zero,
       child: Column(
         children: [
           _ConnectedAccountRow(
@@ -284,23 +382,18 @@ class _AccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Hesap', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 10),
-            _MetricLine(label: 'E-posta', value: user.email),
-            _MetricLine(
-                label: 'Durum', value: _accountStatusLabel(user.status)),
-            _MetricLine(
-              label: 'E-posta doğrulandı',
-              value: user.isEmailVerified ? 'Evet' : 'Hayır',
-            ),
-          ],
-        ),
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _MetricLine(label: 'E-posta', value: user.email),
+          _MetricLine(
+              label: 'Durum', value: _accountStatusLabel(user.status)),
+          _MetricLine(
+            label: 'E-posta doğrulandı',
+            value: user.isEmailVerified ? 'Evet' : 'Hayır',
+          ),
+        ],
       ),
     );
   }
@@ -325,35 +418,25 @@ class _SupportCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('İletişim', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 4),
-            Text(
-              'Bir sorun mu yaşıyorsunuz? Bizimle iletişime geçin.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 12),
-            _ContactTile(
-              icon: Icons.mail_outline,
-              label: 'E-posta',
-              value: _supportEmail,
-              onTap: () =>
-                  launchUrl(Uri(scheme: 'mailto', path: _supportEmail)),
-            ),
-            const SizedBox(height: 8),
-            _ContactTile(
-              icon: Icons.call_outlined,
-              label: 'Telefon',
-              value: _supportPhoneDisplay,
-              onTap: () => launchUrl(Uri(scheme: 'tel', path: _supportPhone)),
-            ),
-          ],
-        ),
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _ContactTile(
+            icon: Icons.mail_outline,
+            label: 'E-posta',
+            value: _supportEmail,
+            onTap: () =>
+                launchUrl(Uri(scheme: 'mailto', path: _supportEmail)),
+          ),
+          const SizedBox(height: 8),
+          _ContactTile(
+            icon: Icons.call_outlined,
+            label: 'Telefon',
+            value: _supportPhoneDisplay,
+            onTap: () => launchUrl(Uri(scheme: 'tel', path: _supportPhone)),
+          ),
+        ],
       ),
     );
   }
@@ -416,7 +499,7 @@ class _MetricLine extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 118,
+            width: 140,
             child: Text(label, style: Theme.of(context).textTheme.bodySmall),
           ),
           Expanded(
@@ -440,11 +523,6 @@ class _PageMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(message),
-      ),
-    );
+    return AppCard(child: Text(message));
   }
 }

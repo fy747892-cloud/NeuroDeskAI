@@ -6,17 +6,13 @@ import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/screen_header.dart';
 import '../../ai_approvals/data/ai_approvals_repository.dart';
-import '../../ai_approvals/domain/ai_action_approval.dart';
-import '../../ai_approvals/presentation/quick_approval_card.dart';
-import '../../appointments/data/appointments_repository.dart';
 import '../../conversations/data/conversations_repository.dart';
 import '../../files/data/files_repository.dart';
-import '../../tasks/data/tasks_repository.dart';
 import '../data/call_recording_provider.dart';
 import '../data/calls_repository.dart';
-import '../domain/ai_analysis_job.dart';
-import '../domain/call_record.dart';
 
 class CallsPage extends ConsumerStatefulWidget {
   const CallsPage({super.key});
@@ -54,104 +50,46 @@ class _CallsPageState extends ConsumerState<CallsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final calls = ref.watch(callsProvider);
-    final jobs = ref.watch(callAnalysisJobsProvider);
-    final approvals = ref.watch(pendingAiApprovalsProvider);
     final theme = Theme.of(context);
 
     return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: () => Future.wait([
-          ref.refresh(callsProvider.future),
-          ref.refresh(callAnalysisJobsProvider.future),
-        ]),
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text('Çağrılar', style: theme.textTheme.headlineMedium),
+      body: ListView(
+        padding: kScreenPadding,
+        children: [
+          const StitchScreenHeader(title: 'Çağrılar'),
+          Text(
+            'Aramaya başladığında kayıt otomatik başlar.',
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 20),
+          const _RecordingControlCard(),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => context.go('/app/files'),
+                  icon: const Icon(Icons.upload_file_outlined),
+                  label: const Text('Dosyadan analiz'),
                 ),
-                IconButton.outlined(
-                  tooltip: 'Çağrıları temizle',
-                  onPressed: _confirmClearCalls,
-                  icon: const Icon(Icons.cleaning_services_outlined),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Telefon çalarken kayıt otomatik başlar; istersen aşağıdan '
-              'elle de başlatıp durdurabilirsin.',
-              style: theme.textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              onPressed: () => context.go('/app/files'),
-              icon: const Icon(Icons.auto_awesome),
-              label: const Text('AI analiz için dosya yükle'),
-            ),
-            const SizedBox(height: 14),
-            const _RecordingControlCard(),
-            const SizedBox(height: 16),
-            calls.when(
-              data: (items) => items.isEmpty
-                  ? const _PageMessage(message: 'Henüz çağrı kaydı yok.')
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _CallsSummary(calls: items),
-                        const SizedBox(height: 14),
-                        ...items.map(
-                          (call) => _CallCard(
-                            call: call,
-                            analysisJob: jobs.maybeWhen(
-                              data: (list) => _latestJobFor(list, call),
-                              orElse: () => null,
-                            ),
-                            approvals: approvals.maybeWhen(
-                              data: (list) =>
-                                  _approvalsForCall(list, call).toList(),
-                              orElse: () => const [],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-              error: (error, stackTrace) => _PageMessage(
-                message: readableApiError(error, 'Çağrılar alınamadı.'),
               ),
-              loading: () => const Center(child: CircularProgressIndicator()),
-            ),
-          ],
-        ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => context.go('/app/conversations'),
+                  icon: const Icon(Icons.forum_outlined),
+                  label: const Text('Görüşmeler'),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         tooltip: 'Çağrı metni ekle',
         onPressed: _showCreateSheet,
         child: const Icon(Icons.add_call),
       ),
-    );
-  }
-
-  AiAnalysisJob? _latestJobFor(List<AiAnalysisJob> jobs, CallRecord call) {
-    final matches = jobs.where(
-      (job) =>
-          job.sourceType.toLowerCase() == 'conversation' &&
-          job.sourceId == call.conversationId,
-    );
-    return matches.isEmpty ? null : matches.first;
-  }
-
-  Iterable<AiActionApproval> _approvalsForCall(
-    List<AiActionApproval> approvals,
-    CallRecord call,
-  ) {
-    return approvals.where(
-      (approval) =>
-          approval.sourceType.toLowerCase() == 'conversation' &&
-          approval.sourceId == call.conversationId,
     );
   }
 
@@ -176,32 +114,6 @@ class _CallsPageState extends ConsumerState<CallsPage> {
         route: '/app/calls',
       );
     }
-  }
-
-  Future<void> _confirmClearCalls() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Çağrıları temizle'),
-        content: const Text('Listedeki tüm çağrı kayıtları silinsin mi?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Vazgeç'),
-          ),
-          FilledButton.icon(
-            onPressed: () => Navigator.of(context).pop(true),
-            icon: const Icon(Icons.delete_outline),
-            label: const Text('Temizle'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-    await ref.read(callsRepositoryProvider).clearCalls();
-    ref.invalidate(callsProvider);
-    ref.invalidate(callAnalysisJobsProvider);
-    ref.invalidate(pendingAiApprovalsProvider);
   }
 
   void _showActionSnack(
@@ -272,13 +184,9 @@ class _RecordingControlCard extends ConsumerWidget {
 
     switch (rec.status) {
       case CallRecordingStatus.idle:
-        return Container(
+        return AppCard(
+          radius: kLargeCardRadius,
           padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE5E7F1)),
-          ),
           child: Column(
             children: [
               Container(
@@ -300,7 +208,7 @@ class _RecordingControlCard extends ConsumerWidget {
                 style: theme.textTheme.bodyMedium,
               ),
               const SizedBox(height: 12),
-              const _StatusPill(label: 'BEKLEMEDE', color: Color(0xFF6B6F82)),
+              const StatusPill(label: 'BEKLEMEDE', color: Color(0xFF6B6F82)),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
@@ -324,13 +232,9 @@ class _RecordingControlCard extends ConsumerWidget {
               const _SilenceWarningBanner(),
               const SizedBox(height: 10),
             ],
-            Container(
+            AppCard(
+              radius: kLargeCardRadius,
               padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0xFFE5E7F1)),
-              ),
               child: Column(
                 children: [
                   Container(
@@ -343,6 +247,8 @@ class _RecordingControlCard extends ConsumerWidget {
                     child: const Icon(Icons.mic, size: 32, color: Colors.white),
                   ),
                   const SizedBox(height: 16),
+                  const _Waveform(),
+                  const SizedBox(height: 12),
                   _ElapsedTimer(startedAt: rec.startedAt),
                   const SizedBox(height: 4),
                   Text(
@@ -353,7 +259,7 @@ class _RecordingControlCard extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const _StatusPill(
+                  const StatusPill(
                     label: 'Hoparlörü açık tut',
                     color: Color(0xFF3525CD),
                     icon: Icons.volume_up_outlined,
@@ -394,13 +300,9 @@ class _RecordingControlCard extends ConsumerWidget {
         return const _ProcessingCard(step: 1);
 
       case CallRecordingStatus.completed:
-        return Container(
+        return AppCard(
+          radius: kLargeCardRadius,
           padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFE5E7F1)),
-          ),
           child: Column(
             children: [
               Icon(
@@ -476,38 +378,56 @@ class _RecordingControlCard extends ConsumerWidget {
   }
 }
 
-class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.label, required this.color, this.icon});
+/// Decorative bar waveform matching the Stitch "Ses Kaydı" overlay -- not
+/// driven by real audio amplitude (the recorder doesn't expose that), just
+/// an animated visual cue that a recording is in progress.
+class _Waveform extends StatefulWidget {
+  const _Waveform();
 
-  final String label;
-  final Color color;
-  final IconData? icon;
+  @override
+  State<_Waveform> createState() => _WaveformState();
+}
+
+class _WaveformState extends State<_Waveform> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 15, color: color),
-            const SizedBox(width: 6),
-          ],
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w700,
-              fontSize: 12,
-            ),
+    final theme = Theme.of(context);
+    const heights = [10.0, 22.0, 14.0, 28.0, 18.0, 24.0, 12.0];
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return SizedBox(
+          height: 28,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (var i = 0; i < heights.length; i++)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: Container(
+                    width: 4,
+                    height: heights[i] * (0.4 + 0.6 * ((_controller.value + i / heights.length) % 1)),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withValues(alpha: 0.7),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -598,13 +518,9 @@ class _ProcessingCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
+    return AppCard(
+      radius: kLargeCardRadius,
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE5E7F1)),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -668,258 +584,6 @@ class _ProcessingStep extends StatelessWidget {
         ),
       ],
     );
-  }
-}
-
-class _CallsSummary extends StatelessWidget {
-  const _CallsSummary({required this.calls});
-
-  final List<CallRecord> calls;
-
-  @override
-  Widget build(BuildContext context) {
-    final withTranscript =
-        calls.where((call) => call.transcriptions.isNotEmpty).length;
-
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF17152F),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _SummaryMetric(
-              label: 'Çağrı',
-              value: calls.length.toString(),
-              icon: Icons.call_outlined,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _SummaryMetric(
-              label: 'Transkript',
-              value: withTranscript.toString(),
-              icon: Icons.notes_outlined,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _CallCard extends ConsumerStatefulWidget {
-  const _CallCard({
-    required this.call,
-    required this.approvals,
-    this.analysisJob,
-  });
-
-  final CallRecord call;
-  final List<AiActionApproval> approvals;
-  final AiAnalysisJob? analysisJob;
-
-  @override
-  ConsumerState<_CallCard> createState() => _CallCardState();
-}
-
-class _CallCardState extends ConsumerState<_CallCard> {
-  bool _isRetrying = false;
-  String? _retryError;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final call = widget.call;
-    final firstTranscript =
-        call.transcriptions.isEmpty ? null : call.transcriptions.first;
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: const Color(0x1A3525CD),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.call, color: Color(0xFF3525CD)),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    call.phoneNumber?.isNotEmpty == true
-                        ? call.phoneNumber!
-                        : 'Manuel çağrı',
-                    style: theme.textTheme.titleMedium,
-                  ),
-                ),
-                _StatusChip(status: call.status),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 12,
-              runSpacing: 6,
-              children: [
-                _MetaLine(
-                  icon: Icons.swap_calls,
-                  text: _directionLabel(call.callDirection),
-                ),
-                _MetaLine(
-                  icon: Icons.schedule,
-                  text: _formatDateTime(call.startedAt ?? call.createdAt),
-                ),
-                if (call.durationSeconds != null)
-                  _MetaLine(
-                    icon: Icons.timer_outlined,
-                    text: _formatDuration(call.durationSeconds!),
-                  ),
-              ],
-            ),
-            if (firstTranscript != null) ...[
-              const SizedBox(height: 10),
-              Text(
-                'Transkript',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                firstTranscript.transcriptText,
-                maxLines: 8,
-                overflow: TextOverflow.fade,
-                style: theme.textTheme.bodyMedium,
-              ),
-            ] else ...[
-              const SizedBox(height: 10),
-              Text(
-                'Transkript henüz yok.',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-            const SizedBox(height: 10),
-            _buildAnalysisStatus(context),
-            QuickApprovalCard(
-              approvals: widget.approvals,
-              onChanged: () {
-                ref.invalidate(tasksProvider);
-                ref.invalidate(appointmentsProvider);
-                ref.invalidate(callAnalysisJobsProvider);
-                ref.invalidate(callsProvider);
-                ref.invalidate(pendingAiApprovalsProvider);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAnalysisStatus(BuildContext context) {
-    final theme = Theme.of(context);
-    final job = widget.analysisJob;
-
-    if (job == null) {
-      return Row(
-        children: [
-          Icon(Icons.hourglass_empty,
-              size: 16, color: theme.colorScheme.onSurfaceVariant),
-          const SizedBox(width: 6),
-          Text(
-            'AI analizi henüz başlatılmadı.',
-            style: theme.textTheme.bodySmall
-                ?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-        ],
-      );
-    }
-
-    if (job.isPending) {
-      return Row(
-        children: [
-          const SizedBox(
-            width: 14,
-            height: 14,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          const SizedBox(width: 8),
-          Text('AI analizi işleniyor...', style: theme.textTheme.bodySmall),
-        ],
-      );
-    }
-
-    if (job.isFailed) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.error_outline,
-                  size: 16, color: theme.colorScheme.error),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  job.errorMessage?.isNotEmpty == true
-                      ? 'AI analizi başarısız: ${readableBackendMessage(job.errorMessage, 'bilinmeyen hata')}'
-                      : 'AI analizi başarısız oldu.',
-                  style: theme.textTheme.bodySmall
-                      ?.copyWith(color: theme.colorScheme.error),
-                ),
-              ),
-            ],
-          ),
-          if (_retryError != null) ...[
-            const SizedBox(height: 4),
-            Text(_retryError!,
-                style: theme.textTheme.bodySmall
-                    ?.copyWith(color: theme.colorScheme.error)),
-          ],
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              onPressed: _isRetrying ? null : () => _retry(job),
-              icon: const Icon(Icons.refresh, size: 16),
-              label: Text(_isRetrying ? 'Deneniyor...' : 'Tekrar dene'),
-            ),
-          ),
-        ],
-      );
-    }
-
-    return _CompletedAnalysisStatus(job: job);
-  }
-
-  Future<void> _retry(AiAnalysisJob job) async {
-    setState(() {
-      _isRetrying = true;
-      _retryError = null;
-    });
-    try {
-      await ref.read(callsRepositoryProvider).retryAnalysisJob(job.id);
-      ref.invalidate(callAnalysisJobsProvider);
-    } catch (error) {
-      setState(() {
-        _retryError = readableApiError(error, 'Tekrar deneme başarısız.');
-      });
-    } finally {
-      if (mounted) {
-        setState(() => _isRetrying = false);
-      }
-    }
   }
 }
 
@@ -1152,205 +816,3 @@ class _CreateCallResult {
   final String? errorMessage;
 }
 
-class _CompletedAnalysisStatus extends StatelessWidget {
-  const _CompletedAnalysisStatus({required this.job});
-
-  final AiAnalysisJob job;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final summary = job.summary;
-    final actionCount = job.suggestedTaskCount +
-        job.suggestedAppointmentCount +
-        job.suggestedDealCount;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.primary.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: theme.colorScheme.primary.withValues(alpha: 0.18),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.check_circle_outline,
-                size: 16,
-                color: theme.colorScheme.primary,
-              ),
-              const SizedBox(width: 6),
-              Text('AI analizi tamamlandı.', style: theme.textTheme.bodySmall),
-            ],
-          ),
-          if (summary != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              _localizedAnalysisText(summary),
-              maxLines: 5,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodyMedium,
-            ),
-          ],
-          if (actionCount > 0) ...[
-            const SizedBox(height: 8),
-            Text(
-              '${job.suggestedTaskCount} görev, '
-              '${job.suggestedAppointmentCount} randevu, '
-              '${job.suggestedDealCount} fırsat önerisi bu kartta hazır.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-String _localizedAnalysisText(String value) {
-  final trimmed = value.trim();
-  if (trimmed.toLowerCase().startsWith('conversation:')) {
-    return 'Görüşme: ${trimmed.substring('conversation:'.length).trim()}';
-  }
-  return trimmed;
-}
-
-class _SummaryMetric extends StatelessWidget {
-  const _SummaryMetric({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: Colors.white, size: 20),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.72),
-                    ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MetaLine extends StatelessWidget {
-  const _MetaLine({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          size: 16,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-        const SizedBox(width: 5),
-        Text(text, style: Theme.of(context).textTheme.bodySmall),
-      ],
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status});
-
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = switch (status.toLowerCase()) {
-      'uploaded' => 'Yüklendi',
-      'processed' => 'İşlendi',
-      'completed' => 'Tamamlandı',
-      'failed' => 'Hata',
-      _ => status,
-    };
-
-    return Chip(label: Text(label), visualDensity: VisualDensity.compact);
-  }
-}
-
-class _PageMessage extends StatelessWidget {
-  const _PageMessage({required this.message});
-
-  final String message;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(message),
-      ),
-    );
-  }
-}
-
-String _directionLabel(String? value) {
-  return switch (value) {
-    'inbound' => 'Gelen',
-    'outbound' => 'Giden',
-    _ => 'Yok',
-  };
-}
-
-String _formatDuration(int seconds) {
-  final minutes = seconds ~/ 60;
-  final remaining = seconds % 60;
-  return '${minutes}d ${remaining}s';
-}
-
-String _formatDateTime(DateTime value) {
-  final local = value.toLocal();
-  return '${local.day.toString().padLeft(2, '0')}.'
-      '${local.month.toString().padLeft(2, '0')} '
-      '${local.hour.toString().padLeft(2, '0')}:'
-      '${local.minute.toString().padLeft(2, '0')}';
-}

@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/screen_header.dart';
 import '../data/analytics_repository.dart';
 import '../domain/analytics_models.dart';
 
@@ -23,22 +26,20 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
     return RefreshIndicator(
       onRefresh: () => ref.refresh(analyticsSnapshotProvider.future),
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: kScreenPadding,
         children: [
+          StitchDetailHeader(
+            title: 'Analitik',
+            onBack: () =>
+                context.canPop() ? context.pop() : context.go('/app/more'),
+          ),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Analitik', style: theme.textTheme.headlineMedium),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Son 7 gün performans ve AI kullanım özeti.',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  ],
+                child: Text(
+                  'Son 7 gün performans ve AI kullanım özeti.',
+                  style: theme.textTheme.bodyMedium,
                 ),
               ),
               IconButton.filledTonal(
@@ -178,23 +179,12 @@ class _DateRangeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final theme = Theme.of(context);
+    return AppCard(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF17152F),
-        borderRadius: BorderRadius.circular(8),
-      ),
       child: Row(
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: const Icon(Icons.insights, color: Colors.white),
-          ),
+          TintedIcon(icon: Icons.insights, color: theme.colorScheme.primary),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -202,16 +192,11 @@ class _DateRangeCard extends StatelessWidget {
               children: [
                 Text(
                   '${_formatDate(overview.dateFrom)} - ${_formatDate(overview.dateTo)}',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w800,
-                      ),
+                  style: theme.textTheme.titleMedium,
                 ),
                 Text(
-                  'Operasyon ve AI verimlilik araligi',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.72),
-                      ),
+                  'Operasyon ve AI verimlilik aralığı',
+                  style: theme.textTheme.bodySmall,
                 ),
               ],
             ),
@@ -237,29 +222,27 @@ class _MetricCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, color: accent),
-            const Spacer(),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: accent,
-                    fontWeight: FontWeight.w900,
-                  ),
-            ),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-          ],
-        ),
+    return AppCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: accent),
+          const Spacer(),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: accent,
+                  fontWeight: FontWeight.w900,
+                ),
+          ),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
       ),
     );
   }
@@ -273,26 +256,23 @@ class _AiCostBand extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Expanded(
-              child: _InlineMetric(
-                label: 'AI maliyet',
-                value: '\$${overview.aiCostAmount.toStringAsFixed(4)}',
-              ),
+    return AppCard(
+      child: Row(
+        children: [
+          Expanded(
+            child: _InlineMetric(
+              label: 'AI maliyet',
+              value: '\$${overview.aiCostAmount.toStringAsFixed(4)}',
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _InlineMetric(
-                label: 'Ort. gecikme',
-                value: avgLatency == null ? '--' : '${avgLatency!.round()} ms',
-              ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _InlineMetric(
+              label: 'Ort. gecikme',
+              value: avgLatency == null ? '--' : '${avgLatency!.round()} ms',
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -344,34 +324,31 @@ class _TrendSection extends StatelessWidget {
       ].reduce((a, b) => a > b ? a : b),
     );
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            if (bars.isEmpty)
-              Text(emptyMessage)
-            else
-              SizedBox(
-                height: 132,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    for (final bar in bars)
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 3),
-                          child: _TrendBarView(bar: bar, maxValue: maxValue),
-                        ),
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 12),
+          if (bars.isEmpty)
+            Text(emptyMessage)
+          else
+            SizedBox(
+              height: 132,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  for (final bar in bars)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 3),
+                        child: _TrendBarView(bar: bar, maxValue: maxValue),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
   }
@@ -448,12 +425,7 @@ class _PageMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(message),
-      ),
-    );
+    return AppCard(child: Text(message));
   }
 }
 

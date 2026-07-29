@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/screen_header.dart';
 import '../domain/chat_message.dart';
 import 'ai_chat_controller.dart';
 
@@ -37,17 +40,18 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
                   children: [
+                    StitchDetailHeader(
+                      title: 'AI Sohbet',
+                      onBack: () => context.canPop()
+                          ? context.pop()
+                          : context.go('/app/more'),
+                    ),
                     Row(
                       children: [
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'AI sohbet',
-                                style: theme.textTheme.headlineMedium,
-                              ),
-                              const SizedBox(height: 6),
                               Text(
                                 'Görev, randevu ve görüşme hafızası üzerinden soru sor.',
                                 style: theme.textTheme.bodyMedium,
@@ -127,80 +131,22 @@ class _ChatSummary extends StatelessWidget {
       (count, message) => count + (message.sources?.length ?? 0),
     );
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF17152F),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _SummaryMetric(
-              label: 'Oturum',
-              value: state.sessions.length.toString(),
-              icon: Icons.forum_outlined,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _SummaryMetric(
-              label: 'Kaynak',
-              value: sourceCount.toString(),
-              icon: Icons.travel_explore,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SummaryMetric extends StatelessWidget {
-  const _SummaryMetric({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: Colors.white, size: 20),
-        ),
-        const SizedBox(width: 10),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.72),
-                    ),
-              ),
-            ],
+          child: BentoStatTile(
+            icon: Icons.forum_outlined,
+            label: 'Oturum',
+            value: state.sessions.length.toString(),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: InfoTile(
+            icon: Icons.travel_explore,
+            label: 'Kaynak',
+            text: '$sourceCount kaynak kullanıldı',
           ),
         ),
       ],
@@ -252,28 +198,26 @@ class _EmptyChat extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(
-              Icons.auto_awesome,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'NeuroDesk hafızası hazır',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Bugünkü önceliklerimi sırala, açık görevleri özetle veya son görüşmelerden takip aksiyonlarını sor.',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ],
-        ),
+    return AppCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.auto_awesome,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'NeuroDesk hafızası hazır',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Bugünkü önceliklerimi sırala, açık görevleri özetle veya son görüşmelerden takip aksiyonlarını sor.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ],
       ),
     );
   }
@@ -302,8 +246,8 @@ class _MessageBubble extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: color,
-          borderRadius: BorderRadius.circular(8),
-          border: isUser ? null : Border.all(color: const Color(0xFFE5E7F1)),
+          borderRadius: BorderRadius.circular(kCardRadius),
+          boxShadow: isUser ? null : kCardShadow,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -434,7 +378,7 @@ class _Composer extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
         decoration: const BoxDecoration(
           color: Colors.white,
-          border: Border(top: BorderSide(color: Color(0xFFE5E7F1))),
+          border: Border(top: BorderSide(color: Color(0xFFC7C4D8))),
         ),
         child: Row(
           children: [
@@ -470,11 +414,6 @@ class _PageMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(message),
-      ),
-    );
+    return AppCard(child: Text(message));
   }
 }

@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/screen_header.dart';
 import '../../calls/data/calls_repository.dart';
 import '../../calls/domain/ai_analysis_job.dart';
 import '../data/conversations_repository.dart';
@@ -39,14 +41,10 @@ class _ConversationDetailPageState
     return Column(
       children: [
         Padding(
-          padding: const EdgeInsets.fromLTRB(4, 8, 16, 0),
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () => context.go('/app/conversations'),
-              icon: const Icon(Icons.arrow_back),
-              label: const Text('Görüşmeler'),
-            ),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          child: StitchDetailHeader(
+            title: 'Görüşme Detayı',
+            onBack: () => context.go('/app/conversations'),
           ),
         ),
         Expanded(
@@ -54,7 +52,7 @@ class _ConversationDetailPageState
             data: (conversation) => Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                   child: _SummaryCard(conversation: conversation, job: job),
                 ),
                 TabBar(
@@ -118,21 +116,17 @@ class _SummaryCard extends StatelessWidget {
     final theme = Theme.of(context);
     final call = conversation.calls.isEmpty ? null : conversation.calls.first;
 
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFE5E7F1)),
-      ),
+    return AppCard(
+      radius: kLargeCardRadius,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CircleAvatar(
                 radius: 22,
-                backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.1),
+                backgroundColor: theme.colorScheme.surfaceContainerHigh,
                 child: Icon(Icons.person, color: theme.colorScheme.primary),
               ),
               const SizedBox(width: 12),
@@ -155,6 +149,11 @@ class _SummaryCard extends StatelessWidget {
                     ),
                   ],
                 ),
+              ),
+              StatusPill(
+                label: conversation.status,
+                color: theme.colorScheme.primary,
+                dense: true,
               ),
             ],
           ),
@@ -222,13 +221,7 @@ class _ItemsTab extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       itemCount: titles.length,
       separatorBuilder: (context, index) => const SizedBox(height: 10),
-      itemBuilder: (context, index) => Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE5E7F1)),
-        ),
+      itemBuilder: (context, index) => AppCard(
         child: Row(
           children: [
             Icon(Icons.check_box_outline_blank,

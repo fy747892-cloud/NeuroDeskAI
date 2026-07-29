@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/screen_header.dart';
 import '../data/email_repository.dart';
 import '../domain/email_models.dart';
 
@@ -57,22 +60,20 @@ class _EmailPageState extends ConsumerState<EmailPage>
     return RefreshIndicator(
       onRefresh: () => ref.refresh(emailAccountsProvider.future),
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: kScreenPadding,
         children: [
+          StitchDetailHeader(
+            title: 'E-posta',
+            onBack: () =>
+                context.canPop() ? context.pop() : context.go('/app/more'),
+          ),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('E-posta', style: theme.textTheme.headlineMedium),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Gmail ve Outlook hesaplarını takip et, mesajları senkronize et.',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  ],
+                child: Text(
+                  'Gmail ve Outlook hesaplarını takip et, mesajları senkronize et.',
+                  style: theme.textTheme.bodyMedium,
                 ),
               ),
               PopupMenuButton<String>(
@@ -230,31 +231,25 @@ class _EmailSummary extends StatelessWidget {
     final connected =
         accounts.where((account) => account.status == 'connected').length;
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF17152F),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _SummaryMetric(
-              label: 'Hesap',
-              value: accounts.length.toString(),
-              icon: Icons.mail_outline,
-            ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: BentoStatTile(
+            icon: Icons.mail_outline,
+            label: 'Hesap',
+            value: accounts.length.toString(),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _SummaryMetric(
-              label: 'Bağlı',
-              value: connected.toString(),
-              icon: Icons.link,
-            ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: InfoTile(
+            icon: Icons.link,
+            label: 'Bağlı',
+            text: '$connected hesap bağlı',
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }
@@ -278,13 +273,12 @@ class _AccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: AppCard(
+        padding: const EdgeInsets.all(14),
         onTap: onSelect,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
+        child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
@@ -349,7 +343,6 @@ class _AccountCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
       ),
     );
   }
@@ -391,9 +384,9 @@ class _MessageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: AppCard(
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -427,56 +420,6 @@ class _MessageCard extends StatelessWidget {
   }
 }
 
-class _SummaryMetric extends StatelessWidget {
-  const _SummaryMetric({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: Colors.white, size: 20),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-              Text(
-                label,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.72),
-                    ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _PageMessage extends StatelessWidget {
   const _PageMessage({required this.message});
 
@@ -484,12 +427,7 @@ class _PageMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(message),
-      ),
-    );
+    return AppCard(child: Text(message));
   }
 }
 

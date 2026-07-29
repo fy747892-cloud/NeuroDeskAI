@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/screen_header.dart';
 import '../../ai_approvals/data/ai_approvals_repository.dart';
 import '../../ai_approvals/domain/ai_action_approval.dart';
 import '../../ai_approvals/presentation/quick_approval_card.dart';
@@ -55,22 +57,20 @@ class _FilesPageState extends ConsumerState<FilesPage> {
     return RefreshIndicator(
       onRefresh: () => ref.refresh(filesProvider.future),
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: kScreenPadding,
         children: [
+          StitchDetailHeader(
+            title: 'Dosyalar',
+            onBack: () =>
+                context.canPop() ? context.pop() : context.go('/app/more'),
+          ),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Dosyalar', style: theme.textTheme.headlineMedium),
-                    const SizedBox(height: 6),
-                    Text(
-                      'PDF, Word, Excel, metin, ses ve e-posta dosyalarını yükle; AI özet ve aksiyon önerilerini çıkar.',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  ],
+                child: Text(
+                  'PDF, Word, Excel, metin, ses ve e-posta dosyalarını yükle; AI özet ve aksiyon önerilerini çıkar.',
+                  style: theme.textTheme.bodyMedium,
                 ),
               ),
               IconButton.filled(
@@ -546,24 +546,12 @@ class _UploadGuideCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
+    return AppCard(
+      padding: const EdgeInsets.all(14),
+      child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(
-                Icons.upload_file,
-                color: theme.colorScheme.primary,
-              ),
-            ),
+            TintedIcon(icon: Icons.upload_file, color: theme.colorScheme.primary, size: 44),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -607,7 +595,6 @@ class _UploadGuideCard extends StatelessWidget {
               label: Text(isUploading ? 'Yükleniyor' : 'Yükle'),
             ),
           ],
-        ),
       ),
     );
   }
@@ -638,37 +625,60 @@ class _FilesSummary extends StatelessWidget {
     final readyCount = files.where((file) => file.status == 'ready').length;
     final totalBytes = files.fold<int>(0, (sum, file) => sum + file.sizeBytes);
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF17152F),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
+    return Row(
+      children: [
+        Expanded(
+          child: _MiniStat(
+            label: 'Dosya',
+            value: files.length.toString(),
+            icon: Icons.folder_outlined,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _MiniStat(
+            label: 'Hazır',
+            value: readyCount.toString(),
+            icon: Icons.verified_outlined,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _MiniStat(
+            label: 'Boyut',
+            value: _formatBytes(totalBytes),
+            icon: Icons.storage_outlined,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MiniStat extends StatelessWidget {
+  const _MiniStat({required this.label, required this.value, required this.icon});
+
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AppCard(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: _SummaryMetric(
-              label: 'Dosya',
-              value: files.length.toString(),
-              icon: Icons.folder_outlined,
-            ),
+          Icon(icon, color: theme.colorScheme.primary, size: 20),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _SummaryMetric(
-              label: 'Hazır',
-              value: readyCount.toString(),
-              icon: Icons.verified_outlined,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _SummaryMetric(
-              label: 'Boyut',
-              value: _formatBytes(totalBytes),
-              icon: Icons.storage_outlined,
-            ),
-          ),
+          Text(label, style: theme.textTheme.bodySmall),
         ],
       ),
     );
@@ -704,9 +714,9 @@ class _FileCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: AppCard(
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -714,18 +724,7 @@ class _FileCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: const Color(0x1A3525CD),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    Icons.description_outlined,
-                    color: Color(0xFF3525CD),
-                  ),
-                ),
+                TintedIcon(icon: Icons.description_outlined, color: theme.colorScheme.primary),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
@@ -816,44 +815,6 @@ class _FileCard extends StatelessWidget {
   }
 }
 
-class _SummaryMetric extends StatelessWidget {
-  const _SummaryMetric({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: Colors.white, size: 20),
-        const SizedBox(height: 8),
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-        ),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.white.withValues(alpha: 0.72),
-              ),
-        ),
-      ],
-    );
-  }
-}
-
 class _StatusChip extends StatelessWidget {
   const _StatusChip({required this.status});
 
@@ -898,13 +859,7 @@ class _Notice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: const Color(0xFFF4F5FB),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Text(message),
-      ),
-    );
+    return AppCard(padding: const EdgeInsets.all(12), child: Text(message));
   }
 }
 
@@ -915,12 +870,7 @@ class _PageMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(message),
-      ),
-    );
+    return AppCard(child: Text(message));
   }
 }
 
