@@ -130,7 +130,7 @@ class OpenAICompatibleAIProvider:
                     audio_bytes=audio_bytes,
                     filename=filename,
                     content_type=content_type,
-                    language=None,
+                    language=language,
                     include_guidance=False,
                 )
             )

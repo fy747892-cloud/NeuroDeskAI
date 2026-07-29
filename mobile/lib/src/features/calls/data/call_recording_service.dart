@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_foreground_task/flutter_foreground_task.dart';
@@ -6,11 +7,23 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 
 const String _recordFilePathKey = 'callRecordingFilePath';
+const String _hasSignalKey = 'callRecordingHasSignal';
 const String _recordDirectoryName = 'call_recordings';
 const String _openRecorderButtonId = 'open_call_recorder';
 const String _notificationTitle = 'NeuroDesk AI';
-const int _callSampleRate = 48000;
-const int _callBitRate = 256000;
+// Cube ACR ve benzeri uygulamalardaki gibi: kayıt sırasında canlı ses
+// seviyesini izleyip hiç konuşma yakalanmadıysa kullanıcıyı arama bitmeden
+// uyarıyoruz. -50dB eşiği kasıtlı olarak toleranslı: amaç normalden sessiz
+// bir konuşmayı elemek değil, "hiçbir ses yakalanmıyor" (yanlış kaynak,
+// hoparlör kapalı, Bluetooth'a yönlenmiş çağrı vb.) durumunu erken görmek.
+const double _silenceThresholdDb = -50.0;
+const int _silenceWarningDelaySeconds = 6;
+// 16 kHz mono: konuşma kaydı ve Whisper girişi için yeterli, native format.
+// Kaynak zaten tek mikrofonla hoparlörden alındığı için stereo/48kHz hiçbir
+// kalite katkısı sağlamadan dosya boyutunu ~6 kat büyütüp sunucudaki 25MB
+// limitinde kullanılabilir kayıt süresini ~2 dakikaya düşürüyordu.
+const int _callSampleRate = 16000;
+const int _callBitRate = 128000;
 
 @pragma('vm:entry-point')
 void startCallRecordingTask() {
@@ -20,6 +33,7 @@ void startCallRecordingTask() {
 class _CallRecordingTaskHandler extends TaskHandler {
   final AudioRecorder _recorder = AudioRecorder();
   DateTime? _startedAt;
+  bool _hasDetectedSignal = false;
 
   @override
   Future<void> onStart(DateTime timestamp, TaskStarter starter) async {
@@ -28,6 +42,8 @@ class _CallRecordingTaskHandler extends TaskHandler {
     );
     if (filePath == null) return;
     _startedAt = timestamp;
+    _hasDetectedSignal = false;
+    await FlutterForegroundTask.saveData(key: _hasSignalKey, value: false);
 
     // Android telefon görüşmesi sesini doğrudan üçüncü parti uygulamalara
     // açmaz. En güvenilir yöntem, hoparlörden çıkan sesi düz mikrofonla
@@ -41,14 +57,37 @@ class _CallRecordingTaskHandler extends TaskHandler {
     final elapsed = startedAt == null
         ? Duration.zero
         : timestamp.difference(startedAt);
+
+    unawaited(_pollAmplitude());
+
+    final warnSilence =
+        !_hasDetectedSignal && elapsed.inSeconds >= _silenceWarningDelaySeconds;
     FlutterForegroundTask.updateService(
       notificationTitle: _notificationTitle,
-      notificationText: 'Hoparlöre al - Kayıt açık '
-          '${_formatElapsed(elapsed)} - Uygulamaya dön',
+      notificationText: warnSilence
+          ? '⚠️ Ses algılanamıyor - hoparlörün açık ve yüksek olduğundan '
+              'emin olun - ${_formatElapsed(elapsed)}'
+          : 'Hoparlöre al - Kayıt açık '
+              '${_formatElapsed(elapsed)} - Uygulamaya dön',
       notificationButtons: const [
         NotificationButton(id: _openRecorderButtonId, text: 'Uygulamaya dön'),
       ],
     );
+  }
+
+  Future<void> _pollAmplitude() async {
+    if (_hasDetectedSignal) return;
+    try {
+      if (!await _recorder.isRecording()) return;
+      final amplitude = await _recorder.getAmplitude();
+      if (amplitude.current > _silenceThresholdDb) {
+        _hasDetectedSignal = true;
+        await FlutterForegroundTask.saveData(key: _hasSignalKey, value: true);
+      }
+    } catch (_) {
+      // Seviye ölçümü yalnızca teşhis amaçlı; başarısız olursa kaydı
+      // etkilememeli.
+    }
   }
 
   @override
@@ -109,7 +148,7 @@ class _CallRecordingTaskHandler extends TaskHandler {
       encoder: AudioEncoder.wav,
       bitRate: _callBitRate,
       sampleRate: _callSampleRate,
-      numChannels: 2,
+      numChannels: 1,
       autoGain: true,
       echoCancel: false,
       noiseSuppress: false,
@@ -233,6 +272,23 @@ class CallRecordingService {
       throw Exception(
         'Kayıt dosyası boş görünüyor. Hoparlörün açık olduğundan ve '
         'mikrofon izninin verildiğinden emin olup tekrar deneyin.',
+      );
+    }
+
+    // Kayıt boyunca hiç ses seviyesi eşiği geçilmediyse (yanlış kaynak,
+    // hoparlör kapalı, Bluetooth'a yönlenmiş çağrı vb.) dosya boş olmasa
+    // bile analiz için işe yaramaz; bunu backend'e göndermeden burada
+    // yakalamak, sessiz ses üzerinde Whisper halüsinasyonu üretip belirsiz
+    // bir hatayla karşılaşmaktan daha nettir. Anahtar hiç yazılmadıysa
+    // (beklenmedik bir durum) akışı bloke etmemek için varsayılan `true`.
+    final hasSignal =
+        await FlutterForegroundTask.getData<bool>(key: _hasSignalKey) ?? true;
+    if (!hasSignal) {
+      await file.delete();
+      throw Exception(
+        'Kayıtta konuşma sesi algılanamadı. Hoparlörün açık ve yüksek '
+        'olduğundan, telefonun karşı tarafa yakın durduğundan emin olup '
+        'tekrar deneyin.',
       );
     }
 
