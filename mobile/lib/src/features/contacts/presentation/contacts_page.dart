@@ -79,15 +79,7 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
             contacts.when(
               data: (items) => items.isEmpty
                   ? const _PageMessage(message: 'Kişi kaydı yok.')
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _ContactsSummary(contacts: items),
-                        const SizedBox(height: 14),
-                        ...items
-                            .map((contact) => _ContactCard(contact: contact)),
-                      ],
-                    ),
+                  : _GroupedContactList(contacts: items),
               error: (error, stackTrace) => _PageMessage(
                 message: readableApiError(error, 'Kişiler alınamadı.'),
               ),
@@ -216,95 +208,53 @@ class _SearchBar extends StatelessWidget {
   }
 }
 
-class _ContactsSummary extends StatelessWidget {
-  const _ContactsSummary({required this.contacts});
+class _GroupedContactList extends StatelessWidget {
+  const _GroupedContactList({required this.contacts});
 
   final List<Contact> contacts;
 
   @override
   Widget build(BuildContext context) {
-    final companyCount = contacts
-        .map((contact) => contact.company)
-        .where((company) => company != null && company.isNotEmpty)
-        .toSet()
-        .length;
+    final sorted = [...contacts]
+      ..sort((a, b) =>
+          a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase()));
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF17152F),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _SummaryMetric(
-              label: 'Kişi',
-              value: contacts.length.toString(),
-              icon: Icons.people_alt_outlined,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _SummaryMetric(
-              label: 'Şirket',
-              value: companyCount.toString(),
-              icon: Icons.business_outlined,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+    final groups = <String, List<Contact>>{};
+    for (final contact in sorted) {
+      final letter = contact.fullName.trim().isEmpty
+          ? '#'
+          : contact.fullName.trim()[0].toUpperCase();
+      groups.putIfAbsent(letter, () => []).add(contact);
+    }
 
-class _SummaryMetric extends StatelessWidget {
-  const _SummaryMetric({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
+    final letters = groups.keys.toList()..sort();
 
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
+        for (final letter in letters) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8, top: 4),
+            child: Row(
+              children: [
+                Text(
+                  letter,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(child: Divider()),
+              ],
+            ),
           ),
-          child: Icon(icon, color: Colors.white, size: 20),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.72),
-                    ),
-              ),
-            ],
-          ),
-        ),
+          for (final contact in groups[letter]!) ...[
+            _ContactCard(contact: contact),
+            const SizedBox(height: 8),
+          ],
+          const SizedBox(height: 8),
+        ],
       ],
     );
   }
@@ -318,14 +268,19 @@ class _ContactCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: EdgeInsets.zero,
+      color: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFE5E7F1)),
+      ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(16),
         onTap: () => context.go('/app/contacts/${contact.id}'),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               _Avatar(name: contact.fullName),
               const SizedBox(width: 12),
@@ -333,33 +288,11 @@ class _ContactCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            contact.fullName,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        ),
-                        Chip(
-                          label: Text(contact.status),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        if (contact.phone?.trim().isNotEmpty == true) ...[
-                          const SizedBox(width: 6),
-                          IconButton.filledTonal(
-                            tooltip: 'Ara',
-                            onPressed: () => _callPhoneNumber(
-                              context,
-                              ref,
-                              contact.phone!,
-                            ),
-                            icon: const Icon(Icons.call),
-                          ),
-                        ],
-                      ],
+                    Text(
+                      contact.fullName,
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 3),
                     Text(
                       [contact.title, contact.company]
                               .where(
@@ -367,21 +300,23 @@ class _ContactCard extends ConsumerWidget {
                               .join(' - ')
                               .trim()
                               .isEmpty
-                          ? 'Profil detayı yok'
+                          ? (contact.email ?? contact.phone ?? 'Profil detayı yok')
                           : [contact.title, contact.company]
                               .where(
                                   (value) => value != null && value.isNotEmpty)
                               .join(' - '),
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      contact.email ?? contact.phone ?? 'İletişim bilgisi yok',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ),
               ),
+              if (contact.phone?.trim().isNotEmpty == true)
+                IconButton.filledTonal(
+                  tooltip: 'Ara',
+                  onPressed: () =>
+                      _callPhoneNumber(context, ref, contact.phone!),
+                  icon: const Icon(Icons.call),
+                ),
             ],
           ),
         ),

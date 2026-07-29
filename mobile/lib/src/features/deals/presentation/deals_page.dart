@@ -162,30 +162,71 @@ class _PipelineSummary extends StatelessWidget {
       (sum, deal) => sum + (deal.value ?? 0),
     );
     final currency = openDeals.isEmpty ? 'TRY' : openDeals.first.currency;
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        Expanded(
+          child: _StatTile(
+            icon: Icons.account_tree_outlined,
+            label: 'Açık fırsat',
+            value: openDeals.length.toString(),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _StatTile(
+            icon: Icons.payments_outlined,
+            label: 'Açık değer',
+            value: '${_formatNumber(totalValue)} $currency',
+            accent: theme.colorScheme.primary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StatTile extends StatelessWidget {
+  const _StatTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.accent,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color? accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final color = accent ?? theme.colorScheme.onSurface;
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF17152F),
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7F1)),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            child: _SummaryMetric(
-              label: 'Açık',
-              value: openDeals.length.toString(),
-              icon: Icons.account_tree_outlined,
+          Icon(icon, color: theme.colorScheme.primary, size: 20),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _SummaryMetric(
-              label: currency,
-              value: _formatNumber(totalValue),
-              icon: Icons.payments_outlined,
-            ),
-          ),
+          Text(label, style: theme.textTheme.bodySmall),
         ],
       ),
     );
@@ -272,25 +313,52 @@ class _DealCard extends StatelessWidget {
     final theme = Theme.of(context);
     final isAiSourced = deal.sourceType != 'manual';
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(deal.title, style: theme.textTheme.titleMedium),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7F1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                Chip(
-                  label: Text(isAiSourced ? 'AI' : 'Manuel'),
-                  visualDensity: VisualDensity.compact,
+                child: Icon(Icons.business_center_outlined,
+                    color: theme.colorScheme.primary, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(deal.title, style: theme.textTheme.titleMedium),
+              ),
+              if (isAiSourced)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    'AI',
+                    style: TextStyle(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 11,
+                    ),
+                  ),
                 ),
-              ],
-            ),
+            ],
+          ),
             if (contact != null) ...[
               const SizedBox(height: 8),
               _MetaLine(
@@ -341,8 +409,7 @@ class _DealCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
+      );
   }
 }
 
@@ -514,58 +581,6 @@ class _CreateDealSheetState extends ConsumerState<_CreateDealSheet> {
         setState(() => _isSaving = false);
       }
     }
-  }
-}
-
-class _SummaryMetric extends StatelessWidget {
-  const _SummaryMetric({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: Colors.white, size: 20),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-              Text(
-                label,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.72),
-                    ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
   }
 }
 

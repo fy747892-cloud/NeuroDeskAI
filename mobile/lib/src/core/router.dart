@@ -11,6 +11,7 @@ import '../features/auth/presentation/splash_page.dart';
 import '../features/calls/presentation/calls_page.dart';
 import '../features/contacts/presentation/contact_detail_page.dart';
 import '../features/contacts/presentation/contacts_page.dart';
+import '../features/conversations/presentation/conversation_detail_page.dart';
 import '../features/conversations/presentation/conversations_page.dart';
 import '../features/dashboard/presentation/dashboard_page.dart';
 import '../features/deals/presentation/deals_page.dart';
@@ -94,7 +95,9 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/app/conversations/:conversationId',
-            builder: (context, state) => const ConversationsPage(),
+            builder: (context, state) => ConversationDetailPage(
+              conversationId: state.pathParameters['conversationId']!,
+            ),
           ),
           GoRoute(
             path: '/app/calls',

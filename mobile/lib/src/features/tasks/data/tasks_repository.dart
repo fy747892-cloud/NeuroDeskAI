@@ -25,6 +25,22 @@ class TasksRepository {
         .toList(growable: false);
   }
 
+  Future<Task> createTask({
+    required String title,
+    required String priority,
+    DateTime? dueAt,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/v1/tasks',
+      data: {
+        'title': title,
+        'priority': priority,
+        if (dueAt != null) 'due_at': dueAt.toUtc().toIso8601String(),
+      },
+    );
+    return Task.fromJson(response.data!);
+  }
+
   Future<Task> completeTask(String taskId) async {
     final response = await _dio.post<Map<String, dynamic>>(
       '/api/v1/tasks/$taskId/complete',

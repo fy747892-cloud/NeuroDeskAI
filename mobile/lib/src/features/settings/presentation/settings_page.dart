@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../../core/api/api_client.dart';
 import '../../../core/api/api_error.dart';
-import '../../../core/api/api_status.dart';
 import '../../auth/presentation/auth_controller.dart';
+import '../../email/data/email_repository.dart';
+import '../../email/domain/email_models.dart';
 import '../data/settings_repository.dart';
 import '../domain/user_profile.dart';
 
@@ -15,38 +16,38 @@ class SettingsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userState = ref.watch(currentUserProvider);
-    final apiStatus = ref.watch(apiStatusProvider);
     final theme = Theme.of(context);
 
     return RefreshIndicator(
       onRefresh: () async {
         ref.invalidate(currentUserProvider);
-        ref.invalidate(apiStatusProvider);
+        ref.invalidate(emailAccountsProvider);
         await ref.read(currentUserProvider.future);
       },
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           Text('Ayarlar', style: theme.textTheme.headlineMedium),
-          const SizedBox(height: 6),
-          Text(
-            'Hesap, profil ve mobil bağlantı durumunu yönet.',
-            style: theme.textTheme.bodyMedium,
-          ),
           const SizedBox(height: 16),
           userState.when(
             data: (user) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _ProfileCard(user: user),
-                const SizedBox(height: 12),
-                _ApiCard(apiStatus: apiStatus),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
+                const _ConnectedAccountsCard(),
+                const SizedBox(height: 14),
                 _AccountCard(user: user),
-                const SizedBox(height: 12),
+                const SizedBox(height: 14),
                 const _SupportCard(),
-                const SizedBox(height: 12),
-                FilledButton.icon(
+                const SizedBox(height: 20),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: theme.colorScheme.error,
+                    side: BorderSide(
+                      color: theme.colorScheme.error.withValues(alpha: 0.3),
+                    ),
+                  ),
                   onPressed: () {
                     ref.read(authControllerProvider.notifier).logout();
                   },
@@ -173,33 +174,105 @@ class _ProfileCardState extends ConsumerState<_ProfileCard> {
   }
 }
 
-class _ApiCard extends StatelessWidget {
-  const _ApiCard({required this.apiStatus});
+class _ConnectedAccountsCard extends ConsumerWidget {
+  const _ConnectedAccountsCard();
 
-  final AsyncValue<ApiStatus> apiStatus;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final accounts = ref.watch(emailAccountsProvider).valueOrNull ?? const [];
+    final theme = Theme.of(context);
+
+    EmailAccount? forProvider(String provider) {
+      final matches = accounts.where(
+        (account) => account.provider.toLowerCase() == provider,
+      );
+      return matches.isEmpty ? null : matches.first;
+    }
+
+    final gmail = forProvider('gmail');
+    final outlook = forProvider('outlook');
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7F1)),
+      ),
+      child: Column(
+        children: [
+          _ConnectedAccountRow(
+            icon: Icons.mail_outline,
+            title: 'Gmail',
+            subtitle: 'Kişiler ve Takvim',
+            account: gmail,
+            onTap: () => context.go('/app/email'),
+          ),
+          const Divider(height: 1),
+          _ConnectedAccountRow(
+            icon: Icons.cloud_outlined,
+            title: 'Outlook',
+            subtitle: 'E-postalar',
+            account: outlook,
+            onTap: () => context.go('/app/email'),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: Icon(Icons.calendar_month_outlined,
+                color: theme.colorScheme.primary),
+            title: const Text('Takvim'),
+            subtitle: const Text('Randevuları görüntüle'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.go('/app/appointments'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ConnectedAccountRow extends StatelessWidget {
+  const _ConnectedAccountRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.account,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final EmailAccount? account;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final statusLabel = apiStatus.when(
-      data: (status) => status.displayLabel,
-      error: (error, stackTrace) => 'Bağlantı hatası',
-      loading: () => 'Kontrol ediliyor',
-    );
+    final theme = Theme.of(context);
+    final isConnected = account != null &&
+        account!.status.toLowerCase() != 'revoked' &&
+        account!.status.toLowerCase() != 'disconnected';
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('API bağlantısı',
-                style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 10),
-            _MetricLine(label: 'Durum', value: statusLabel),
-            _MetricLine(label: 'Base URL', value: apiBaseUrl),
-          ],
+    return ListTile(
+      leading: Icon(icon, color: theme.colorScheme.primary),
+      title: Text(title),
+      subtitle: Text(account?.emailAddress ?? subtitle),
+      trailing: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: (isConnected ? const Color(0xFF15803D) : theme.colorScheme.outline)
+              .withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          isConnected ? 'Bağlı' : 'Bağlı değil',
+          style: TextStyle(
+            color: isConnected ? const Color(0xFF15803D) : theme.colorScheme.outline,
+            fontWeight: FontWeight.w700,
+            fontSize: 12,
+          ),
         ),
       ),
+      onTap: onTap,
     );
   }
 }
@@ -225,11 +298,6 @@ class _AccountCard extends StatelessWidget {
             _MetricLine(
               label: 'E-posta doğrulandı',
               value: user.isEmailVerified ? 'Evet' : 'Hayır',
-            ),
-            _MetricLine(label: 'Tenant', value: user.tenantId),
-            _MetricLine(
-              label: 'Organizasyon',
-              value: user.organizationId ?? 'Yok',
             ),
           ],
         ),

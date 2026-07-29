@@ -1,17 +1,35 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_error.dart';
 import '../../ai_approvals/data/ai_approvals_repository.dart';
+import '../../calls/data/calls_repository.dart';
+import '../../calls/domain/ai_analysis_job.dart';
 import '../data/conversations_repository.dart';
 import '../domain/conversation.dart';
 
-class ConversationsPage extends ConsumerWidget {
+class ConversationsPage extends ConsumerStatefulWidget {
   const ConversationsPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ConversationsPage> createState() => _ConversationsPageState();
+}
+
+class _ConversationsPageState extends ConsumerState<ConversationsPage> {
+  final _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final conversations = ref.watch(conversationsProvider);
+    final jobs = ref.watch(callAnalysisJobsProvider).valueOrNull ?? const [];
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -21,26 +39,40 @@ class ConversationsPage extends ConsumerWidget {
           padding: const EdgeInsets.all(16),
           children: [
             Text('Görüşmeler', style: theme.textTheme.headlineMedium),
-            const SizedBox(height: 6),
-            Text(
-              'Manuel notları ve çağrı transkriptlerini AI analizine hazırla.',
-              style: theme.textTheme.bodyMedium,
+            const SizedBox(height: 12),
+            TextField(
+              controller: _searchController,
+              onChanged: (value) => setState(() => _query = value),
+              decoration: const InputDecoration(
+                hintText: 'Görüşme veya kişi ara...',
+                prefixIcon: Icon(Icons.search),
+              ),
             ),
             const SizedBox(height: 16),
             conversations.when(
-              data: (items) => items.isEmpty
-                  ? const _PageMessage(message: 'Henüz görüşme yok.')
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        _ConversationSummary(conversations: items),
-                        const SizedBox(height: 14),
-                        ...items.map(
-                          (conversation) =>
-                              _ConversationTile(conversation: conversation),
-                        ),
-                      ],
-                    ),
+              data: (items) {
+                final filtered = items
+                    .where((conversation) => conversation.title
+                        .toLowerCase()
+                        .contains(_query.toLowerCase()))
+                    .toList(growable: false);
+                if (filtered.isEmpty) {
+                  return _PageMessage(
+                    message: items.isEmpty
+                        ? 'Henüz görüşme yok.'
+                        : 'Aramanla eşleşen görüşme yok.',
+                  );
+                }
+                return Column(
+                  children: [
+                    for (final conversation in filtered)
+                      _ConversationCard(
+                        conversation: conversation,
+                        job: _matchingJob(jobs, conversation.id),
+                      ),
+                  ],
+                );
+              },
               error: (error, stackTrace) => _PageMessage(
                 message: readableApiError(error, 'Görüşmeler alınamadı.'),
               ),
@@ -57,6 +89,15 @@ class ConversationsPage extends ConsumerWidget {
     );
   }
 
+  AiAnalysisJob? _matchingJob(List<AiAnalysisJob> jobs, String conversationId) {
+    final matches = jobs.where(
+      (job) =>
+          job.sourceType.toLowerCase() == 'conversation' &&
+          job.sourceId == conversationId,
+    );
+    return matches.isEmpty ? null : matches.first;
+  }
+
   Future<void> _showCreateCallSheet(BuildContext context, WidgetRef ref) async {
     await showModalBottomSheet<void>(
       context: context,
@@ -69,132 +110,88 @@ class ConversationsPage extends ConsumerWidget {
   }
 }
 
-class _ConversationSummary extends StatelessWidget {
-  const _ConversationSummary({required this.conversations});
-
-  final List<Conversation> conversations;
-
-  @override
-  Widget build(BuildContext context) {
-    final pendingCount = conversations.where((conversation) {
-      final status = conversation.status.toLowerCase();
-      return status.contains('pending') ||
-          status.contains('queued') ||
-          status.contains('new');
-    }).length;
-
-    return _SummaryBand(
-      color: const Color(0xFF17152F),
-      metrics: [
-        _SummaryMetricData(
-          label: 'Kayıt',
-          value: conversations.length.toString(),
-          icon: Icons.forum_outlined,
-        ),
-        _SummaryMetricData(
-          label: 'Analiz bekleyen',
-          value: pendingCount.toString(),
-          icon: Icons.auto_awesome,
-        ),
-      ],
-    );
-  }
-}
-
-class _ConversationTile extends ConsumerStatefulWidget {
-  const _ConversationTile({required this.conversation});
+class _ConversationCard extends ConsumerStatefulWidget {
+  const _ConversationCard({required this.conversation, required this.job});
 
   final Conversation conversation;
+  final AiAnalysisJob? job;
 
   @override
-  ConsumerState<_ConversationTile> createState() => _ConversationTileState();
+  ConsumerState<_ConversationCard> createState() => _ConversationCardState();
 }
 
-class _ConversationTileState extends ConsumerState<_ConversationTile> {
+class _ConversationCardState extends ConsumerState<_ConversationCard> {
   bool _isSubmitting = false;
-  String? _errorMessage;
 
   @override
   Widget build(BuildContext context) {
     final conversation = widget.conversation;
+    final job = widget.job;
     final theme = Theme.of(context);
 
-    return Card(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: () => context.go('/app/conversations/${conversation.id}'),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFE5E7F1)),
+            ),
+            child: Row(
               children: [
                 Container(
-                  width: 42,
-                  height: 42,
+                  width: 44,
+                  height: 44,
                   decoration: BoxDecoration(
-                    color: const Color(0x1A3525CD),
-                    borderRadius: BorderRadius.circular(8),
+                    color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                    shape: BoxShape.circle,
                   ),
-                  child: const Icon(
-                    Icons.record_voice_over,
-                    color: Color(0xFF3525CD),
-                  ),
+                  child: Icon(Icons.person, color: theme.colorScheme.primary),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    conversation.title,
-                    style: theme.textTheme.titleMedium,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              conversation.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleMedium,
+                            ),
+                          ),
+                          Text(
+                            _formatDate(conversation.createdAt),
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      _JobStatusBadge(job: job),
+                    ],
                   ),
                 ),
-                _StatusChip(status: conversation.status),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 12,
-              runSpacing: 6,
-              children: [
-                _MetaLine(
-                  icon: Icons.hub_outlined,
-                  text: _sourceLabel(conversation.sourceType),
-                ),
-                _MetaLine(
-                  icon: Icons.schedule,
-                  text: _formatDate(conversation.createdAt),
+                const SizedBox(width: 8),
+                _TrailingAction(
+                  job: job,
+                  isSubmitting: _isSubmitting,
+                  onRequestAnalysis: _requestAnalysis,
                 ),
               ],
             ),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 8),
-              Text(
-                _errorMessage!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ],
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.icon(
-                onPressed: _isSubmitting ? null : _requestAnalysis,
-                icon: const Icon(Icons.auto_awesome),
-                label: Text(_isSubmitting ? 'Başlatılıyor' : 'AI analiz'),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
-  }
-
-  String _sourceLabel(String sourceType) {
-    return switch (sourceType.toLowerCase()) {
-      'call' => 'Çağrı',
-      'manual' => 'Manuel',
-      'email' => 'E-posta',
-      _ => sourceType,
-    };
   }
 
   String _formatDate(DateTime value) {
@@ -206,14 +203,12 @@ class _ConversationTileState extends ConsumerState<_ConversationTile> {
   }
 
   Future<void> _requestAnalysis() async {
-    setState(() {
-      _isSubmitting = true;
-      _errorMessage = null;
-    });
+    setState(() => _isSubmitting = true);
     try {
       await ref
           .read(conversationsRepositoryProvider)
           .requestAnalysis(widget.conversation.id);
+      ref.invalidate(callAnalysisJobsProvider);
       ref.invalidate(pendingAiApprovalsProvider);
       if (mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
@@ -222,14 +217,83 @@ class _ConversationTileState extends ConsumerState<_ConversationTile> {
         );
       }
     } catch (error) {
-      setState(() {
-        _errorMessage = readableApiError(error, 'AI analiz başlatılamadı.');
-      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(readableApiError(error, 'AI analiz başlatılamadı.'))),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isSubmitting = false);
       }
     }
+  }
+}
+
+class _JobStatusBadge extends StatelessWidget {
+  const _JobStatusBadge({required this.job});
+
+  final AiAnalysisJob? job;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = switch (job) {
+      null => ('Analiz bekliyor', const Color(0xFF6B6F82)),
+      _ when job!.isFailed => ('Analiz başarısız', const Color(0xFFDC6465)),
+      _ when job!.isPending => ('Analiz ediliyor', const Color(0xFF3525CD)),
+      _ => ('Analiz edildi', const Color(0xFF15803D)),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: 11,
+        ),
+      ),
+    );
+  }
+}
+
+class _TrailingAction extends StatelessWidget {
+  const _TrailingAction({
+    required this.job,
+    required this.isSubmitting,
+    required this.onRequestAnalysis,
+  });
+
+  final AiAnalysisJob? job;
+  final bool isSubmitting;
+  final VoidCallback onRequestAnalysis;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    if (isSubmitting || job?.isPending == true) {
+      return const SizedBox(
+        width: 20,
+        height: 20,
+        child: CircularProgressIndicator(strokeWidth: 2),
+      );
+    }
+
+    if (job == null || job!.isFailed) {
+      return IconButton(
+        tooltip: job == null ? 'AI analiz başlat' : 'Tekrar dene',
+        onPressed: onRequestAnalysis,
+        icon: Icon(Icons.auto_awesome, color: theme.colorScheme.primary),
+      );
+    }
+
+    return Icon(Icons.chevron_right, color: theme.colorScheme.outline);
   }
 }
 
@@ -364,132 +428,6 @@ class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
         setState(() => _isSubmitting = false);
       }
     }
-  }
-}
-
-class _SummaryBand extends StatelessWidget {
-  const _SummaryBand({required this.color, required this.metrics});
-
-  final Color color;
-  final List<_SummaryMetricData> metrics;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          for (final metric in metrics) ...[
-            if (metric != metrics.first) const SizedBox(width: 12),
-            Expanded(child: _SummaryMetric(metric: metric)),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _SummaryMetricData {
-  const _SummaryMetricData({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-}
-
-class _SummaryMetric extends StatelessWidget {
-  const _SummaryMetric({required this.metric});
-
-  final _SummaryMetricData metric;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(metric.icon, color: Colors.white, size: 20),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                metric.value,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-              Text(
-                metric.label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.72),
-                    ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _MetaLine extends StatelessWidget {
-  const _MetaLine({required this.icon, required this.text});
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          icon,
-          size: 16,
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-        ),
-        const SizedBox(width: 6),
-        Text(text, style: Theme.of(context).textTheme.bodySmall),
-      ],
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status});
-
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    final label = switch (status.toLowerCase()) {
-      'pending' => 'Bekliyor',
-      'processing' => 'İşleniyor',
-      'analyzed' => 'Analizli',
-      'completed' => 'Tamam',
-      _ => status,
-    };
-
-    return Chip(label: Text(label), visualDensity: VisualDensity.compact);
   }
 }
 

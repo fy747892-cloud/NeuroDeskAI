@@ -41,6 +41,10 @@ class AiAnalysisJob {
   int get suggestedAppointmentCount => _itemsCount('appointment_extraction');
   int get suggestedDealCount => _itemsCount('deal_extraction');
 
+  List<String> get suggestedTaskTitles => _itemTitles('task_extraction');
+  List<String> get suggestedAppointmentTitles =>
+      _itemTitles('appointment_extraction');
+
   factory AiAnalysisJob.fromJson(Map<String, dynamic> json) {
     return AiAnalysisJob(
       id: json['id'] as String,
@@ -64,6 +68,16 @@ class AiAnalysisJob {
   int _itemsCount(String type) {
     final items = _latestResult(type)?.payload['items'];
     return items is List ? items.length : 0;
+  }
+
+  List<String> _itemTitles(String type) {
+    final items = _latestResult(type)?.payload['items'];
+    if (items is! List) return const [];
+    return items
+        .whereType<Map>()
+        .map((item) => (item['title'] ?? item['name'] ?? '').toString().trim())
+        .where((title) => title.isNotEmpty)
+        .toList(growable: false);
   }
 }
 
