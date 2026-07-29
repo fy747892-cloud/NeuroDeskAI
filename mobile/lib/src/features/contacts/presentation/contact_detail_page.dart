@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../../core/widgets/app_components.dart';
 import '../data/contacts_repository.dart';
 import '../domain/contact.dart';
 
@@ -37,7 +38,7 @@ class _ContactDetailPageState extends ConsumerState<ContactDetailPage> {
         ref.invalidate(contactMemoryProvider(widget.contactId));
       },
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: kScreenPadding,
         children: [
           Align(
             alignment: Alignment.centerLeft,
@@ -120,10 +121,9 @@ class _ProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
+    return AppCard(
+      padding: const EdgeInsets.all(18),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -168,7 +168,6 @@ class _ProfileCard extends StatelessWidget {
             if (contact.phone != null)
               _InfoLine(icon: Icons.phone, text: contact.phone!),
           ],
-        ),
       ),
     );
   }
@@ -181,22 +180,23 @@ class _MemoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final theme = Theme.of(context);
+    return AppCard(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF17152F),
-        borderRadius: BorderRadius.circular(8),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Müşteri Hafızası',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  color: Colors.white,
-                ),
+          Row(
+            children: [
+              Icon(Icons.auto_awesome, size: 18, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Text(
+                'Müşteri Hafızası',
+                style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
@@ -238,22 +238,15 @@ class _MemoryMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           value,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
+          style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
         ),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Colors.white.withValues(alpha: 0.72),
-              ),
-        ),
+        Text(label, style: theme.textTheme.bodySmall),
       ],
     );
   }
@@ -271,9 +264,7 @@ class _MemoryLine extends StatelessWidget {
       padding: const EdgeInsets.only(top: 8),
       child: Text(
         '$label: $value',
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: Colors.white.withValues(alpha: 0.82),
-            ),
+        style: Theme.of(context).textTheme.bodySmall,
       ),
     );
   }
@@ -296,10 +287,9 @@ class _NotesCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
+    return AppCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text('Notlar', style: Theme.of(context).textTheme.titleMedium),
@@ -333,7 +323,6 @@ class _NotesCard extends StatelessWidget {
               ),
             ),
           ],
-        ),
       ),
     );
   }
@@ -351,8 +340,8 @@ class _NoteItem extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF4F5FB),
-        borderRadius: BorderRadius.circular(8),
+        color: Theme.of(context).colorScheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(kCardRadius),
       ),
       child: Text(note.noteText),
     );
@@ -366,24 +355,21 @@ class _TimelineCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Son hareketler',
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            if (events.isEmpty)
-              Text(
-                'Zaman cizelgesi kaydi yok.',
-                style: Theme.of(context).textTheme.bodySmall,
-              )
-            else
-              ...events.map((event) => _TimelineItem(event: event)),
-          ],
-        ),
+    return AppCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Son hareketler', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 12),
+          if (events.isEmpty)
+            Text(
+              'Zaman çizelgesi kaydı yok.',
+              style: Theme.of(context).textTheme.bodySmall,
+            )
+          else
+            ...events.map((event) => _TimelineItem(event: event)),
+        ],
       ),
     );
   }
@@ -471,11 +457,6 @@ class _PageMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(message),
-      ),
-    );
+    return AppCard(child: Text(message));
   }
 }

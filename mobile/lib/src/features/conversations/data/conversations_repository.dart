@@ -14,6 +14,13 @@ final conversationsProvider =
   return ref.watch(conversationsRepositoryProvider).listConversations();
 });
 
+final conversationDetailProvider = FutureProvider.autoDispose
+    .family<ConversationDetail, String>((ref, conversationId) async {
+  return ref
+      .watch(conversationsRepositoryProvider)
+      .getConversation(conversationId);
+});
+
 class ConversationsRepository {
   const ConversationsRepository(this._dio);
 
@@ -46,5 +53,11 @@ class ConversationsRepository {
 
   Future<void> requestAnalysis(String conversationId) async {
     await _dio.post<void>('/api/v1/ai/analysis/conversations/$conversationId');
+  }
+
+  Future<ConversationDetail> getConversation(String conversationId) async {
+    final response = await _dio
+        .get<Map<String, dynamic>>('/api/v1/conversations/$conversationId');
+    return ConversationDetail.fromJson(response.data!);
   }
 }

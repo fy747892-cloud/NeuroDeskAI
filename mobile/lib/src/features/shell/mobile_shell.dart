@@ -3,11 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_status.dart';
-import '../auth/presentation/auth_controller.dart';
 import '../calls/data/call_state_listener.dart';
 import '../calls/data/calls_repository.dart';
 import '../dashboard/data/dashboard_repository.dart';
-import '../notifications/data/notifications_repository.dart';
 
 class MobileShell extends ConsumerWidget {
   const MobileShell({required this.child, super.key});
@@ -19,10 +17,8 @@ class MobileShell extends ConsumerWidget {
     final location = GoRouterState.of(context).uri.path;
     final apiStatus = ref.watch(apiStatusProvider);
     final dashboard = ref.watch(dashboardProvider).valueOrNull;
-    final notifications = ref.watch(notificationsProvider).valueOrNull ?? const [];
     final calls = ref.watch(callsProvider).valueOrNull ?? const [];
     final jobs = ref.watch(callAnalysisJobsProvider).valueOrNull ?? const [];
-    final unreadNotifications = notifications.where((item) => !item.isRead).length;
     final callsNeedingAttention = calls.where((call) {
       final matchingJobs = jobs.where(
         (job) =>
@@ -37,78 +33,6 @@ class MobileShell extends ConsumerWidget {
     ref.watch(callAutoRecordListenerProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        titleSpacing: 16,
-        title: Row(
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(10),
-              child: Image.asset(
-                'assets/brand/neurodesk_mark.png',
-                width: 34,
-                height: 34,
-                fit: BoxFit.cover,
-              ),
-            ),
-            const SizedBox(width: 10),
-            const Text('NeuroDesk AI', style: TextStyle(fontWeight: FontWeight.w800)),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'AI sohbet',
-            icon: const Icon(Icons.auto_awesome),
-            onPressed: () => context.go('/app/chat'),
-          ),
-          IconButton(
-            tooltip: 'Arama',
-            icon: const Icon(Icons.search),
-            onPressed: () => context.go('/app/search'),
-          ),
-          IconButton(
-            tooltip: 'Bildirimler',
-            icon: _BadgeIcon(icon: Icons.notifications_outlined, count: unreadNotifications),
-            onPressed: () => context.go('/app/notifications'),
-          ),
-          PopupMenuButton<_ShellAction>(
-            tooltip: 'Diğer',
-            icon: const Icon(Icons.more_vert),
-            onSelected: (action) {
-              switch (action) {
-                case _ShellAction.contacts:
-                  context.go('/app/contacts');
-                case _ShellAction.conversations:
-                  context.go('/app/conversations');
-                case _ShellAction.deals:
-                  context.go('/app/deals');
-                case _ShellAction.priority:
-                  context.go('/app/priority');
-                case _ShellAction.analytics:
-                  context.go('/app/analytics');
-                case _ShellAction.files:
-                  context.go('/app/files');
-                case _ShellAction.email:
-                  context.go('/app/email');
-                case _ShellAction.settings:
-                  context.go('/app/settings');
-                case _ShellAction.logout:
-                  ref.read(authControllerProvider.notifier).logout();
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: _ShellAction.contacts, child: _MenuTile(icon: Icons.people_alt_outlined, title: 'Kişiler')),
-              PopupMenuItem(value: _ShellAction.conversations, child: _MenuTile(icon: Icons.forum_outlined, title: 'Görüşmeler')),
-              PopupMenuItem(value: _ShellAction.deals, child: _MenuTile(icon: Icons.account_tree_outlined, title: 'Fırsatlar')),
-              PopupMenuItem(value: _ShellAction.priority, child: _MenuTile(icon: Icons.priority_high, title: 'Öncelik')),
-              PopupMenuItem(value: _ShellAction.analytics, child: _MenuTile(icon: Icons.insights_outlined, title: 'Analitik')),
-              PopupMenuItem(value: _ShellAction.files, child: _MenuTile(icon: Icons.folder_outlined, title: 'Dosyalar')),
-              PopupMenuItem(value: _ShellAction.email, child: _MenuTile(icon: Icons.mail_outline, title: 'E-posta')),
-              PopupMenuItem(value: _ShellAction.settings, child: _MenuTile(icon: Icons.settings_outlined, title: 'Ayarlar')),
-              PopupMenuItem(value: _ShellAction.logout, child: _MenuTile(icon: Icons.logout, title: 'Çıkış yap')),
-            ],
-          ),
-        ],
-      ),
       body: Column(
         children: [
           apiStatus.when(
@@ -124,7 +48,7 @@ class MobileShell extends ConsumerWidget {
             ),
             loading: () => const SizedBox.shrink(),
           ),
-          Expanded(child: child),
+          Expanded(child: SafeArea(bottom: false, child: child)),
         ],
       ),
       bottomNavigationBar: NavigationBar(
@@ -132,86 +56,60 @@ class MobileShell extends ConsumerWidget {
         onDestinationSelected: (index) => context.go(_pathForIndex(index)),
         destinations: [
           const NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home_filled),
             label: 'Özet',
           ),
           NavigationDestination(
-            icon: _BadgeIcon(icon: Icons.checklist_outlined, count: dashboard?.summary.openTasksCount ?? 0),
-            selectedIcon: _BadgeIcon(icon: Icons.checklist, count: dashboard?.summary.openTasksCount ?? 0),
+            icon: _BadgeIcon(icon: Icons.call_outlined, count: callsNeedingAttention),
+            selectedIcon: _BadgeIcon(icon: Icons.call_rounded, count: callsNeedingAttention),
+            label: 'Çağrılar',
+          ),
+          NavigationDestination(
+            icon: _BadgeIcon(icon: Icons.check_circle_outline, count: dashboard?.summary.openTasksCount ?? 0),
+            selectedIcon: _BadgeIcon(icon: Icons.check_circle_rounded, count: dashboard?.summary.openTasksCount ?? 0),
             label: 'Görevler',
           ),
-          NavigationDestination(
-            icon: _BadgeIcon(icon: Icons.call_outlined, count: callsNeedingAttention),
-            selectedIcon: _BadgeIcon(icon: Icons.call, count: callsNeedingAttention),
-            label: 'Çağrı',
+          const NavigationDestination(
+            icon: Icon(Icons.people_outline),
+            selectedIcon: Icon(Icons.people_rounded),
+            label: 'Kişiler',
           ),
-          NavigationDestination(
-            icon: _BadgeIcon(icon: Icons.calendar_today_outlined, count: dashboard?.summary.upcomingAppointmentsCount ?? 0),
-            selectedIcon: _BadgeIcon(icon: Icons.calendar_today, count: dashboard?.summary.upcomingAppointmentsCount ?? 0),
-            label: 'Takvim',
+          const NavigationDestination(
+            icon: Icon(Icons.apps_outlined),
+            selectedIcon: Icon(Icons.apps_rounded),
+            label: 'Daha Fazla',
           ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        tooltip: 'Hızlı işlem',
-        onPressed: () => _showQuickActions(context),
-        child: const Icon(Icons.add),
-      ),
-    );
-  }
-
-  Future<void> _showQuickActions(BuildContext context) {
-    return showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          children: [
-            Text('Hızlı işlem', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 10),
-            _QuickActionTile(icon: Icons.call_outlined, title: 'Çağrı kaydet', route: '/app/calls'),
-            _QuickActionTile(icon: Icons.upload_file, title: 'Dosya yükle', route: '/app/files'),
-            _QuickActionTile(icon: Icons.checklist, title: 'Görev ekle', route: '/app/tasks'),
-            _QuickActionTile(icon: Icons.person_add_alt, title: 'Kişi ekle', route: '/app/contacts'),
-            _QuickActionTile(icon: Icons.mic_none, title: 'Sesli komut', route: '/app/search'),
-          ],
-        ),
       ),
     );
   }
 
   int _selectedIndex(String location) {
-    if (location.startsWith('/app/tasks')) return 1;
-    if (location.startsWith('/app/conversations')) return 2;
-    if (location.startsWith('/app/calls')) return 2;
-    if (location.startsWith('/app/appointments')) return 3;
+    if (location.startsWith('/app/calls')) return 1;
+    if (location.startsWith('/app/conversations')) return 1;
+    if (location.startsWith('/app/tasks')) return 2;
+    if (location.startsWith('/app/contacts')) return 3;
+    if (location.startsWith('/app/more')) return 4;
+    // Reached only via the Daha Fazla grid, so that tab stays highlighted.
+    if (location.startsWith('/app/deals')) return 4;
+    if (location.startsWith('/app/appointments')) return 4;
+    if (location.startsWith('/app/priority')) return 4;
+    if (location.startsWith('/app/analytics')) return 4;
+    if (location.startsWith('/app/files')) return 4;
+    if (location.startsWith('/app/email')) return 4;
+    if (location.startsWith('/app/settings')) return 4;
     return 0;
   }
 
   String _pathForIndex(int index) {
     return switch (index) {
-      1 => '/app/tasks',
-      2 => '/app/calls',
-      3 => '/app/appointments',
+      1 => '/app/calls',
+      2 => '/app/tasks',
+      3 => '/app/contacts',
+      4 => '/app/more',
       _ => '/app/dashboard',
     };
-  }
-}
-
-enum _ShellAction { contacts, conversations, deals, priority, analytics, files, email, settings, logout }
-
-class _MenuTile extends StatelessWidget {
-  const _MenuTile({required this.icon, required this.title});
-
-  final IconData icon;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(leading: Icon(icon), title: Text(title), contentPadding: EdgeInsets.zero);
   }
 }
 
@@ -227,27 +125,6 @@ class _BadgeIcon extends StatelessWidget {
       isLabelVisible: count > 0,
       label: Text(count > 99 ? '99+' : count.toString()),
       child: Icon(icon),
-    );
-  }
-}
-
-class _QuickActionTile extends StatelessWidget {
-  const _QuickActionTile({required this.icon, required this.title, required this.route});
-
-  final IconData icon;
-  final String title;
-  final String route;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      leading: Icon(icon),
-      title: Text(title),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () {
-        Navigator.of(context).pop();
-        context.go(route);
-      },
     );
   }
 }

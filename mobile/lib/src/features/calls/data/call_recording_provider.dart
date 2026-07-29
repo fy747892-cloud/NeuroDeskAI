@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/api/api_error.dart';
 import 'call_recording_service.dart';
 import 'calls_repository.dart';
+
+const _signalWarningDelay = Duration(seconds: 6);
+const _signalPollInterval = Duration(seconds: 2);
 
 final callRecordingServiceProvider = Provider<CallRecordingService>(
   (ref) => CallRecordingService(),
@@ -25,6 +30,7 @@ class CallRecordingState {
     this.errorMessage,
     this.analysisFailed = false,
     this.startedAt,
+    this.hasSignal = true,
   });
 
   final CallRecordingStatus status;
@@ -32,6 +38,10 @@ class CallRecordingState {
   final String? errorMessage;
   final bool analysisFailed;
   final DateTime? startedAt;
+  // Whether any audible speech has been detected so far in the current
+  // recording; drives the in-app "hoparlörü kontrol et" warning banner. See
+  // CallRecordingService.hasDetectedSignal().
+  final bool hasSignal;
 
   CallRecordingState copyWith({
     CallRecordingStatus? status,
@@ -39,6 +49,7 @@ class CallRecordingState {
     String? errorMessage,
     bool? analysisFailed,
     DateTime? startedAt,
+    bool? hasSignal,
   }) {
     return CallRecordingState(
       status: status ?? this.status,
@@ -46,6 +57,7 @@ class CallRecordingState {
       errorMessage: errorMessage,
       analysisFailed: analysisFailed ?? this.analysisFailed,
       startedAt: startedAt ?? this.startedAt,
+      hasSignal: hasSignal ?? this.hasSignal,
     );
   }
 }
@@ -54,8 +66,13 @@ class CallRecordingState {
 /// speakerphone call. The recording itself always happens locally; this
 /// notifier turns the finished audio into a Call + AI analysis job.
 class CallRecordingNotifier extends Notifier<CallRecordingState> {
+  Timer? _signalTimer;
+
   @override
-  CallRecordingState build() => const CallRecordingState();
+  CallRecordingState build() {
+    ref.onDispose(() => _signalTimer?.cancel());
+    return const CallRecordingState();
+  }
 
   bool get isBusy =>
       state.status != CallRecordingStatus.idle &&
@@ -72,6 +89,7 @@ class CallRecordingNotifier extends Notifier<CallRecordingState> {
     );
     try {
       await ref.read(callRecordingServiceProvider).start();
+      _startSignalPolling();
     } catch (e) {
       state = state.copyWith(
         status: CallRecordingStatus.error,
@@ -81,8 +99,30 @@ class CallRecordingNotifier extends Notifier<CallRecordingState> {
     }
   }
 
+  void _startSignalPolling() {
+    _signalTimer?.cancel();
+    _signalTimer = Timer.periodic(_signalPollInterval, (_) async {
+      if (state.status != CallRecordingStatus.recording) {
+        _signalTimer?.cancel();
+        return;
+      }
+      final startedAt = state.startedAt;
+      final elapsed = startedAt == null
+          ? Duration.zero
+          : DateTime.now().difference(startedAt);
+      if (elapsed < _signalWarningDelay) return;
+
+      final detected =
+          await ref.read(callRecordingServiceProvider).hasDetectedSignal();
+      if (state.status == CallRecordingStatus.recording) {
+        state = state.copyWith(hasSignal: detected);
+      }
+    });
+  }
+
   Future<void> stopAndProcess() async {
     if (state.status != CallRecordingStatus.recording) return;
+    _signalTimer?.cancel();
 
     state = state.copyWith(status: CallRecordingStatus.uploading);
     try {
@@ -144,6 +184,7 @@ class CallRecordingNotifier extends Notifier<CallRecordingState> {
 
   /// Stops recording without uploading - used when the user cancels.
   Future<void> discard() async {
+    _signalTimer?.cancel();
     try {
       await ref.read(callRecordingServiceProvider).stopAndRead();
     } catch (_) {

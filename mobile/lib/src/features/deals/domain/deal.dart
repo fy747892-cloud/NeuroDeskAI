@@ -61,9 +61,9 @@ String dealStageLabel(String stage) {
   return switch (stage) {
     'lead' => 'Aday',
     'proposal_sent' => 'Teklif',
-    'negotiation' => 'Muzakere',
+    'negotiation' => 'Müzakere',
     'invoiced' => 'Fatura',
-    'won' => 'Kazanildi',
+    'won' => 'Kazanıldı',
     'lost' => 'Kaybedildi',
     _ => stage,
   };

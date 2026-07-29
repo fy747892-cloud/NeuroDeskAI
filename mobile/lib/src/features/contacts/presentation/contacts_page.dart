@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/screen_header.dart';
 import '../../calls/data/call_recording_provider.dart';
 import '../data/contacts_repository.dart';
 import '../domain/contact.dart';
@@ -33,28 +35,36 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        tooltip: 'Kişi ekle',
-        onPressed: () => _showCreateContactSheet(context),
-        child: const Icon(Icons.person_add_alt_1),
-      ),
       body: RefreshIndicator(
         onRefresh: () => ref.refresh(contactsProvider(_search).future),
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: kScreenPadding,
           children: [
-            Text('Kişiler', style: theme.textTheme.headlineMedium),
-            const SizedBox(height: 6),
-            Text(
-              'Müşteri hafızasına, notlara ve son temaslara mobil erişim.',
-              style: theme.textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 16),
-            _SearchBar(
-              controller: _searchController,
-              onSearch: () {
-                setState(() => _search = _searchController.text.trim());
-              },
+            const StitchScreenHeader(title: 'Kişiler'),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (_) =>
+                        setState(() => _search = _searchController.text.trim()),
+                    decoration: const InputDecoration(
+                      prefixIcon: Icon(Icons.search),
+                      hintText: 'Kişilerde ara...',
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                IconButton.filled(
+                  style: IconButton.styleFrom(
+                    backgroundColor: theme.colorScheme.secondary,
+                  ),
+                  tooltip: 'Kişi ekle',
+                  onPressed: () => _showCreateContactSheet(context),
+                  icon: const Icon(Icons.person_add_alt_1),
+                ),
+              ],
             ),
             const SizedBox(height: 10),
             FilledButton.tonalIcon(
@@ -75,17 +85,18 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
                     : 'Telefon rehberinden içe aktar',
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 20),
             contacts.when(
               data: (items) => items.isEmpty
                   ? const _PageMessage(message: 'Kişi kaydı yok.')
                   : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _ContactsSummary(contacts: items),
-                        const SizedBox(height: 14),
-                        ...items
-                            .map((contact) => _ContactCard(contact: contact)),
+                        if (_search == null || _search!.isEmpty) ...[
+                          _RecentContactsStrip(contacts: items),
+                          const SizedBox(height: 20),
+                        ],
+                        _GroupedContactList(contacts: items),
                       ],
                     ),
               error: (error, stackTrace) => _PageMessage(
@@ -184,127 +195,137 @@ class _ContactsPageState extends ConsumerState<ContactsPage> {
   }
 }
 
-class _SearchBar extends StatelessWidget {
-  const _SearchBar({required this.controller, required this.onSearch});
-
-  final TextEditingController controller;
-  final VoidCallback onSearch;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: controller,
-            textInputAction: TextInputAction.search,
-            onSubmitted: (_) => onSearch(),
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search),
-              hintText: 'Kişi, şirket veya email ara',
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        IconButton.filled(
-          tooltip: 'Ara',
-          onPressed: onSearch,
-          icon: const Icon(Icons.search),
-        ),
-      ],
-    );
-  }
-}
-
-class _ContactsSummary extends StatelessWidget {
-  const _ContactsSummary({required this.contacts});
+/// Stitch's mockup shows a "Favoriler" quick-access strip, but the backend
+/// Contact model has no favorite flag -- fabricating one would misrepresent
+/// real data. This reuses the same avatar-strip visual, honestly sourced
+/// from the most recently added contacts instead.
+class _RecentContactsStrip extends StatelessWidget {
+  const _RecentContactsStrip({required this.contacts});
 
   final List<Contact> contacts;
 
   @override
   Widget build(BuildContext context) {
-    final companyCount = contacts
-        .map((contact) => contact.company)
-        .where((company) => company != null && company.isNotEmpty)
-        .toSet()
-        .length;
+    final theme = Theme.of(context);
+    final recent = [...contacts]
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final shown = recent.take(8).toList(growable: false);
+    if (shown.isEmpty) return const SizedBox.shrink();
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF17152F),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _SummaryMetric(
-              label: 'Kişi',
-              value: contacts.length.toString(),
-              icon: Icons.people_alt_outlined,
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'SON EKLENENLER',
+          style: TextStyle(
+            color: theme.colorScheme.outline,
+            fontWeight: FontWeight.w700,
+            fontSize: 11,
+            letterSpacing: 1,
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _SummaryMetric(
-              label: 'Şirket',
-              value: companyCount.toString(),
-              icon: Icons.business_outlined,
-            ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 78,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: shown.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 16),
+            itemBuilder: (context, index) {
+              final contact = shown[index];
+              return GestureDetector(
+                onTap: () => context.go('/app/contacts/${contact.id}'),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 56,
+                      height: 56,
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(color: theme.colorScheme.primary, width: 2),
+                      ),
+                      child: CircleAvatar(
+                        backgroundColor: theme.colorScheme.surfaceContainerHigh,
+                        child: Text(
+                          _initials(contact.fullName),
+                          style: TextStyle(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      contact.fullName.split(' ').first,
+                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
-        ],
-      ),
+        ),
+      ],
     );
+  }
+
+  String _initials(String name) {
+    final parts = name.split(' ').where((part) => part.isNotEmpty);
+    return parts.map((part) => part[0]).take(2).join().toUpperCase();
   }
 }
 
-class _SummaryMetric extends StatelessWidget {
-  const _SummaryMetric({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
+class _GroupedContactList extends StatelessWidget {
+  const _GroupedContactList({required this.contacts});
 
-  final String label;
-  final String value;
-  final IconData icon;
+  final List<Contact> contacts;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final sorted = [...contacts]
+      ..sort((a, b) =>
+          a.fullName.toLowerCase().compareTo(b.fullName.toLowerCase()));
+
+    final groups = <String, List<Contact>>{};
+    for (final contact in sorted) {
+      final letter = contact.fullName.trim().isEmpty
+          ? '#'
+          : contact.fullName.trim()[0].toUpperCase();
+      groups.putIfAbsent(letter, () => []).add(contact);
+    }
+
+    final letters = groups.keys.toList()..sort();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
+        for (final letter in letters) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8, top: 4),
+            child: Row(
+              children: [
+                Text(
+                  letter,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                const SizedBox(width: 10),
+                const Expanded(child: Divider()),
+              ],
+            ),
           ),
-          child: Icon(icon, color: Colors.white, size: 20),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.72),
-                    ),
-              ),
-            ],
-          ),
-        ),
+          for (final contact in groups[letter]!) ...[
+            _ContactCard(contact: contact),
+            const SizedBox(height: 8),
+          ],
+          const SizedBox(height: 8),
+        ],
       ],
     );
   }
@@ -317,15 +338,13 @@ class _ContactCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(8),
-        onTap: () => context.go('/app/contacts/${contact.id}'),
-        child: Padding(
+    return AppCard(
+      padding: EdgeInsets.zero,
+      onTap: () => context.go('/app/contacts/${contact.id}'),
+      child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               _Avatar(name: contact.fullName),
               const SizedBox(width: 12),
@@ -333,33 +352,11 @@ class _ContactCard extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            contact.fullName,
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        ),
-                        Chip(
-                          label: Text(contact.status),
-                          visualDensity: VisualDensity.compact,
-                        ),
-                        if (contact.phone?.trim().isNotEmpty == true) ...[
-                          const SizedBox(width: 6),
-                          IconButton.filledTonal(
-                            tooltip: 'Ara',
-                            onPressed: () => _callPhoneNumber(
-                              context,
-                              ref,
-                              contact.phone!,
-                            ),
-                            icon: const Icon(Icons.call),
-                          ),
-                        ],
-                      ],
+                    Text(
+                      contact.fullName,
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 3),
                     Text(
                       [contact.title, contact.company]
                               .where(
@@ -367,25 +364,26 @@ class _ContactCard extends ConsumerWidget {
                               .join(' - ')
                               .trim()
                               .isEmpty
-                          ? 'Profil detayı yok'
+                          ? (contact.email ?? contact.phone ?? 'Profil detayı yok')
                           : [contact.title, contact.company]
                               .where(
                                   (value) => value != null && value.isNotEmpty)
                               .join(' - '),
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      contact.email ?? contact.phone ?? 'İletişim bilgisi yok',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
                   ],
                 ),
               ),
+              if (contact.phone?.trim().isNotEmpty == true)
+                IconButton.filledTonal(
+                  tooltip: 'Ara',
+                  onPressed: () =>
+                      _callPhoneNumber(context, ref, contact.phone!),
+                  icon: const Icon(Icons.call),
+                ),
             ],
           ),
         ),
-      ),
     );
   }
 }

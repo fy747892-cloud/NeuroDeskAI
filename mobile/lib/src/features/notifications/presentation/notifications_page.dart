@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/screen_header.dart';
 import '../data/notifications_repository.dart';
 import '../domain/app_notification.dart';
 
@@ -12,20 +14,18 @@ class NotificationsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notifications = ref.watch(notificationsProvider);
-    final theme = Theme.of(context);
 
     return RefreshIndicator(
       onRefresh: () => ref.refresh(notificationsProvider.future),
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: kScreenPadding,
         children: [
-          Text('Bildirimler', style: theme.textTheme.headlineMedium),
-          const SizedBox(height: 6),
-          Text(
-            'Operasyon akışındaki yeni uyarı ve hatırlatmaları takip et.',
-            style: theme.textTheme.bodyMedium,
+          StitchDetailHeader(
+            title: 'Bildirimler',
+            onBack: () =>
+                context.canPop() ? context.pop() : context.go('/app/dashboard'),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           notifications.when(
             data: (items) => items.isEmpty
                 ? const _PageMessage(message: 'Bildirim yok.')
@@ -60,80 +60,22 @@ class _NotificationsSummary extends StatelessWidget {
     final unreadCount =
         notifications.where((notification) => !notification.isRead).length;
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF35225D),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _SummaryMetric(
-              label: 'Toplam',
-              value: notifications.length.toString(),
-              icon: Icons.notifications_outlined,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _SummaryMetric(
-              label: 'Okunmamış',
-              value: unreadCount.toString(),
-              icon: Icons.mark_email_unread_outlined,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SummaryMetric extends StatelessWidget {
-  const _SummaryMetric({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: Colors.white, size: 20),
-        ),
-        const SizedBox(width: 10),
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.72),
-                    ),
-              ),
-            ],
+          child: BentoStatTile(
+            icon: Icons.notifications_outlined,
+            label: 'Toplam',
+            value: notifications.length.toString(),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: InfoTile(
+            icon: Icons.mark_email_unread_outlined,
+            label: 'Okunmamış',
+            text: '$unreadCount okunmamış bildirim',
           ),
         ),
       ],
@@ -158,16 +100,14 @@ class _NotificationTileState extends ConsumerState<_NotificationTile> {
     final notification = widget.notification;
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: InkWell(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: AppCard(
+        padding: const EdgeInsets.all(14),
         onTap: notification.targetRoute == null || _isSubmitting
             ? null
             : () => _openNotification(notification),
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Row(
+        child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
@@ -175,9 +115,9 @@ class _NotificationTileState extends ConsumerState<_NotificationTile> {
                 height: 42,
                 decoration: BoxDecoration(
                   color: notification.isRead
-                      ? const Color(0xFFF4F5FB)
-                      : const Color(0x1A3525CD),
-                  borderRadius: BorderRadius.circular(8),
+                      ? colorScheme.surfaceContainer
+                      : colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   notification.isRead
@@ -234,7 +174,6 @@ class _NotificationTileState extends ConsumerState<_NotificationTile> {
               ),
             ],
           ),
-        ),
       ),
     );
   }
@@ -311,11 +250,6 @@ class _PageMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(message),
-      ),
-    );
+    return AppCard(child: Text(message));
   }
 }

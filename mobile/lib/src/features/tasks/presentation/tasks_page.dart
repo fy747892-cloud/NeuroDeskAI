@@ -1,56 +1,66 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/api/api_error.dart';
+import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/screen_header.dart';
 import '../data/tasks_repository.dart';
 import '../domain/task.dart';
 
-class TasksPage extends ConsumerWidget {
+enum _TaskFilter { today, week, all }
+
+class TasksPage extends ConsumerStatefulWidget {
   const TasksPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tasks = ref.watch(tasksProvider);
-    final theme = Theme.of(context);
+  ConsumerState<TasksPage> createState() => _TasksPageState();
+}
 
-    return RefreshIndicator(
-      onRefresh: () => ref.refresh(tasksProvider.future),
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text('Görevler', style: theme.textTheme.headlineMedium),
+class _TasksPageState extends ConsumerState<TasksPage> {
+  _TaskFilter _filter = _TaskFilter.today;
+
+  @override
+  Widget build(BuildContext context) {
+    final tasks = ref.watch(tasksProvider);
+
+    return Scaffold(
+      body: RefreshIndicator(
+        onRefresh: () => ref.refresh(tasksProvider.future),
+        child: ListView(
+          padding: kScreenPadding,
+          children: [
+            const StitchScreenHeader(title: 'Görevler'),
+            Row(
+              children: [
+                Expanded(child: _SegmentedControl(value: _filter, onChanged: (value) => setState(() => _filter = value))),
+                IconButton(
+                  tooltip: 'Görevleri temizle',
+                  onPressed: () => _confirmClear(context, ref),
+                  icon: const Icon(Icons.cleaning_services_outlined, size: 20),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            tasks.when(
+              data: (items) => items.isEmpty
+                  ? const _EmptyList(message: 'Henüz görev yok.')
+                  : _TaskLists(tasks: items, filter: _filter),
+              error: (error, stackTrace) => _EmptyList(
+                message: readableApiError(error, 'Görevler alınamadı.'),
               ),
-              IconButton.outlined(
-                tooltip: 'Görevleri temizle',
-                onPressed: () => _confirmClear(context, ref),
-                icon: const Icon(Icons.cleaning_services_outlined),
+              loading: () => const Padding(
+                padding: EdgeInsets.only(top: 40),
+                child: Center(child: CircularProgressIndicator()),
               ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Operasyon akışındaki açık işleri, öncelikleri ve teslim tarihlerini takip et.',
-            style: theme.textTheme.bodyMedium,
-          ),
-          const SizedBox(height: 16),
-          tasks.when(
-            data: (items) => items.isEmpty
-                ? const _EmptyList(message: 'Henüz görev yok.')
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _TaskSummary(tasks: items),
-                      const SizedBox(height: 14),
-                      ...items.map((task) => _TaskTile(task: task)),
-                    ],
-                  ),
-            error: (error, stackTrace) =>
-                const _EmptyList(message: 'Görevler alınamadı.'),
-            loading: () => const Center(child: CircularProgressIndicator()),
-          ),
-        ],
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+        tooltip: 'Görev ekle',
+        onPressed: () => _showCreateTaskSheet(context, ref),
+        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
@@ -78,97 +88,138 @@ class TasksPage extends ConsumerWidget {
     await ref.read(tasksRepositoryProvider).clearTasks();
     ref.invalidate(tasksProvider);
   }
+
+  Future<void> _showCreateTaskSheet(BuildContext context, WidgetRef ref) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => const _CreateTaskSheet(),
+    );
+    ref.invalidate(tasksProvider);
+  }
 }
 
-class _TaskSummary extends StatelessWidget {
-  const _TaskSummary({required this.tasks});
+class _SegmentedControl extends StatelessWidget {
+  const _SegmentedControl({required this.value, required this.onChanged});
 
-  final List<Task> tasks;
+  final _TaskFilter value;
+  final ValueChanged<_TaskFilter> onChanged;
+
+  static const _labels = {
+    _TaskFilter.today: 'Bugün',
+    _TaskFilter.week: 'Bu Hafta',
+    _TaskFilter.all: 'Tümü',
+  };
 
   @override
   Widget build(BuildContext context) {
-    final openCount = tasks.where((task) => task.status != 'completed').length;
-    final urgentCount = tasks.where((task) {
-      final priority = task.priority.toLowerCase();
-      return priority == 'high' || priority == 'urgent';
-    }).length;
-
+    final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
-        color: const Color(0xFF17152F),
-        borderRadius: BorderRadius.circular(8),
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [
-          Expanded(
-            child: _SummaryMetric(
-              label: 'Açık görev',
-              value: openCount.toString(),
-              icon: Icons.pending_actions,
+          for (final entry in _labels.entries)
+            Expanded(
+              child: GestureDetector(
+                onTap: () => onChanged(entry.key),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  decoration: BoxDecoration(
+                    color: value == entry.key ? Colors.white : null,
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: value == entry.key
+                        ? const [BoxShadow(color: Color(0x0D000000), blurRadius: 8)]
+                        : null,
+                  ),
+                  child: Text(
+                    entry.value,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: value == entry.key
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: _SummaryMetric(
-              label: 'Yüksek öncelik',
-              value: urgentCount.toString(),
-              icon: Icons.priority_high,
-            ),
-          ),
         ],
       ),
     );
   }
 }
 
-class _SummaryMetric extends StatelessWidget {
-  const _SummaryMetric({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
+class _TaskLists extends ConsumerWidget {
+  const _TaskLists({required this.tasks, required this.filter});
 
-  final String label;
-  final String value;
-  final IconData icon;
+  final List<Task> tasks;
+  final _TaskFilter filter;
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
+  Widget build(BuildContext context, WidgetRef ref) {
+    bool matches(Task task) {
+      if (filter == _TaskFilter.all) return true;
+      final due = task.dueAt?.toLocal();
+      if (due == null) return false;
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final dueDay = DateTime(due.year, due.month, due.day);
+      if (filter == _TaskFilter.today) return dueDay == today;
+      final weekEnd = today.add(const Duration(days: 7));
+      return !dueDay.isBefore(today) && dueDay.isBefore(weekEnd);
+    }
+
+    final open = tasks
+        .where((task) => task.status != 'completed' && matches(task))
+        .toList(growable: false);
+    final completed = tasks
+        .where((task) => task.status == 'completed' && matches(task))
+        .toList(growable: false);
+
+    if (open.isEmpty && completed.isEmpty) {
+      return const _EmptyList(message: 'Bu aralıkta görev yok.');
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: Colors.white, size: 20),
+        SectionHeading(title: 'Bekleyen Görevler'),
+        const SizedBox(height: 4),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: StatusPill(label: '${open.length} Yeni', color: const Color(0xFF3525CD)),
         ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        const SizedBox(height: 12),
+        if (open.isEmpty)
+          const _EmptyList(message: 'Bekleyen görev yok.')
+        else
+          ...open.map((task) => _TaskTile(task: task)),
+        if (completed.isNotEmpty) ...[
+          const SizedBox(height: 20),
+          Row(
             children: [
-              Text(
-                value,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.72),
-                    ),
-              ),
+              Icon(Icons.check_circle, color: Theme.of(context).colorScheme.outline, size: 20),
+              const SizedBox(width: 8),
+              Text('Tamamlananlar',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.outline,
+                      )),
             ],
           ),
-        ),
+          const SizedBox(height: 10),
+          Opacity(
+            opacity: 0.6,
+            child: Column(children: completed.map((task) => _TaskTile(task: task)).toList()),
+          ),
+        ],
       ],
     );
   }
@@ -182,84 +233,100 @@ class _TaskTile extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isCompleted = task.status == 'completed';
+    final theme = Theme.of(context);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(kCardRadius),
+        child: Container(
+          decoration: BoxDecoration(
+            color: isCompleted ? theme.colorScheme.surfaceContainer : Colors.white,
+            boxShadow: isCompleted ? null : kCardShadow,
+          ),
+          child: IntrinsicHeight(
+            child: Row(
               children: [
-                _PriorityDot(priority: task.priority),
-                const SizedBox(width: 10),
+                Container(width: 6, color: priorityColor(task.priority)),
                 Expanded(
-                  child: Text(
-                    _localizedTaskText(task.title),
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          decoration: isCompleted
-                              ? TextDecoration.lineThrough
-                              : TextDecoration.none,
+                  child: Padding(
+                    padding: const EdgeInsets.all(14),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: GestureDetector(
+                            onTap: isCompleted
+                                ? null
+                                : () async {
+                                    await ref.read(tasksRepositoryProvider).completeTask(task.id);
+                                    ref.invalidate(tasksProvider);
+                                  },
+                            child: Container(
+                              width: 24,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: isCompleted ? theme.colorScheme.primary : null,
+                                border: Border.all(
+                                  color: isCompleted ? theme.colorScheme.primary : const Color(0xFFC7C4D8),
+                                  width: 2,
+                                ),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: isCompleted
+                                  ? const Icon(Icons.check, size: 16, color: Colors.white)
+                                  : null,
+                            ),
+                          ),
                         ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                task.title,
+                                style: theme.textTheme.bodyLarge?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  decoration: isCompleted ? TextDecoration.lineThrough : null,
+                                  color: isCompleted ? theme.colorScheme.outline : null,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                isCompleted
+                                    ? 'Tamamlandı'
+                                    : (task.dueAt == null
+                                        ? _priorityLabel(task.priority)
+                                        : '${_formatDate(task.dueAt!)} • ${_priorityLabel(task.priority)}'),
+                                style: theme.textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                        PopupMenuButton<String>(
+                          icon: Icon(Icons.more_vert, color: theme.colorScheme.outline, size: 20),
+                          onSelected: (value) async {
+                            if (value == 'delete') {
+                              await ref.read(tasksRepositoryProvider).deleteTask(task.id);
+                              ref.invalidate(tasksProvider);
+                            }
+                          },
+                          itemBuilder: (context) => const [
+                            PopupMenuItem(value: 'delete', child: Text('Sil')),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                _StatusChip(status: task.status),
               ],
             ),
-            if (task.description != null && task.description!.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(task.description!,
-                  style: Theme.of(context).textTheme.bodyMedium),
-            ],
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Icon(
-                  Icons.schedule,
-                  size: 16,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    task.dueAt == null
-                        ? 'Teslim tarihi yok'
-                        : 'Teslim: ${_formatDate(task.dueAt!)}',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
-                Text(
-                  _priorityLabel(task.priority),
-                  style: Theme.of(context).textTheme.labelMedium,
-                ),
-                if (!isCompleted) ...[
-                  const SizedBox(width: 8),
-                  IconButton.filled(
-                    tooltip: 'Tamamla',
-                    icon: const Icon(Icons.check),
-                    onPressed: () async {
-                      await ref
-                          .read(tasksRepositoryProvider)
-                          .completeTask(task.id);
-                      ref.invalidate(tasksProvider);
-                    },
-                  ),
-                ],
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );
-  }
-
-  String _formatDate(DateTime value) {
-    return '${value.day.toString().padLeft(2, '0')}.'
-        '${value.month.toString().padLeft(2, '0')} '
-        '${value.hour.toString().padLeft(2, '0')}:'
-        '${value.minute.toString().padLeft(2, '0')}';
   }
 
   String _priorityLabel(String priority) {
@@ -272,85 +339,151 @@ class _TaskTile extends ConsumerWidget {
     };
   }
 
-  String _localizedTaskText(String value) {
-    final trimmed = value.trim();
-    final lower = trimmed.toLowerCase();
-    if (lower == 'study for the exam') {
-      return 'Sınava çalış';
-    }
-    if (lower.startsWith('follow up:')) {
-      return 'Takip et: ${trimmed.substring('follow up:'.length).trim()}';
-    }
-    if (lower.startsWith('schedule follow-up for')) {
-      return '${trimmed.substring('schedule follow-up for'.length).trim()} için takip randevusu planla';
-    }
-    return trimmed;
+  String _formatDate(DateTime value) {
+    final local = value.toLocal();
+    final now = DateTime.now();
+    final dueDay = DateTime(local.year, local.month, local.day);
+    final today = DateTime(now.year, now.month, now.day);
+    final time = '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+    if (dueDay == today) return 'Bugün $time';
+    if (dueDay == today.add(const Duration(days: 1))) return 'Yarın $time';
+    return '${local.day.toString().padLeft(2, '0')}.${local.month.toString().padLeft(2, '0')} $time';
   }
 }
 
-class _PriorityDot extends StatelessWidget {
-  const _PriorityDot({required this.priority});
-
-  final String priority;
+class _CreateTaskSheet extends ConsumerStatefulWidget {
+  const _CreateTaskSheet();
 
   @override
-  Widget build(BuildContext context) {
-    final color = switch (priority.toLowerCase()) {
-      'urgent' => const Color(0xFFFF6B6B),
-      'high' => const Color(0xFFFF9F1C),
-      'medium' => const Color(0xFF3525CD),
-      _ => const Color(0xFF2EC4B6),
-    };
-
-    return Container(
-      width: 12,
-      height: 12,
-      margin: const EdgeInsets.only(top: 4),
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-    );
-  }
+  ConsumerState<_CreateTaskSheet> createState() => _CreateTaskSheetState();
 }
 
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.status});
+class _CreateTaskSheetState extends ConsumerState<_CreateTaskSheet> {
+  final _titleController = TextEditingController();
+  String _priority = 'medium';
+  DateTime? _dueAt;
+  bool _isSubmitting = false;
+  String? _errorMessage;
 
-  final String status;
+  @override
+  void dispose() {
+    _titleController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final isCompleted = status == 'completed';
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
-    return Chip(
-      avatar: Icon(
-        isCompleted ? Icons.check_circle : Icons.radio_button_unchecked,
-        size: 16,
+    return Padding(
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Görev ekle', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _titleController,
+              decoration: const InputDecoration(labelText: 'Başlık'),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              initialValue: _priority,
+              decoration: const InputDecoration(labelText: 'Öncelik'),
+              items: const [
+                DropdownMenuItem(value: 'low', child: Text('Düşük')),
+                DropdownMenuItem(value: 'medium', child: Text('Orta')),
+                DropdownMenuItem(value: 'high', child: Text('Yüksek')),
+                DropdownMenuItem(value: 'urgent', child: Text('Acil')),
+              ],
+              onChanged: (value) => setState(() => _priority = value ?? 'medium'),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: _pickDueDate,
+              icon: const Icon(Icons.calendar_today_outlined),
+              label: Text(_dueAt == null ? 'Teslim tarihi seç (opsiyonel)' : _formatDueAt(_dueAt!)),
+            ),
+            if (_errorMessage != null) ...[
+              const SizedBox(height: 10),
+              Text(_errorMessage!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            ],
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _isSubmitting ? null : _submit,
+                icon: const Icon(Icons.save),
+                label: Text(_isSubmitting ? 'Kaydediliyor' : 'Kaydet'),
+              ),
+            ),
+          ],
+        ),
       ),
-      label: Text(isCompleted ? 'Tamam' : 'Açık'),
-      visualDensity: VisualDensity.compact,
     );
+  }
+
+  Future<void> _pickDueDate() async {
+    final date = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(context: context, initialTime: TimeOfDay.now());
+    if (!mounted) return;
+    setState(() {
+      _dueAt = DateTime(date.year, date.month, date.day, time?.hour ?? 9, time?.minute ?? 0);
+    });
+  }
+
+  String _formatDueAt(DateTime value) {
+    return '${value.day.toString().padLeft(2, '0')}.'
+        '${value.month.toString().padLeft(2, '0')} '
+        '${value.hour.toString().padLeft(2, '0')}:'
+        '${value.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _submit() async {
+    final title = _titleController.text.trim();
+    if (title.isEmpty) {
+      setState(() => _errorMessage = 'Başlık zorunlu.');
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+    try {
+      await ref.read(tasksRepositoryProvider).createTask(
+            title: title,
+            priority: _priority,
+            dueAt: _dueAt,
+          );
+      if (mounted) Navigator.of(context).pop();
+    } catch (error) {
+      setState(() {
+        _errorMessage = readableApiError(error, 'Görev eklenemedi.');
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 }
 
 class _EmptyList extends StatelessWidget {
-  const _EmptyList({required this.message, this.actionLabel, this.onAction});
+  const _EmptyList({required this.message});
 
   final String message;
-  final String? actionLabel;
-  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(message),
-          if (actionLabel != null && onAction != null) ...[
-            const SizedBox(height: 10),
-            FilledButton.icon(onPressed: onAction, icon: const Icon(Icons.verified_outlined), label: Text(actionLabel!)),
-          ],
-        ]),
-      ),
-    );
+    return AppCard(child: Text(message));
   }
 }

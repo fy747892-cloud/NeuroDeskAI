@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/screen_header.dart';
 import '../data/priority_repository.dart';
 import '../domain/priority_queue.dart';
 
@@ -23,22 +26,20 @@ class _PriorityPageState extends ConsumerState<PriorityPage> {
     return RefreshIndicator(
       onRefresh: () => ref.refresh(priorityQueueProvider(_limit).future),
       child: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: kScreenPadding,
         children: [
+          StitchDetailHeader(
+            title: 'Öncelikler',
+            onBack: () =>
+                context.canPop() ? context.pop() : context.go('/app/more'),
+          ),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Öncelik', style: theme.textTheme.headlineMedium),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Görev ve randevuları skorlayıp sıraya al.',
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  ],
+                child: Text(
+                  'Görev ve randevuları skorlayıp sıraya al.',
+                  style: theme.textTheme.bodyMedium,
                 ),
               ),
               PopupMenuButton<int>(
@@ -87,41 +88,35 @@ class _PrioritySummary extends StatelessWidget {
     final highCount =
         queue.items.where((item) => item.priority == 'high').length;
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF3525CD),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: _SummaryMetric(
-                  label: 'Toplam',
-                  value: queue.items.length.toString(),
-                  icon: Icons.format_list_numbered,
-                ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: BentoStatTile(
+                icon: Icons.format_list_numbered,
+                label: 'Toplam',
+                value: queue.items.length.toString(),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _SummaryMetric(
-                  label: 'Acil/Yüksek',
-                  value: '${urgentCount + highCount}',
-                  icon: Icons.priority_high,
-                ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: InfoTile(
+                icon: Icons.priority_high,
+                label: 'Acil/Yüksek',
+                text: '${urgentCount + highCount} kritik öğe',
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          _MetaLine(
-            icon: Icons.schedule,
-            text: 'Üretim: ${_formatDateTime(queue.generatedAt)}',
-            color: Colors.white.withValues(alpha: 0.8),
-          ),
-        ],
-      ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        _MetaLine(
+          icon: Icons.schedule,
+          text: 'Üretim: ${_formatDateTime(queue.generatedAt)}',
+        ),
+      ],
     );
   }
 }
@@ -136,9 +131,9 @@ class _PriorityCard extends StatelessWidget {
     final theme = Theme.of(context);
     final scoreColor = _scoreColor(item.score);
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: AppCard(
         padding: const EdgeInsets.all(14),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -254,69 +249,15 @@ class _TinyChip extends StatelessWidget {
   }
 }
 
-class _SummaryMetric extends StatelessWidget {
-  const _SummaryMetric({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 38,
-          height: 38,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: Colors.white, size: 20),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w800,
-                    ),
-              ),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Colors.white.withValues(alpha: 0.72),
-                    ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _MetaLine extends StatelessWidget {
-  const _MetaLine({required this.icon, required this.text, this.color});
+  const _MetaLine({required this.icon, required this.text});
 
   final IconData icon;
   final String text;
-  final Color? color;
 
   @override
   Widget build(BuildContext context) {
-    final resolvedColor =
-        color ?? Theme.of(context).colorScheme.onSurfaceVariant;
+    final resolvedColor = Theme.of(context).colorScheme.onSurfaceVariant;
     return Row(
       children: [
         Icon(icon, size: 16, color: resolvedColor),
@@ -342,12 +283,7 @@ class _PageMessage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(message),
-      ),
-    );
+    return AppCard(child: Text(message));
   }
 }
 

@@ -3,178 +3,183 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../../core/widgets/app_components.dart';
+import '../../../core/widgets/screen_header.dart';
 import '../../ai_approvals/data/ai_approvals_repository.dart';
-import '../../calls/data/calls_repository.dart';
-import '../../calls/domain/ai_analysis_job.dart';
-import '../../calls/domain/call_record.dart';
+import '../../ai_approvals/domain/ai_action_approval.dart';
+import '../../appointments/data/appointments_repository.dart';
+import '../../appointments/domain/appointment.dart';
+import '../../settings/data/settings_repository.dart';
+import '../../settings/domain/user_profile.dart';
+import '../../tasks/data/tasks_repository.dart';
+import '../../tasks/domain/task.dart';
 import '../data/dashboard_repository.dart';
+import '../domain/dashboard_models.dart';
 
+/// Özet (home) tab. Stitch never designed a dedicated dashboard screen for
+/// this project -- only a "Takvim" screen exists -- so this composes the
+/// same bento/agenda visual language (see AppComponents) around the real,
+/// thin DashboardSummary payload (4 counters, no server-side AI-brief
+/// string) plus today's real appointments/tasks/approvals.
 class DashboardPage extends ConsumerWidget {
   const DashboardPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboard = ref.watch(dashboardProvider);
-    final jobs = ref.watch(callAnalysisJobsProvider);
-    final calls = ref.watch(callsProvider);
     final approvals = ref.watch(pendingAiApprovalsProvider);
+    final tasks = ref.watch(tasksProvider);
+    final currentUser = ref.watch(currentUserProvider).valueOrNull;
+    final today = DateTime.now();
+    final appointmentsAsync =
+        ref.watch(appointmentsForMonthProvider(DateTime(today.year, today.month)));
+    final todayTasks = _todayTasks(tasks.valueOrNull ?? const []);
+    final todayAppointments = (appointmentsAsync.valueOrNull ?? const [])
+        .where((appointment) => _isSameDay(appointment.startAt.toLocal(), today))
+        .toList(growable: false)
+      ..sort((a, b) => a.startAt.compareTo(b.startAt));
 
-    return RefreshIndicator(
-      onRefresh: () => ref.refresh(dashboardProvider.future),
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          dashboard.when(
-            data: (data) => Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _HeroSummary(
-                  openTasks: data.summary.openTasksCount,
-                  appointments: data.summary.upcomingAppointmentsCount,
-                  approvals: data.summary.pendingAiApprovalsCount,
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  'Çalışma özeti',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                const SizedBox(height: 12),
-                GridView.count(
-                  crossAxisCount:
-                      MediaQuery.sizeOf(context).width > 640 ? 4 : 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  children: [
-                    _MetricCard(
-                      icon: Icons.checklist,
-                      accent: const Color(0xFF3525CD),
-                      label: 'Açık görev',
-                      value: data.summary.openTasksCount,
-                      onTap: () => context.go('/app/tasks'),
+    return Scaffold(
+      body: RefreshIndicator(
+        onRefresh: () => ref.refresh(dashboardProvider.future),
+        child: ListView(
+          padding: kScreenPadding,
+          children: [
+            StitchScreenHeader(title: _greeting(currentUser)),
+            dashboard.when(
+              data: (data) => Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SectionHeading(
+                    title: 'Bugünkü Program',
+                    trailing: _formatHeaderDate(today),
+                  ),
+                  const SizedBox(height: 12),
+                  if (todayAppointments.isEmpty)
+                    _EmptyAgendaCard(onAdd: () => context.go('/app/appointments'))
+                  else
+                    ...todayAppointments.indexed.map(
+                      (entry) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _AgendaCard(
+                          appointment: entry.$2,
+                          accentIsPrimary: entry.$1.isOdd,
+                        ),
+                      ),
                     ),
-                    _MetricCard(
-                      icon: Icons.warning_amber,
-                      accent: const Color(0xFFDC6465),
-                      label: 'Gecikmiş',
-                      value: data.summary.overdueTasksCount,
-                      onTap: () => context.go('/app/tasks'),
-                    ),
-                    _MetricCard(
-                      icon: Icons.calendar_today,
-                      accent: const Color(0xFF4B6BFB),
-                      label: 'Randevu',
-                      value: data.summary.upcomingAppointmentsCount,
-                      onTap: () => context.go('/app/appointments'),
-                    ),
-                    _MetricCard(
-                      icon: Icons.auto_awesome,
-                      accent: const Color(0xFF8B5CF6),
-                      label: 'AI onayı',
-                      value: data.summary.pendingAiApprovalsCount,
-                      onTap: () => context.go('/app/calls'),
-                    ),
-                  ],
+                  const SizedBox(height: 20),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: BentoStatTile(
+                          icon: Icons.task_alt,
+                          label: 'Tamamlanan',
+                          value:
+                              '${todayTasks.where((task) => task.status == 'completed').length}/${todayTasks.length}',
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: InfoTile(
+                          icon: Icons.forum,
+                          label: 'AI Özeti',
+                          text: _summaryText(data.summary),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  _AiSuggestionsSection(approvals: approvals.valueOrNull ?? const []),
+                  const SizedBox(height: 24),
+                  _TodayTasksSection(tasks: todayTasks),
+                ],
+              ),
+              error: (error, stackTrace) => AppCard(
+                child: Text(
+                  readableApiError(error, 'Özet alınamadı. Bağlantıyı kontrol edip tekrar deneyin.'),
                 ),
-                const SizedBox(height: 18),
-                _ProcessingQueue(
-                  jobs: jobs.valueOrNull ?? const [],
-                  approvalsCount: data.summary.pendingAiApprovalsCount,
-                ),
-                const SizedBox(height: 18),
-                _RecentActivity(
-                  calls: calls.valueOrNull ?? const [],
-                  jobs: jobs.valueOrNull ?? const [],
-                  approvalsCount: approvals.valueOrNull?.length ??
-                      data.summary.pendingAiApprovalsCount,
-                ),
-              ],
-            ),
-            error: (error, stackTrace) => _PageMessage(
-              title: 'Özet alınamadı',
-              body: readableApiError(
-                error,
-                'Bağlantıyı kontrol edip tekrar deneyin.',
+              ),
+              loading: () => const Padding(
+                padding: EdgeInsets.only(top: 60),
+                child: Center(child: CircularProgressIndicator()),
               ),
             ),
-            loading: () => const Center(child: CircularProgressIndicator()),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
 
-class _HeroSummary extends StatelessWidget {
-  const _HeroSummary({
-    required this.openTasks,
-    required this.appointments,
-    required this.approvals,
-  });
+bool _isSameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
 
-  final int openTasks;
-  final int appointments;
-  final int approvals;
+List<Task> _todayTasks(List<Task> tasks) {
+  final now = DateTime.now();
+  final today = tasks.where((task) {
+    final due = task.dueAt?.toLocal();
+    return due != null && _isSameDay(due, now);
+  }).toList(growable: false)
+    ..sort((a, b) => (a.dueAt ?? now).compareTo(b.dueAt ?? now));
+  return today;
+}
+
+String _greeting(CurrentUser? user) {
+  final fullName = user?.profile?.fullName;
+  final name = (fullName != null && fullName.trim().isNotEmpty)
+      ? fullName.trim().split(RegExp(r'\s+')).first
+      : (user?.email.contains('@') ?? false)
+          ? user!.email.split('@').first
+          : '';
+  return name.isEmpty ? 'Günaydın' : 'Günaydın $name';
+}
+
+String _summaryText(DashboardSummary summary) {
+  final parts = <String>[];
+  if (summary.openTasksCount > 0) {
+    parts.add('${summary.openTasksCount} açık görev');
+  }
+  if (summary.upcomingAppointmentsCount > 0) {
+    parts.add('${summary.upcomingAppointmentsCount} yaklaşan randevu');
+  }
+  if (summary.pendingAiApprovalsCount > 0) {
+    parts.add('${summary.pendingAiApprovalsCount} bekleyen AI önerisi');
+  }
+  if (parts.isEmpty) {
+    return 'Bugün için bekleyen bir şey yok. Harika gidiyorsun!';
+  }
+  return 'Bugün ${parts.join(', ')} var.';
+}
+
+String _formatHeaderDate(DateTime value) {
+  const months = [
+    'Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz',
+    'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara',
+  ];
+  return '${value.day} ${months[value.month - 1]}';
+}
+
+class _EmptyAgendaCard extends StatelessWidget {
+  const _EmptyAgendaCard({required this.onAdd});
+
+  final VoidCallback onAdd;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.92)),
-        gradient: const LinearGradient(
-          colors: [Color(0xFFFFFFFF), Color(0xFFF3F0FF)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x1C1F203E),
-            blurRadius: 34,
-            offset: Offset(0, 16),
-          ),
-        ],
-      ),
+    return AppCard(
+      padding: const EdgeInsets.all(24),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-            decoration: BoxDecoration(
-              color: const Color(0x1A3525CD),
-              borderRadius: BorderRadius.circular(999),
-            ),
-            child: const Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.auto_awesome, size: 16, color: Color(0xFF3525CD)),
-                SizedBox(width: 7),
-                Text(
-                  'AKILLI ÖZET',
-                  style: TextStyle(
-                    color: Color(0xFF3525CD),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Bugün $appointments randevun, $approvals bekleyen AI onayın ve $openTasks açık görevin var.',
-            style: theme.textTheme.headlineMedium,
-          ),
+          Icon(Icons.event_busy, color: theme.colorScheme.outline, size: 32),
+          const SizedBox(height: 10),
+          Text('Bugün için planlanmış bir şey yok', style: theme.textTheme.bodyMedium),
           const SizedBox(height: 14),
           FilledButton.icon(
-            onPressed: () => context.go('/app/conversations'),
-            icon: const Icon(Icons.bolt),
-            label: const Text('Görüşme ekle'),
+            onPressed: onAdd,
+            icon: const Icon(Icons.add),
+            label: const Text('Randevu Ekle'),
           ),
         ],
       ),
@@ -182,285 +187,305 @@ class _HeroSummary extends StatelessWidget {
   }
 }
 
-class _MetricCard extends StatelessWidget {
-  const _MetricCard({
-    required this.icon,
-    required this.accent,
-    required this.label,
-    required this.value,
-    required this.onTap,
-  });
+class _AgendaCard extends StatelessWidget {
+  const _AgendaCard({required this.appointment, required this.accentIsPrimary});
 
-  final IconData icon;
-  final Color accent;
-  final String label;
-  final int value;
-  final VoidCallback onTap;
+  final Appointment appointment;
+  final bool accentIsPrimary;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 34,
-                    height: 34,
-                    decoration: BoxDecoration(
-                      color: accent.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(icon, color: accent, size: 19),
-                  ),
-                  const Spacer(),
-                  const Icon(Icons.chevron_right, size: 20),
-                ],
+    final theme = Theme.of(context);
+    final accent =
+        accentIsPrimary ? theme.colorScheme.primary : theme.colorScheme.secondary;
+
+    return AppCard(
+      child: Row(
+        children: [
+          Container(
+            width: 4,
+            height: 40,
+            margin: const EdgeInsets.only(right: 14),
+            decoration: BoxDecoration(
+              color: accent,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          SizedBox(
+            width: 48,
+            child: Text(
+              _formatTime(appointment.startAt),
+              style: theme.textTheme.titleMedium?.copyWith(
+                color: accent,
+                fontWeight: FontWeight.w800,
               ),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '$value',
-                          style: Theme.of(context).textTheme.headlineMedium,
-                        ),
-                        Text(label,
-                            style: Theme.of(context).textTheme.labelLarge),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ),
+          ),
+          Container(width: 1, height: 32, color: theme.colorScheme.outlineVariant),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Text(
+              appointment.title,
+              style: theme.textTheme.titleMedium,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          IconButton.filledTonal(
+            onPressed: () => context.go('/app/appointments'),
+            icon: const Icon(Icons.link, size: 18),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTime(DateTime value) {
+    final local = value.toLocal();
+    return '${local.hour.toString().padLeft(2, '0')}:'
+        '${local.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+class _AiSuggestionsSection extends StatelessWidget {
+  const _AiSuggestionsSection({required this.approvals});
+
+  final List<AiActionApproval> approvals;
+
+  @override
+  Widget build(BuildContext context) {
+    if (approvals.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionHeading(
+          title: 'Yapay Zeka Önerileri',
+          trailing: 'Tümünü Gör',
+          onTrailingTap: () => context.go('/app/calls'),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          height: 150,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: approvals.length,
+            separatorBuilder: (context, index) => const SizedBox(width: 12),
+            itemBuilder: (context, index) => _SuggestionCard(approval: approvals[index]),
           ),
         ),
-      ),
+      ],
     );
   }
 }
 
-class _ProcessingQueue extends StatelessWidget {
-  const _ProcessingQueue({
-    required this.jobs,
-    required this.approvalsCount,
-  });
+class _SuggestionCard extends ConsumerStatefulWidget {
+  const _SuggestionCard({required this.approval});
 
-  final List<AiAnalysisJob> jobs;
-  final int approvalsCount;
+  final AiActionApproval approval;
+
+  @override
+  ConsumerState<_SuggestionCard> createState() => _SuggestionCardState();
+}
+
+class _SuggestionCardState extends ConsumerState<_SuggestionCard> {
+  bool _isSubmitting = false;
 
   @override
   Widget build(BuildContext context) {
-    final activeJobs = jobs
-        .where((job) => job.isPending || job.isFailed)
-        .toList(growable: false);
-    final total = activeJobs.length + approvalsCount;
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: 260,
+      child: AppCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.sync, color: Theme.of(context).colorScheme.primary),
-                const SizedBox(width: 8),
+                TintedIcon(icon: Icons.auto_awesome, color: theme.colorScheme.primary, size: 34),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    total == 0
-                        ? 'Devam eden işlem yok'
-                        : '$total işlem dikkat bekliyor',
-                    style: Theme.of(context).textTheme.titleMedium,
+                    widget.approval.displayTitle,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodyMedium,
                   ),
-                ),
-                TextButton(
-                  onPressed: () => context.go('/app/calls'),
-                  child: const Text('Onaylar'),
                 ),
               ],
             ),
-            if (activeJobs.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              ...activeJobs.take(3).map(
-                    (job) => _ActivityLine(
-                      icon: job.isFailed
-                          ? Icons.error_outline
-                          : Icons.auto_awesome,
-                      title: job.isFailed
-                          ? 'AI analizi başarısız'
-                          : 'AI analizi işleniyor',
-                      subtitle: job.errorMessage == null
-                          ? _formatDateTime(job.createdAt)
-                          : readableBackendMessage(
-                              job.errorMessage,
-                              'AI analizi tamamlanamadı.',
-                            ),
-                      route: '/app/calls',
+            const Spacer(),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _isSubmitting ? null : _reject,
+                    child: const Text('Reddet'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: _isSubmitting ? null : _approve,
+                    child: const Text('Onayla'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _approve() async {
+    await _submit(() => ref.read(aiApprovalsRepositoryProvider).approve(widget.approval));
+  }
+
+  Future<void> _reject() async {
+    await _submit(() => ref.read(aiApprovalsRepositoryProvider).reject(widget.approval.id));
+  }
+
+  Future<void> _submit(Future<Object?> Function() action) async {
+    setState(() => _isSubmitting = true);
+    try {
+      await action();
+      ref.invalidate(pendingAiApprovalsProvider);
+      ref.invalidate(dashboardProvider);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(readableApiError(error, 'İşlem tamamlanamadı.'))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+}
+
+class _TodayTasksSection extends StatelessWidget {
+  const _TodayTasksSection({required this.tasks});
+
+  final List<Task> tasks;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text('Bugünün Görevleri', style: Theme.of(context).textTheme.titleMedium),
+            IconButton(
+              onPressed: () => context.go('/app/tasks'),
+              icon: const Icon(Icons.add_circle, color: Color(0xFF3525CD)),
+            ),
+          ],
+        ),
+        if (tasks.isEmpty)
+          const AppCard(
+            child: Text('Görevler sekmesinden yeni bir görev ekleyebilirsin.'),
+          )
+        else
+          ...tasks.map((task) => _TodayTaskTile(task: task)),
+      ],
+    );
+  }
+}
+
+class _TodayTaskTile extends ConsumerStatefulWidget {
+  const _TodayTaskTile({required this.task});
+
+  final Task task;
+
+  @override
+  ConsumerState<_TodayTaskTile> createState() => _TodayTaskTileState();
+}
+
+class _TodayTaskTileState extends ConsumerState<_TodayTaskTile> {
+  bool _isSubmitting = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final task = widget.task;
+    final isCompleted = task.status == 'completed';
+    final theme = Theme.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: AppCard(
+        color: isCompleted ? const Color(0xFFF0EEFB) : Colors.white,
+        child: Row(
+          children: [
+            GestureDetector(
+              onTap: isCompleted || _isSubmitting ? null : _complete,
+              child: Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: isCompleted ? theme.colorScheme.primary : null,
+                  border: Border.all(
+                    color: isCompleted ? theme.colorScheme.primary : const Color(0xFFC7C4D8),
+                    width: 2,
+                  ),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: isCompleted ? const Icon(Icons.check, size: 16, color: Colors.white) : null,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    task.title,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      decoration: isCompleted ? TextDecoration.lineThrough : null,
+                      color: isCompleted ? theme.colorScheme.outline : null,
                     ),
                   ),
-            ],
-            if (approvalsCount > 0)
-              _ActivityLine(
-                icon: Icons.verified_outlined,
-                title: '$approvalsCount AI onayı bekliyor',
-                subtitle: 'Görev, randevu veya fırsat önerilerini incele',
-                route: '/app/calls',
+                  if (task.dueAt != null)
+                    Text(
+                      isCompleted ? 'Tamamlandı' : _formatTime(task.dueAt!),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                ],
+              ),
+            ),
+            if (!isCompleted)
+              IconButton(
+                onPressed: () => context.go('/app/tasks/${task.id}'),
+                icon: const Icon(Icons.chevron_right),
               ),
           ],
         ),
       ),
     );
   }
-}
 
-class _RecentActivity extends StatelessWidget {
-  const _RecentActivity({
-    required this.calls,
-    required this.jobs,
-    required this.approvalsCount,
-  });
-
-  final List<CallRecord> calls;
-  final List<AiAnalysisJob> jobs;
-  final int approvalsCount;
-
-  @override
-  Widget build(BuildContext context) {
-    final recent = <_ActivityLine>[
-      ...calls.take(3).map(
-            (call) => _ActivityLine(
-              icon: Icons.call_outlined,
-              title: 'Çağrı transkripti oluştu',
-              subtitle: call.transcriptions.isEmpty
-                  ? _formatDateTime(call.createdAt)
-                  : call.transcriptions.first.transcriptText,
-              route: '/app/calls',
-              sortKey: call.createdAt,
-            ),
-          ),
-      ...jobs.where((job) => job.isCompleted).take(3).map(
-            (job) => _ActivityLine(
-              icon: Icons.check_circle_outline,
-              title: 'AI analizi tamamlandı',
-              subtitle: job.summary == null
-                  ? _formatDateTime(job.createdAt)
-                  : _localizedAnalysisText(job.summary!),
-              route: '/app/calls',
-              sortKey: job.createdAt,
-            ),
-          ),
-    ]..sort(
-        (a, b) =>
-            (b.sortKey ?? DateTime(0)).compareTo(a.sortKey ?? DateTime(0)),
-      );
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Son işlemler',
-                style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 10),
-            if (recent.isEmpty && approvalsCount == 0)
-              const Text('Henüz yeni işlem yok.')
-            else ...[
-              if (approvalsCount > 0)
-                _ActivityLine(
-                  icon: Icons.auto_awesome,
-                  title: 'Yeni AI önerileri hazır',
-                  subtitle: '$approvalsCount öneri ilgili kartlarda hazır',
-                  route: '/app/calls',
-                ),
-              ...recent.take(5),
-            ],
-          ],
-        ),
-      ),
-    );
+  Future<void> _complete() async {
+    setState(() => _isSubmitting = true);
+    try {
+      await ref.read(tasksRepositoryProvider).completeTask(widget.task.id);
+      ref.invalidate(tasksProvider);
+      ref.invalidate(dashboardProvider);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(readableApiError(error, 'Görev tamamlanamadı.'))),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
   }
 }
 
-String _localizedAnalysisText(String value) {
-  final trimmed = value.trim();
-  if (trimmed.toLowerCase().startsWith('conversation:')) {
-    return 'Görüşme: ${trimmed.substring('conversation:'.length).trim()}';
-  }
-  return trimmed;
-}
-
-class _ActivityLine extends StatelessWidget {
-  const _ActivityLine({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.route,
-    this.sortKey,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final String route;
-  final DateTime? sortKey;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(icon),
-      title: Text(title),
-      subtitle: Text(
-        subtitle,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-      ),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () => context.go(route),
-    );
-  }
-}
-
-class _PageMessage extends StatelessWidget {
-  const _PageMessage({required this.title, required this.body});
-
-  final String title;
-  final String body;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 6),
-            Text(body),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-String _formatDateTime(DateTime value) {
+String _formatTime(DateTime value) {
   final local = value.toLocal();
-  return '${local.day.toString().padLeft(2, '0')}.'
-      '${local.month.toString().padLeft(2, '0')} '
-      '${local.hour.toString().padLeft(2, '0')}:'
+  return '${local.hour.toString().padLeft(2, '0')}:'
       '${local.minute.toString().padLeft(2, '0')}';
 }
