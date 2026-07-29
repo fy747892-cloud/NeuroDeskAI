@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_status.dart';
-import '../auth/presentation/auth_controller.dart';
 import '../calls/data/call_state_listener.dart';
 import '../calls/data/calls_repository.dart';
 import '../dashboard/data/dashboard_repository.dart';
@@ -70,43 +69,6 @@ class MobileShell extends ConsumerWidget {
             icon: _BadgeIcon(icon: Icons.notifications_outlined, count: unreadNotifications),
             onPressed: () => context.go('/app/notifications'),
           ),
-          PopupMenuButton<_ShellAction>(
-            tooltip: 'Diğer',
-            icon: const Icon(Icons.more_vert),
-            onSelected: (action) {
-              switch (action) {
-                case _ShellAction.contacts:
-                  context.go('/app/contacts');
-                case _ShellAction.conversations:
-                  context.go('/app/conversations');
-                case _ShellAction.deals:
-                  context.go('/app/deals');
-                case _ShellAction.priority:
-                  context.go('/app/priority');
-                case _ShellAction.analytics:
-                  context.go('/app/analytics');
-                case _ShellAction.files:
-                  context.go('/app/files');
-                case _ShellAction.email:
-                  context.go('/app/email');
-                case _ShellAction.settings:
-                  context.go('/app/settings');
-                case _ShellAction.logout:
-                  ref.read(authControllerProvider.notifier).logout();
-              }
-            },
-            itemBuilder: (context) => const [
-              PopupMenuItem(value: _ShellAction.contacts, child: _MenuTile(icon: Icons.people_alt_outlined, title: 'Kişiler')),
-              PopupMenuItem(value: _ShellAction.conversations, child: _MenuTile(icon: Icons.forum_outlined, title: 'Görüşmeler')),
-              PopupMenuItem(value: _ShellAction.deals, child: _MenuTile(icon: Icons.account_tree_outlined, title: 'Fırsatlar')),
-              PopupMenuItem(value: _ShellAction.priority, child: _MenuTile(icon: Icons.priority_high, title: 'Öncelik')),
-              PopupMenuItem(value: _ShellAction.analytics, child: _MenuTile(icon: Icons.insights_outlined, title: 'Analitik')),
-              PopupMenuItem(value: _ShellAction.files, child: _MenuTile(icon: Icons.folder_outlined, title: 'Dosyalar')),
-              PopupMenuItem(value: _ShellAction.email, child: _MenuTile(icon: Icons.mail_outline, title: 'E-posta')),
-              PopupMenuItem(value: _ShellAction.settings, child: _MenuTile(icon: Icons.settings_outlined, title: 'Ayarlar')),
-              PopupMenuItem(value: _ShellAction.logout, child: _MenuTile(icon: Icons.logout, title: 'Çıkış yap')),
-            ],
-          ),
         ],
       ),
       body: Column(
@@ -137,19 +99,24 @@ class MobileShell extends ConsumerWidget {
             label: 'Özet',
           ),
           NavigationDestination(
+            icon: _BadgeIcon(icon: Icons.call_outlined, count: callsNeedingAttention),
+            selectedIcon: _BadgeIcon(icon: Icons.call, count: callsNeedingAttention),
+            label: 'Çağrılar',
+          ),
+          NavigationDestination(
             icon: _BadgeIcon(icon: Icons.checklist_outlined, count: dashboard?.summary.openTasksCount ?? 0),
             selectedIcon: _BadgeIcon(icon: Icons.checklist, count: dashboard?.summary.openTasksCount ?? 0),
             label: 'Görevler',
           ),
-          NavigationDestination(
-            icon: _BadgeIcon(icon: Icons.call_outlined, count: callsNeedingAttention),
-            selectedIcon: _BadgeIcon(icon: Icons.call, count: callsNeedingAttention),
-            label: 'Çağrı',
+          const NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Kişiler',
           ),
-          NavigationDestination(
-            icon: _BadgeIcon(icon: Icons.calendar_today_outlined, count: dashboard?.summary.upcomingAppointmentsCount ?? 0),
-            selectedIcon: _BadgeIcon(icon: Icons.calendar_today, count: dashboard?.summary.upcomingAppointmentsCount ?? 0),
-            label: 'Takvim',
+          const NavigationDestination(
+            icon: Icon(Icons.grid_view_outlined),
+            selectedIcon: Icon(Icons.grid_view),
+            label: 'Daha Fazla',
           ),
         ],
       ),
@@ -184,34 +151,30 @@ class MobileShell extends ConsumerWidget {
   }
 
   int _selectedIndex(String location) {
-    if (location.startsWith('/app/tasks')) return 1;
-    if (location.startsWith('/app/conversations')) return 2;
-    if (location.startsWith('/app/calls')) return 2;
-    if (location.startsWith('/app/appointments')) return 3;
+    if (location.startsWith('/app/calls')) return 1;
+    if (location.startsWith('/app/conversations')) return 1;
+    if (location.startsWith('/app/tasks')) return 2;
+    if (location.startsWith('/app/contacts')) return 3;
+    if (location.startsWith('/app/more')) return 4;
+    // Reached only via the Daha Fazla grid, so that tab stays highlighted.
+    if (location.startsWith('/app/deals')) return 4;
+    if (location.startsWith('/app/appointments')) return 4;
+    if (location.startsWith('/app/priority')) return 4;
+    if (location.startsWith('/app/analytics')) return 4;
+    if (location.startsWith('/app/files')) return 4;
+    if (location.startsWith('/app/email')) return 4;
+    if (location.startsWith('/app/settings')) return 4;
     return 0;
   }
 
   String _pathForIndex(int index) {
     return switch (index) {
-      1 => '/app/tasks',
-      2 => '/app/calls',
-      3 => '/app/appointments',
+      1 => '/app/calls',
+      2 => '/app/tasks',
+      3 => '/app/contacts',
+      4 => '/app/more',
       _ => '/app/dashboard',
     };
-  }
-}
-
-enum _ShellAction { contacts, conversations, deals, priority, analytics, files, email, settings, logout }
-
-class _MenuTile extends StatelessWidget {
-  const _MenuTile({required this.icon, required this.title});
-
-  final IconData icon;
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return ListTile(leading: Icon(icon), title: Text(title), contentPadding: EdgeInsets.zero);
   }
 }
 

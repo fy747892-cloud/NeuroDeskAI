@@ -418,6 +418,16 @@ class CallRecordingService {
     await file.delete();
     return bytes;
   }
+
+  /// Live signal check for the UI while recording is in progress -- backed
+  /// by the same flag the foreground task writes in [_pollAmplitude], so
+  /// this reflects whether any audible speech has been detected so far in
+  /// the current recording. Defaults to `true` (no warning) if the key
+  /// hasn't been written yet, e.g. right at recording start.
+  Future<bool> hasDetectedSignal() async {
+    return await FlutterForegroundTask.getData<bool>(key: _hasSignalKey) ??
+        true;
+  }
 }
 
 String _formatElapsed(Duration duration) {

@@ -272,133 +272,172 @@ class _RecordingControlCard extends ConsumerWidget {
 
     switch (rec.status) {
       case CallRecordingStatus.idle:
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _ActionIcon(
-                  icon: Icons.mic_none,
-                  color: theme.colorScheme.primary,
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE5E7F1)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
                 ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Canlı görüşme kaydı',
-                        style: TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Telefonu hoparlöre alıp kaydı başlat. En iyi sonuç '
-                        'için sesi orta-yüksek seviyeye getir, telefonu '
-                        'hoparlöre yakın ve sabit tut.',
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 10),
-                FilledButton.icon(
-                  onPressed: () =>
-                      ref.read(callRecordingProvider.notifier).startRecording(),
+                child: Icon(Icons.mic_none,
+                    size: 32, color: theme.colorScheme.primary),
+              ),
+              const SizedBox(height: 16),
+              Text('Kayıt Hazır', style: theme.textTheme.titleLarge),
+              const SizedBox(height: 6),
+              Text(
+                'Aramaya başladığında kayıt otomatik başlar',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              const _StatusPill(label: 'BEKLEMEDE', color: Color(0xFF6B6F82)),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () => ref
+                      .read(callRecordingProvider.notifier)
+                      .startRecording(),
                   icon: const Icon(Icons.fiber_manual_record),
-                  label: const Text('Başlat'),
+                  label: const Text('Kaydı Başlat'),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
 
       case CallRecordingStatus.recording:
-        return Card(
-          color: theme.colorScheme.primaryContainer,
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.fiber_manual_record,
-                        color: theme.colorScheme.error, size: 16),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Görüşme kaydediliyor',
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (!rec.hasSignal) ...[
+              const _SilenceWarningBanner(),
+              const SizedBox(height: 10),
+            ],
+            Container(
+              padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE5E7F1)),
+              ),
+              child: Column(
+                children: [
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: theme.colorScheme.primary,
                     ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Aramayı hoparlörden yapın. Telefonu masaya sabit koyun, '
-                  'hoparlör sesi mikrofona baksın ve ortam gürültüsünü '
-                  'azaltın.',
-                  style: theme.textTheme.bodySmall,
-                ),
-                const SizedBox(height: 10),
-                const _RecordingQualityTips(),
-                const SizedBox(height: 10),
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: OutlinedButton.icon(
-                    onPressed: () => ref
-                        .read(callRecordingProvider.notifier)
-                        .stopAndProcess(),
-                    icon: const Icon(Icons.stop_circle_outlined),
-                    label: const Text('Durdur'),
+                    child: const Icon(Icons.mic, size: 32, color: Colors.white),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  _ElapsedTimer(startedAt: rec.startedAt),
+                  const SizedBox(height: 4),
+                  Text(
+                    'KAYIT DEVAM EDİYOR',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: theme.colorScheme.primary,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const _StatusPill(
+                    label: 'Hoparlörü açık tut',
+                    color: Color(0xFF3525CD),
+                    icon: Icons.volume_up_outlined,
+                  ),
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: () =>
+                              ref.read(callRecordingProvider.notifier).discard(),
+                          icon: const Icon(Icons.close),
+                          label: const Text('İptal'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: () => ref
+                              .read(callRecordingProvider.notifier)
+                              .stopAndProcess(),
+                          icon: const Icon(Icons.check),
+                          label: const Text('Tamamla'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
+          ],
         );
 
       case CallRecordingStatus.uploading:
-        return const _RecordingStatusCard(message: 'Kayıt yükleniyor...');
+        return const _ProcessingCard(step: 0);
 
       case CallRecordingStatus.analyzing:
-        return const _RecordingStatusCard(
-          message: 'Ses metne çevrilip AI ile analiz ediliyor...',
-        );
+        return const _ProcessingCard(step: 1);
 
       case CallRecordingStatus.completed:
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Row(
-              children: [
-                Icon(
-                  rec.analysisFailed
-                      ? Icons.error_outline
-                      : Icons.check_circle_outline,
-                  color: rec.analysisFailed
-                      ? theme.colorScheme.error
-                      : theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    rec.analysisFailed
-                        ? 'Kayıt kaydedildi ama AI analizi başarısız oldu. '
-                            'Aşağıdaki çağrı kartından tekrar deneyebilirsin.'
-                        : 'Kayıt tamamlandı ve AI analizi başlatıldı.',
-                    style: theme.textTheme.bodyMedium,
-                  ),
-                ),
-                TextButton(
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFE5E7F1)),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                rec.analysisFailed
+                    ? Icons.error_outline
+                    : Icons.check_circle,
+                size: 48,
+                color: rec.analysisFailed
+                    ? theme.colorScheme.error
+                    : const Color(0xFF15803D),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                rec.analysisFailed ? 'Kayıt Tamamlandı' : 'Görüşme Kaydedildi',
+                style: theme.textTheme.titleLarge,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                rec.analysisFailed
+                    ? 'Kayıt kaydedildi ama AI analizi başarısız oldu. '
+                        'Aşağıdaki çağrı kartından tekrar deneyebilirsin.'
+                    : 'Görüşme başarıyla analiz edildi ve CRM verilerine işlendi.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
                   onPressed: () {
                     ScaffoldMessenger.of(context).hideCurrentSnackBar();
                     ref.read(callRecordingProvider.notifier).reset();
                   },
                   child: const Text('Kapat'),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
 
@@ -437,42 +476,35 @@ class _RecordingControlCard extends ConsumerWidget {
   }
 }
 
-class _RecordingQualityTips extends StatelessWidget {
-  const _RecordingQualityTips();
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.label, required this.color, this.icon});
+
+  final String label;
+  final Color color;
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final color = theme.colorScheme.primary;
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.16)),
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              Icon(Icons.graphic_eq, size: 18, color: color),
-              const SizedBox(width: 6),
-              Text(
-                'Kayıt kalitesi',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
+          if (icon != null) ...[
+            Icon(icon, size: 15, color: color),
+            const SizedBox(width: 6),
+          ],
           Text(
-            'Ses düşükse hoparlör seviyesini artır. Karşı taraf çok uzaktan '
-            'geliyorsa telefonu hoparlöre 20-30 cm yaklaştır.',
-            style: theme.textTheme.bodySmall,
+            label,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
           ),
         ],
       ),
@@ -480,31 +512,161 @@ class _RecordingQualityTips extends StatelessWidget {
   }
 }
 
-class _RecordingStatusCard extends StatelessWidget {
-  const _RecordingStatusCard({required this.message});
-
-  final String message;
+class _SilenceWarningBanner extends StatelessWidget {
+  const _SilenceWarningBanner();
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child:
-                  Text(message, style: Theme.of(context).textTheme.bodyMedium),
-            ),
-          ],
-        ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFDBA74)),
       ),
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded,
+              color: Color(0xFFC2410C), size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Sesin geldiğini duyamıyoruz, hoparlörü kontrol eder misin?',
+              style: TextStyle(
+                color: const Color(0xFF9A3412),
+                fontWeight: FontWeight.w700,
+                fontSize: Theme.of(context).textTheme.bodySmall?.fontSize,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ElapsedTimer extends StatefulWidget {
+  const _ElapsedTimer({required this.startedAt});
+
+  final DateTime? startedAt;
+
+  @override
+  State<_ElapsedTimer> createState() => _ElapsedTimerState();
+}
+
+class _ElapsedTimerState extends State<_ElapsedTimer> {
+  Timer? _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final startedAt = widget.startedAt;
+    final elapsed =
+        startedAt == null ? Duration.zero : DateTime.now().difference(startedAt);
+    final minutes = elapsed.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = elapsed.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return Text(
+      '$minutes:$seconds',
+      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+            color: Theme.of(context).colorScheme.primary,
+            fontWeight: FontWeight.w800,
+          ),
+    );
+  }
+}
+
+class _ProcessingCard extends StatelessWidget {
+  const _ProcessingCard({required this.step});
+
+  /// 0 = yükleniyor, 1 = metne dönüştürülüyor ve özetleniyor.
+  final int step;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: const Color(0xFFE5E7F1)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Görüşmen işleniyor', style: theme.textTheme.titleLarge),
+          const SizedBox(height: 4),
+          Text(
+            'Yapay zeka görüşmeyi analiz edip önemli notları çıkarıyor.',
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 16),
+          _ProcessingStep(label: 'Yükleniyor', done: step > 0, active: step == 0),
+          const SizedBox(height: 10),
+          _ProcessingStep(
+            label: 'Metne dönüştürülüyor ve özetleniyor',
+            done: false,
+            active: step == 1,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProcessingStep extends StatelessWidget {
+  const _ProcessingStep({
+    required this.label,
+    required this.done,
+    required this.active,
+  });
+
+  final String label;
+  final bool done;
+  final bool active;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        if (done)
+          const Icon(Icons.check_circle, color: Color(0xFF15803D), size: 20)
+        else if (active)
+          SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: theme.colorScheme.primary,
+            ),
+          )
+        else
+          Icon(Icons.circle_outlined,
+              size: 20, color: theme.colorScheme.outline),
+        const SizedBox(width: 10),
+        Text(
+          label,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: active ? FontWeight.w700 : FontWeight.normal,
+            color: done ? const Color(0xFF15803D) : null,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -1041,7 +1203,7 @@ class _CompletedAnalysisStatus extends StatelessWidget {
             Text(
               '${job.suggestedTaskCount} görev, '
               '${job.suggestedAppointmentCount} randevu, '
-              "${job.suggestedDealCount} fırsat önerisi bu kartta hazır.",
+              '${job.suggestedDealCount} fırsat önerisi bu kartta hazır.',
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -1109,26 +1271,6 @@ class _SummaryMetric extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _ActionIcon extends StatelessWidget {
-  const _ActionIcon({required this.icon, required this.color});
-
-  final IconData icon;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Icon(icon, color: color),
     );
   }
 }
