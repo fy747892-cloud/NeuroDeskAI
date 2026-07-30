@@ -144,10 +144,15 @@ export function AuthForm({ mode }: AuthFormProps) {
       </label>
 
       {!isRegister ? (
-        <label className="flex items-center gap-2 text-body-sm text-on-surface-variant cursor-pointer">
-          <input checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} type="checkbox" />
-          {t("auth.rememberMe")}
-        </label>
+        <div className="flex items-center justify-between">
+          <label className="flex items-center gap-2 text-body-sm text-on-surface-variant cursor-pointer">
+            <input checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} type="checkbox" />
+            {t("auth.rememberMe")}
+          </label>
+          <a href="/sifremi-unuttum" className="text-body-sm text-primary hover:underline">
+            {t("auth.forgotPasswordLink")}
+          </a>
+        </div>
       ) : null}
 
       <button

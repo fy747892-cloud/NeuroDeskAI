@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.auth.models import RefreshToken, UserSession
+from app.modules.auth.models import AccountToken, RefreshToken, UserSession
 
 
 class AuthRepository:
@@ -79,4 +79,49 @@ class AuthRepository:
             update(UserSession)
             .where(UserSession.user_id == user_id, UserSession.revoked_at.is_(None))
             .values(revoked_at=now)
+        )
+
+    async def create_account_token(
+        self,
+        *,
+        user_id: uuid.UUID,
+        tenant_id: uuid.UUID,
+        purpose: str,
+        token_hash: str,
+        expires_at: datetime,
+    ) -> AccountToken:
+        token = AccountToken(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            purpose=purpose,
+            token_hash=token_hash,
+            expires_at=expires_at,
+        )
+        self._db.add(token)
+        await self._db.flush()
+        return token
+
+    async def get_account_token_by_hash(self, *, token_hash: str, purpose: str) -> AccountToken | None:
+        result = await self._db.execute(
+            select(AccountToken).where(
+                AccountToken.token_hash == token_hash,
+                AccountToken.purpose == purpose,
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def mark_account_token_used(self, token: AccountToken) -> None:
+        token.used_at = datetime.now(timezone.utc)
+        await self._db.flush()
+
+    async def invalidate_account_tokens(self, *, user_id: uuid.UUID, purpose: str) -> None:
+        now = datetime.now(timezone.utc)
+        await self._db.execute(
+            update(AccountToken)
+            .where(
+                AccountToken.user_id == user_id,
+                AccountToken.purpose == purpose,
+                AccountToken.used_at.is_(None),
+            )
+            .values(used_at=now)
         )

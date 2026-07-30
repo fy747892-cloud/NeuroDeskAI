@@ -1,13 +1,15 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChatMessage,
   ChatSession,
   ChatSource,
+  deleteChatSession,
   getChatSession,
   interpretVoiceCommand,
   listChatSessions,
+  renameChatSession,
   sendChatMessage,
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
@@ -34,6 +36,8 @@ export function AIChatView() {
   const [isSending, setSending] = useState(false);
   const [isVoiceOpen, setVoiceOpen] = useState(false);
   const [showSessions, setShowSessions] = useState(false);
+  const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   const loadSessions = useCallback(async () => {
@@ -69,6 +73,40 @@ export function AIChatView() {
       setShowSessions(false);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : t("aiChat.errors.openSessionFailed"));
+    }
+  }
+
+  function startRenamingSession(session: ChatSession) {
+    setRenamingSessionId(session.id);
+    setRenameValue(session.title ?? "");
+  }
+
+  async function handleRenameSession(sessionId: string) {
+    if (!tokens?.accessToken || !renameValue.trim()) {
+      setRenamingSessionId(null);
+      return;
+    }
+    try {
+      const updated = await renameChatSession(tokens.accessToken, sessionId, renameValue.trim());
+      setSessions((current) => current.map((s) => (s.id === updated.id ? updated : s)));
+    } catch (renameError) {
+      setError(renameError instanceof Error ? renameError.message : t("aiChat.errors.renameSessionFailed"));
+    } finally {
+      setRenamingSessionId(null);
+    }
+  }
+
+  async function handleDeleteSession(sessionId: string) {
+    if (!tokens?.accessToken || !window.confirm(t("aiChat.deleteSessionConfirm"))) return;
+    try {
+      await deleteChatSession(tokens.accessToken, sessionId);
+      setSessions((current) => current.filter((s) => s.id !== sessionId));
+      if (activeSessionId === sessionId) {
+        setActiveSessionId(null);
+        setMessages([]);
+      }
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : t("aiChat.errors.deleteSessionFailed"));
     }
   }
 
@@ -132,19 +170,61 @@ export function AIChatView() {
                   {sessions.length === 0 ? (
                     <p className="p-md text-body-sm text-on-surface-variant">{t("aiChat.noSavedSessions")}</p>
                   ) : (
-                    sessions.map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        onClick={() => openSession(s.id)}
-                        className={
-                          "w-full text-left px-md py-2 text-body-sm hover:bg-primary-container/5 " +
-                          (s.id === activeSessionId ? "text-primary font-bold" : "text-on-surface")
-                        }
-                      >
-                        {s.title ?? t("aiChat.newChatFallback")}
-                      </button>
-                    ))
+                    sessions.map((s) =>
+                      renamingSessionId === s.id ? (
+                        <div key={s.id} className="flex items-center gap-1 px-md py-1.5">
+                          <input
+                            autoFocus
+                            className="flex-1 min-w-0 bg-surface-container-low border border-outline-variant/30 rounded px-2 py-1 text-body-sm"
+                            onChange={(e) => setRenameValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleRenameSession(s.id);
+                              if (e.key === "Escape") setRenamingSessionId(null);
+                            }}
+                            value={renameValue}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRenameSession(s.id)}
+                            aria-label={t("common.save")}
+                            className="w-6 h-6 shrink-0 rounded flex items-center justify-center text-primary hover:bg-primary-container/10"
+                          >
+                            <span className="material-symbols-outlined text-[16px]">check</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div key={s.id} className="group/session flex items-center hover:bg-primary-container/5">
+                          <button
+                            type="button"
+                            onClick={() => openSession(s.id)}
+                            className={
+                              "flex-1 min-w-0 text-left px-md py-2 text-body-sm truncate " +
+                              (s.id === activeSessionId ? "text-primary font-bold" : "text-on-surface")
+                            }
+                          >
+                            {s.title ?? t("aiChat.newChatFallback")}
+                          </button>
+                          <div className="hidden group-hover/session:flex items-center gap-0.5 pr-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => startRenamingSession(s)}
+                              aria-label={t("common.edit")}
+                              className="w-6 h-6 rounded flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">edit</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteSession(s.id)}
+                              aria-label={t("common.delete")}
+                              className="w-6 h-6 rounded flex items-center justify-center text-error hover:bg-error-container/20"
+                            >
+                              <span className="material-symbols-outlined text-[14px]">delete</span>
+                            </button>
+                          </div>
+                        </div>
+                      ),
+                    )
                   )}
                 </div>
               ) : null}
@@ -224,7 +304,7 @@ export function AIChatView() {
 
         <form
           onSubmit={handleComposerSubmit}
-          className="fixed bottom-xl left-[300px] right-xl max-w-4xl mx-auto bg-surface-container-lowest/80 backdrop-blur-md rounded-2xl border border-outline-variant/30 shadow-xl p-4 z-40"
+          className="fixed bottom-md left-md right-md sm:bottom-xl sm:left-xl sm:right-xl lg:left-[300px] max-w-4xl mx-auto bg-surface-container-lowest/80 backdrop-blur-md rounded-2xl border border-outline-variant/30 shadow-xl p-4 z-40"
         >
           <div className="flex items-end gap-3">
             <div className="flex-1 bg-surface-container-low rounded-xl px-4 py-3 min-h-[48px] flex items-center">
@@ -258,7 +338,7 @@ export function AIChatView() {
                 className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors text-on-surface-variant"
                 aria-label={t("aiChat.voiceCommandAria")}
               >
-                <span className="material-symbols-outlined">mic</span>
+                <span className="material-symbols-outlined">graphic_eq</span>
               </button>
               <button
                 type="submit"
@@ -281,6 +361,23 @@ export function AIChatView() {
   );
 }
 
+type SpeechRecognitionLike = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((event: any) => void) | null;
+  onerror: ((event: any) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
+function getSpeechRecognitionCtor(): (new () => SpeechRecognitionLike) | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as Record<string, unknown>;
+  return (w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null) as (new () => SpeechRecognitionLike) | null;
+}
+
 function VoiceOverlay({
   onClose,
   onSubmitText,
@@ -289,7 +386,7 @@ function VoiceOverlay({
   onSubmitText: (text: string) => Promise<void>;
 }) {
   const { tokens } = useSession();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [transcript, setTranscript] = useState("");
   const [response, setResponse] = useState<string | null>(null);
   const [actionMeta, setActionMeta] = useState<{ intent: string; actionType: string; requiresApproval: boolean } | null>(
@@ -297,26 +394,102 @@ function VoiceOverlay({
   );
   const [isBusy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isListening, setListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const isSpeechSupported = useMemo(() => getSpeechRecognitionCtor() !== null, []);
+
+  const submitTranscript = useCallback(
+    async (text: string) => {
+      if (!tokens?.accessToken || !text.trim()) return;
+      setBusy(true);
+      setError(null);
+      try {
+        const result = await interpretVoiceCommand(tokens.accessToken, text.trim());
+        setResponse(result.spoken_response);
+        setActionMeta({
+          intent: result.action.intent,
+          actionType: result.action.action_type,
+          requiresApproval: result.action.requires_approval,
+        });
+      } catch (voiceError) {
+        setError(voiceError instanceof Error ? voiceError.message : t("aiChat.errors.voiceInterpretFailed"));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [t, tokens?.accessToken],
+  );
 
   async function handleVoiceSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!tokens?.accessToken || !transcript.trim()) return;
-    setBusy(true);
+    await submitTranscript(transcript);
+  }
+
+  function stopListening() {
+    recognitionRef.current?.stop();
+  }
+
+  function startListening() {
+    const Ctor = getSpeechRecognitionCtor();
+    if (!Ctor) {
+      setError(t("aiChat.errors.voiceNotSupported"));
+      return;
+    }
     setError(null);
-    try {
-      const result = await interpretVoiceCommand(tokens.accessToken, transcript.trim());
-      setResponse(result.spoken_response);
-      setActionMeta({
-        intent: result.action.intent,
-        actionType: result.action.action_type,
-        requiresApproval: result.action.requires_approval,
+    setResponse(null);
+    setActionMeta(null);
+    setTranscript("");
+
+    const recognition = new Ctor();
+    recognition.lang = language === "tr" ? "tr-TR" : "en-US";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.onresult = (event: any) => {
+      let combined = "";
+      for (let i = 0; i < event.results.length; i += 1) {
+        combined += event.results[i][0].transcript;
+      }
+      setTranscript(combined);
+    };
+    recognition.onerror = () => {
+      setError(t("aiChat.errors.voiceRecognitionFailed"));
+      setListening(false);
+    };
+    recognition.onend = () => {
+      setListening(false);
+      recognitionRef.current = null;
+      setTranscript((current) => {
+        if (current.trim()) {
+          void submitTranscript(current);
+        }
+        return current;
       });
-    } catch (voiceError) {
-      setError(voiceError instanceof Error ? voiceError.message : t("aiChat.errors.voiceInterpretFailed"));
-    } finally {
-      setBusy(false);
+    };
+
+    recognitionRef.current = recognition;
+    setListening(true);
+    recognition.start();
+  }
+
+  function handleMicButtonClick() {
+    if (isListening) {
+      stopListening();
+      return;
+    }
+    if (isSpeechSupported) {
+      startListening();
+      return;
+    }
+    if (transcript.trim()) {
+      void submitTranscript(transcript);
     }
   }
+
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.stop();
+    };
+  }, []);
 
   async function handleSendToChat() {
     if (!transcript.trim()) return;
@@ -325,7 +498,7 @@ function VoiceOverlay({
   }
 
   return (
-    <div className="fixed inset-0 z-50 ml-[260px] glass-overlay flex flex-col items-center justify-center">
+    <div className="fixed inset-0 z-50 lg:ml-[260px] glass-overlay flex flex-col items-center justify-center">
       <button
         type="button"
         onClick={onClose}
@@ -336,8 +509,11 @@ function VoiceOverlay({
       </button>
 
       <div className="max-w-3xl w-full px-xl mb-auto mt-24 text-center">
-        <span className="px-3 py-1 rounded-full bg-primary-container/10 text-primary font-label-sm text-label-sm uppercase tracking-wider mb-4 inline-block">
-          {t("aiChat.realTimeTranscript")}
+        <span className="px-3 py-1 rounded-full bg-primary-container/10 text-primary font-label-sm text-label-sm uppercase tracking-wider mb-4 inline-flex items-center gap-2">
+          {isListening ? (
+            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+          ) : null}
+          {isSpeechSupported ? t("aiChat.realTimeTranscript") : t("aiChat.typeInstead")}
         </span>
         <form id="voice-form" onSubmit={handleVoiceSubmit} className="relative">
           <input
@@ -365,21 +541,35 @@ function VoiceOverlay({
 
       <div className="flex flex-col items-center gap-12 py-xl">
         <div className="relative">
-          <div className="absolute inset-0 bg-primary/20 rounded-full blur-3xl scale-150 animate-pulse" />
+          {isListening ? (
+            <div className="absolute inset-0 bg-primary/20 rounded-full blur-3xl scale-150 animate-pulse" />
+          ) : null}
           <button
-            type="submit"
-            form="voice-form"
-            disabled={isBusy || !transcript.trim()}
-            className="relative w-32 h-32 bg-primary text-on-primary rounded-full flex items-center justify-center mic-glow transition-transform active:scale-95 shadow-2xl z-10 disabled:opacity-60"
+            type="button"
+            onClick={handleMicButtonClick}
+            disabled={isBusy}
+            aria-label={isListening ? t("aiChat.stopListeningAria") : t("aiChat.voiceCommandAria")}
+            className={
+              "relative w-32 h-32 rounded-full flex items-center justify-center transition-transform active:scale-95 shadow-2xl z-10 disabled:opacity-60 " +
+              (isListening ? "bg-primary text-on-primary mic-glow" : "bg-surface-container-high text-primary")
+            }
           >
             <span className="material-symbols-outlined text-[48px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-              mic
+              {isListening ? "stop" : "mic"}
             </span>
           </button>
         </div>
         <div className="flex items-center gap-1.5 h-12">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="wave-bar" style={{ animationDelay: `${(i % 5) * 0.1}s` }} />
+            <div
+              key={i}
+              className="wave-bar"
+              style={{
+                animationDelay: `${(i % 5) * 0.1}s`,
+                animationPlayState: isListening ? "running" : "paused",
+                opacity: isListening ? 1 : 0.25,
+              }}
+            />
           ))}
         </div>
       </div>

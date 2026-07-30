@@ -23,6 +23,7 @@ type SessionState = {
   isAuthenticated: boolean;
   isInitializing: boolean;
   setAuthenticatedSession: (tokens: TokenResponse) => Promise<void>;
+  refreshUser: () => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -120,6 +121,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setUser(await getCurrentUser(normalizedTokens.accessToken));
   }
 
+  async function refreshUser() {
+    if (!tokens?.accessToken) return;
+    setUser(await getCurrentUser(tokens.accessToken));
+  }
+
   async function signOut() {
     const refreshToken = tokens?.refreshToken;
     clearSession();
@@ -135,6 +141,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       isAuthenticated: Boolean(tokens && user),
       isInitializing,
       setAuthenticatedSession,
+      refreshUser,
       signOut,
     }),
     [tokens, user, isInitializing],

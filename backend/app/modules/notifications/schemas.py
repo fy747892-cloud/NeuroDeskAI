@@ -44,3 +44,7 @@ class ProcessDueOut(BaseModel):
     sent: int
     failed: int
     dead_lettered: int
+
+
+class MarkAllReadOut(BaseModel):
+    updated: int

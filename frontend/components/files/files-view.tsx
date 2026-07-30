@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, DragEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   analyzeFile,
   deleteFile,
@@ -38,9 +38,45 @@ export function FilesView() {
   const [dialog, setDialog] = useState<DialogState>(null);
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
   const [editingFilename, setEditingFilename] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [sortBy, setSortBy] = useState<"newest" | "oldest" | "name" | "size">("newest");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isDragActive, setDragActive] = useState(false);
+  const dragCounter = useRef(0);
 
   const readyCount = useMemo(() => files.filter((file) => file.status === "ready").length, [files]);
   const totalBytes = useMemo(() => files.reduce((sum, file) => sum + file.size_bytes, 0), [files]);
+
+  const availableStatuses = useMemo(
+    () => Array.from(new Set(files.map((file) => file.status))).sort(),
+    [files],
+  );
+
+  const visibleFiles = useMemo(() => {
+    let next = files;
+    if (statusFilter !== "all") {
+      next = next.filter((file) => file.status === statusFilter);
+    }
+    if (searchQuery.trim()) {
+      const query = searchQuery.trim().toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
+      next = next.filter((file) => file.filename.toLocaleLowerCase().includes(query));
+    }
+    const sorted = [...next];
+    switch (sortBy) {
+      case "oldest":
+        sorted.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        break;
+      case "name":
+        sorted.sort((a, b) => a.filename.localeCompare(b.filename));
+        break;
+      case "size":
+        sorted.sort((a, b) => b.size_bytes - a.size_bytes);
+        break;
+      default:
+        sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+    return sorted;
+  }, [files, statusFilter, searchQuery, sortBy, language]);
 
   const loadFiles = useCallback(async () => {
     if (!tokens?.accessToken) return;
@@ -60,10 +96,8 @@ export function FilesView() {
     loadFiles();
   }, [loadFiles]);
 
-  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
-    const selected = event.target.files?.[0];
-    event.target.value = "";
-    if (!selected || !tokens?.accessToken) return;
+  async function uploadSelectedFile(selected: File) {
+    if (!tokens?.accessToken) return;
 
     if (selected.size > maxUploadSizeBytes) {
       setNotice(t("files.tooLarge", { size: formatBytes(maxUploadSizeBytes) }));
@@ -82,6 +116,41 @@ export function FilesView() {
     } finally {
       setUploading(false);
     }
+  }
+
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const selected = event.target.files?.[0];
+    event.target.value = "";
+    if (!selected) return;
+    await uploadSelectedFile(selected);
+  }
+
+  function handleDragEnter(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    if (!event.dataTransfer.types.includes("Files")) return;
+    dragCounter.current += 1;
+    setDragActive(true);
+  }
+
+  function handleDragOver(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    dragCounter.current = Math.max(0, dragCounter.current - 1);
+    if (dragCounter.current === 0) {
+      setDragActive(false);
+    }
+  }
+
+  async function handleDrop(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    dragCounter.current = 0;
+    setDragActive(false);
+    const dropped = event.dataTransfer.files?.[0];
+    if (!dropped) return;
+    await uploadSelectedFile(dropped);
   }
 
   async function handleAnalyze(file: FileRecord) {
@@ -234,12 +303,70 @@ export function FilesView() {
         <Metric icon="database" label={t("files.metrics.size")} value={formatBytes(totalBytes)} />
       </section>
 
-      <section className="space-y-md">
+      {files.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative flex-1 min-w-[200px]">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">
+              search
+            </span>
+            <input
+              className="w-full bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 text-body-sm"
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={t("files.searchPlaceholder")}
+              value={searchQuery}
+            />
+          </div>
+          <select
+            className="bg-surface-container-low border-none rounded-lg px-3 py-2 text-body-sm"
+            onChange={(e) => setStatusFilter(e.target.value)}
+            value={statusFilter}
+          >
+            <option value="all">{t("files.filterAllStatuses")}</option>
+            {availableStatuses.map((status) => (
+              <option key={status} value={status}>
+                {statusLabel(status, t)}
+              </option>
+            ))}
+          </select>
+          <select
+            className="bg-surface-container-low border-none rounded-lg px-3 py-2 text-body-sm"
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            value={sortBy}
+          >
+            <option value="newest">{t("files.sortNewest")}</option>
+            <option value="oldest">{t("files.sortOldest")}</option>
+            <option value="name">{t("files.sortName")}</option>
+            <option value="size">{t("files.sortSize")}</option>
+          </select>
+        </div>
+      ) : null}
+
+      <section
+        className={
+          "space-y-md rounded-xl transition-colors " +
+          (isDragActive ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : "")
+        }
+        onDragEnter={handleDragEnter}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {isDragActive ? (
+          <div className="glass-card p-xl rounded-xl border-2 border-dashed border-primary text-center text-body-md text-primary">
+            {t("files.dropHint")}
+          </div>
+        ) : null}
         {isLoading ? <p className="text-body-sm text-on-surface-variant">{t("common.loading")}</p> : null}
         {!isLoading && files.length === 0 ? (
-          <div className="glass-card p-xl rounded-xl text-body-md text-on-surface-variant">{t("files.empty")}</div>
+          <div className="glass-card p-xl rounded-xl text-body-md text-on-surface-variant text-center">
+            <span className="material-symbols-outlined text-[32px] text-outline mb-2 block">upload_file</span>
+            {t("files.emptyWithDropHint")}
+          </div>
         ) : null}
-        {files.map((file) => (
+        {!isLoading && files.length > 0 && visibleFiles.length === 0 ? (
+          <div className="glass-card p-xl rounded-xl text-body-md text-on-surface-variant">{t("files.noMatches")}</div>
+        ) : null}
+        {visibleFiles.map((file) => (
           <FileCard
             key={file.id}
             file={file}
@@ -308,7 +435,7 @@ function FileCard({
             <form onSubmit={onRename} className="flex items-center gap-2">
               <input
                 autoFocus
-                className="min-w-0 flex-1 bg-white border border-outline-variant/40 rounded-lg px-3 py-2 text-body-sm"
+                className="min-w-0 flex-1 bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2 text-body-sm"
                 onChange={(event) => onEditingFilenameChange(event.target.value)}
                 placeholder={t("files.renamePlaceholder")}
                 value={editingFilename}
@@ -325,7 +452,7 @@ function FileCard({
                 type="button"
                 disabled={isActive}
                 onClick={onCancelEdit}
-                className="w-9 h-9 rounded-lg border border-outline-variant/40 text-on-surface-variant bg-white flex items-center justify-center disabled:opacity-60"
+                className="w-9 h-9 rounded-lg border border-outline-variant/40 text-on-surface-variant bg-surface-container-lowest flex items-center justify-center disabled:opacity-60"
                 aria-label={t("common.cancel")}
               >
                 <span className="material-symbols-outlined text-[18px]">close</span>
@@ -383,8 +510,8 @@ function ActionButton({
   const className = primary
     ? "bg-primary text-on-primary"
     : danger
-      ? "border border-error/30 text-error bg-white"
-      : "border border-outline-variant/40 text-on-surface-variant bg-white";
+      ? "border border-error/30 text-error bg-surface-container-lowest"
+      : "border border-outline-variant/40 text-on-surface-variant bg-surface-container-lowest";
   return (
     <button
       type="button"

@@ -60,6 +60,17 @@ export type TaskCreatePayload = {
   description?: string | null;
   priority?: string;
   due_at?: string | null;
+  repeat_count?: number | null;
+  repeat_interval_days?: number;
+};
+
+export type TaskUpdatePayload = {
+  title?: string;
+  description?: string | null;
+  status?: string;
+  priority?: string;
+  due_at?: string | null;
+  contact_id?: string | null;
 };
 
 export type DashboardAppointment = {
@@ -91,6 +102,20 @@ export type AppointmentCreatePayload = {
   start_at: string;
   end_at: string;
   timezone?: string | null;
+  force?: boolean;
+  repeat_count?: number | null;
+  repeat_interval_days?: number;
+};
+
+export type AppointmentUpdatePayload = {
+  title?: string;
+  description?: string | null;
+  location?: string | null;
+  start_at?: string;
+  end_at?: string;
+  timezone?: string | null;
+  status?: string;
+  contact_id?: string | null;
   force?: boolean;
 };
 
@@ -175,6 +200,16 @@ export type ContactCreatePayload = {
   company?: string | null;
   title?: string | null;
   tags?: string[];
+};
+
+export type ContactUpdatePayload = {
+  full_name?: string;
+  email?: string | null;
+  phone?: string | null;
+  company?: string | null;
+  title?: string | null;
+  tags?: string[];
+  status?: string;
 };
 
 export type ContactNote = {
@@ -483,6 +518,16 @@ export type ProcessDueSummary = {
   dead_lettered: number;
 };
 
+export type MarkAllReadResult = {
+  updated: number;
+};
+
+export type ConsentSettings = {
+  ai_processing: boolean;
+  contact_memory: boolean;
+  operational_reminders: boolean;
+};
+
 export type PriorityFactor = {
   key: string;
   label: string;
@@ -694,8 +739,76 @@ export async function authenticate(mode: AuthMode, payload: AuthPayload): Promis
   });
 }
 
+export async function requestPasswordReset(email: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+}
+
+export async function resetPassword(token: string, newPassword: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, new_password: newPassword }),
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+}
+
+export async function acceptInvite(
+  token: string,
+  password: string,
+  displayName: string,
+): Promise<TokenResponse> {
+  return request<TokenResponse>("/api/v1/auth/accept-invite", {
+    method: "POST",
+    body: JSON.stringify({ token, password, display_name: displayName }),
+  });
+}
+
 export async function getCurrentUser(accessToken: string): Promise<CurrentUser> {
   return request<CurrentUser>("/api/v1/users/me", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function updateProfile(
+  accessToken: string,
+  payload: { full_name?: string; title?: string | null; avatar_url?: string | null },
+): Promise<CurrentUser> {
+  return request<CurrentUser>("/api/v1/users/me", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getConsentSettings(accessToken: string): Promise<ConsentSettings> {
+  return request<ConsentSettings>("/api/v1/users/me/consent", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function updateConsentSettings(
+  accessToken: string,
+  consent: ConsentSettings,
+): Promise<ConsentSettings> {
+  return request<ConsentSettings>("/api/v1/users/me/consent", {
+    method: "PATCH",
+    body: JSON.stringify(consent),
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -739,6 +852,32 @@ export async function completeTask(accessToken: string, taskId: string): Promise
   });
 }
 
+export async function updateTask(
+  accessToken: string,
+  taskId: string,
+  payload: TaskUpdatePayload,
+): Promise<Task> {
+  return request<Task>(`/api/v1/tasks/${taskId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function deleteTask(accessToken: string, taskId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/tasks/${taskId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+}
+
 export async function createTask(
   accessToken: string,
   payload: TaskCreatePayload,
@@ -750,6 +889,8 @@ export async function createTask(
       description: payload.description ?? null,
       priority: payload.priority ?? "medium",
       due_at: payload.due_at ?? null,
+      repeat_count: payload.repeat_count ?? null,
+      repeat_interval_days: payload.repeat_interval_days ?? 7,
     }),
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -807,11 +948,39 @@ export async function createAppointment(
       end_at: payload.end_at,
       timezone: payload.timezone ?? "Europe/Istanbul",
       force: payload.force ?? false,
+      repeat_count: payload.repeat_count ?? null,
+      repeat_interval_days: payload.repeat_interval_days ?? 7,
     }),
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
   });
+}
+
+export async function updateAppointment(
+  accessToken: string,
+  appointmentId: string,
+  payload: AppointmentUpdatePayload,
+): Promise<Appointment> {
+  return request<Appointment>(`/api/v1/appointments/${appointmentId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function deleteAppointment(accessToken: string, appointmentId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/appointments/${appointmentId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
 }
 
 export async function listConversations(accessToken: string): Promise<Conversation[]> {
@@ -936,6 +1105,32 @@ export async function getContact(accessToken: string, contactId: string): Promis
       Authorization: `Bearer ${accessToken}`,
     },
   });
+}
+
+export async function updateContact(
+  accessToken: string,
+  contactId: string,
+  payload: ContactUpdatePayload,
+): Promise<Contact> {
+  return request<Contact>(`/api/v1/contacts/${contactId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function deleteContact(accessToken: string, contactId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/contacts/${contactId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
 }
 
 export async function getContactMemory(accessToken: string, contactId: string): Promise<ContactMemory> {
@@ -1138,6 +1333,32 @@ export async function getChatSession(
       Authorization: `Bearer ${accessToken}`,
     },
   });
+}
+
+export async function renameChatSession(
+  accessToken: string,
+  sessionId: string,
+  title: string,
+): Promise<ChatSession> {
+  return request<ChatSession>(`/api/v1/ai/chat/sessions/${sessionId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ title }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function deleteChatSession(accessToken: string, sessionId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/ai/chat/sessions/${sessionId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
 }
 
 export async function sendChatMessage(
@@ -1382,6 +1603,20 @@ export async function switchPlan(accessToken: string, planCode: string): Promise
   });
 }
 
+export async function inviteOrganizationMember(
+  accessToken: string,
+  email: string,
+  role: string,
+): Promise<OrganizationMember> {
+  return request<OrganizationMember>("/api/v1/organizations/members/invite", {
+    method: "POST",
+    body: JSON.stringify({ email, role }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
 export async function updateMemberRole(
   accessToken: string,
   memberId: string,
@@ -1433,6 +1668,15 @@ export async function markNotificationRead(
 ): Promise<Notification> {
   return request<Notification>(`/api/v1/notifications/${notificationId}/read`, {
     method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function markAllNotificationsRead(accessToken: string): Promise<MarkAllReadResult> {
+  return request<MarkAllReadResult>("/api/v1/notifications/read-all", {
+    method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },

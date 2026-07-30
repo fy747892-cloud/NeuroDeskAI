@@ -1,7 +1,7 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import { Contact, createDeal, Deal, DEAL_STAGES, listContacts, listDeals, updateDeal } from "@/lib/api";
+import { DragEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { Contact, createDeal, Deal, DEAL_STAGES, deleteDeal, listContacts, listDeals, updateDeal } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
 import { formatMoney } from "@/lib/format";
@@ -37,6 +37,8 @@ export function DealsView() {
   const [isCreating, setCreating] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [draggedDealId, setDraggedDealId] = useState<string | null>(null);
+  const [dragOverStage, setDragOverStage] = useState<string | null>(null);
   const [newDeal, setNewDeal] = useState({
     title: "",
     value: "",
@@ -99,6 +101,51 @@ export function DealsView() {
     }
   }
 
+  async function handleDeleteDeal(deal: Deal) {
+    if (!tokens?.accessToken || !window.confirm(t("deals.deleteConfirm", { title: deal.title }))) return;
+    setActiveId(deal.id);
+    setError(null);
+    try {
+      await deleteDeal(tokens.accessToken, deal.id);
+      setDeals((current) => current.filter((item) => item.id !== deal.id));
+      setNotice(t("deals.dealDeleted"));
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : t("deals.dealDeleteError"));
+    } finally {
+      setActiveId(null);
+    }
+  }
+
+  function handleDealDragStart(event: DragEvent<HTMLDivElement>, deal: Deal) {
+    setDraggedDealId(deal.id);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", deal.id);
+  }
+
+  function handleDealDragEnd() {
+    setDraggedDealId(null);
+    setDragOverStage(null);
+  }
+
+  function handleColumnDragOver(event: DragEvent<HTMLDivElement>, stage: string) {
+    event.preventDefault();
+    setDragOverStage(stage);
+  }
+
+  function handleColumnDragLeave(stage: string) {
+    setDragOverStage((current) => (current === stage ? null : current));
+  }
+
+  async function handleColumnDrop(event: DragEvent<HTMLDivElement>, stage: string) {
+    event.preventDefault();
+    setDragOverStage(null);
+    const dealId = event.dataTransfer.getData("text/plain") || draggedDealId;
+    setDraggedDealId(null);
+    const deal = deals.find((item) => item.id === dealId);
+    if (!deal) return;
+    await handleStageChange(deal, stage);
+  }
+
   async function handleCreateDeal(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!tokens?.accessToken || !newDeal.title.trim()) return;
@@ -156,20 +203,20 @@ export function DealsView() {
       {showForm ? (
         <form onSubmit={handleCreateDeal} className="glass-card p-lg rounded-xl mb-lg grid grid-cols-2 md:grid-cols-5 gap-3">
           <input
-            className="bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm col-span-2"
+            className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm col-span-2"
             onChange={(e) => setNewDeal((d) => ({ ...d, title: e.target.value }))}
             placeholder={t("deals.titlePlaceholder")}
             value={newDeal.title}
           />
           <input
-            className="bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+            className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
             onChange={(e) => setNewDeal((d) => ({ ...d, value: e.target.value }))}
             placeholder={t("deals.valuePlaceholder")}
             type="number"
             value={newDeal.value}
           />
           <select
-            className="bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+            className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
             onChange={(e) => setNewDeal((d) => ({ ...d, currency: e.target.value }))}
             value={newDeal.currency}
           >
@@ -178,7 +225,7 @@ export function DealsView() {
             <option value="EUR">EUR</option>
           </select>
           <select
-            className="bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+            className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
             onChange={(e) => setNewDeal((d) => ({ ...d, contactId: e.target.value }))}
             value={newDeal.contactId}
           >
@@ -211,7 +258,16 @@ export function DealsView() {
       <div className="flex-1 overflow-x-auto pb-4">
         <div className="flex gap-gutter">
           {columns.map(({ stage, deals: stageDeals }) => (
-            <div key={stage} className="kanban-column flex flex-col bg-surface-container-low/50 rounded-xl p-sm shrink-0">
+            <div
+              key={stage}
+              onDragOver={(event) => handleColumnDragOver(event, stage)}
+              onDragLeave={() => handleColumnDragLeave(stage)}
+              onDrop={(event) => handleColumnDrop(event, stage)}
+              className={
+                "kanban-column flex flex-col bg-surface-container-low/50 rounded-xl p-sm shrink-0 transition-colors " +
+                (dragOverStage === stage ? "ring-2 ring-primary bg-primary-container/5" : "")
+              }
+            >
               <div className="flex items-center justify-between px-3 py-2 mb-sm">
                 <div className="flex items-center gap-2">
                   <span className={`w-2 h-2 rounded-full ${STAGE_DOT[stage]}`} />
@@ -233,9 +289,13 @@ export function DealsView() {
                   return (
                     <div
                       key={deal.id}
+                      draggable
+                      onDragStart={(event) => handleDealDragStart(event, deal)}
+                      onDragEnd={handleDealDragEnd}
                       className={
-                        "bg-surface-container-lowest rounded-lg border border-outline-variant/30 p-md shadow-sm hover:shadow-md transition-shadow " +
-                        (isAiSourced ? "ai-glow" : "")
+                        "bg-surface-container-lowest rounded-lg border border-outline-variant/30 p-md shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing group/card " +
+                        (isAiSourced ? "ai-glow " : "") +
+                        (draggedDealId === deal.id ? "opacity-40" : "")
                       }
                     >
                       <div className="flex justify-between items-start mb-base">
@@ -251,7 +311,18 @@ export function DealsView() {
                             {t("deals.manualBadge")}
                           </span>
                         )}
-                        <span className="material-symbols-outlined text-outline-variant text-[16px]">drag_indicator</span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            disabled={activeId === deal.id}
+                            onClick={() => handleDeleteDeal(deal)}
+                            aria-label={t("common.delete")}
+                            className="opacity-0 group-hover/card:opacity-100 w-6 h-6 rounded flex items-center justify-center text-error hover:bg-error-container/20 disabled:opacity-60 transition-opacity"
+                          >
+                            <span className="material-symbols-outlined text-[15px]">delete</span>
+                          </button>
+                          <span className="material-symbols-outlined text-outline-variant text-[16px]">drag_indicator</span>
+                        </div>
                       </div>
                       <h4 className="font-headline-md text-body-lg text-on-surface leading-tight mb-1 truncate">
                         {deal.title}

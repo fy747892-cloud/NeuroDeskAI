@@ -193,19 +193,19 @@ export function SearchPalette() {
         <div className="p-md px-lg bg-surface-container-low border-t border-outline-variant/20 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
-              <kbd className="px-1.5 py-0.5 rounded bg-white border border-outline-variant/30 text-[10px] font-bold shadow-sm">
+              <kbd className="px-1.5 py-0.5 rounded bg-surface-container-lowest border border-outline-variant/30 text-[10px] font-bold shadow-sm">
                 ↵
               </kbd>
               <span className="text-body-sm text-on-surface-variant">{t("shell.search.open")}</span>
             </div>
             <div className="flex items-center gap-2">
-              <kbd className="px-1.5 py-0.5 rounded bg-white border border-outline-variant/30 text-[10px] font-bold shadow-sm">
+              <kbd className="px-1.5 py-0.5 rounded bg-surface-container-lowest border border-outline-variant/30 text-[10px] font-bold shadow-sm">
                 ↑↓
               </kbd>
               <span className="text-body-sm text-on-surface-variant">{t("shell.search.navigate")}</span>
             </div>
             <div className="flex items-center gap-2">
-              <kbd className="px-1.5 py-0.5 rounded bg-white border border-outline-variant/30 text-[10px] font-bold shadow-sm">
+              <kbd className="px-1.5 py-0.5 rounded bg-surface-container-lowest border border-outline-variant/30 text-[10px] font-bold shadow-sm">
                 Esc
               </kbd>
               <span className="text-body-sm text-on-surface-variant">{t("shell.search.closeHint")}</span>

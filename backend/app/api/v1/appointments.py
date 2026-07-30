@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -71,6 +71,27 @@ async def create_appointment(
         force=body.force,
     )
     await _record_appointment_audit(db, request, current_user, "appointment.created", appointment)
+
+    if body.repeat_count:
+        interval = timedelta(days=body.repeat_interval_days)
+        for occurrence in range(1, body.repeat_count):
+            recurring_appointment = await AppointmentService(db).create_manual_appointment(
+                tenant_id=current_user.tenant_id,
+                organization_id=current_user.organization_id,
+                user_id=current_user.id,
+                title=body.title,
+                start_at=body.start_at + interval * occurrence,
+                end_at=body.end_at + interval * occurrence,
+                description=body.description,
+                location=body.location,
+                appointment_timezone=body.timezone,
+                contact_id=body.contact_id,
+                force=body.force,
+            )
+            await _record_appointment_audit(
+                db, request, current_user, "appointment.created", recurring_appointment
+            )
+
     await db.commit()
     return appointment
 

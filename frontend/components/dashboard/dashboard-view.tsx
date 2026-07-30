@@ -94,9 +94,71 @@ export function DashboardView() {
   const approvals = dashboard?.pending_ai_approvals.slice(0, 3) ?? [];
   const overdueCount = dashboard?.summary.overdue_tasks_count ?? 0;
 
+  const isWorkspaceEmpty = Boolean(
+    dashboard &&
+      dashboard.summary.open_tasks_count === 0 &&
+      dashboard.summary.overdue_tasks_count === 0 &&
+      dashboard.summary.upcoming_appointments_count === 0 &&
+      dashboard.summary.pending_ai_approvals_count === 0 &&
+      dashboard.recent_conversations.length === 0,
+  );
+
   return (
     <div className="p-xl space-y-xl">
       {error ? <p className="text-error text-body-sm">{error}</p> : null}
+
+      {isWorkspaceEmpty ? (
+        <section className="rounded-3xl p-xl glass-card border border-primary/10">
+          <div className="flex items-center gap-2 mb-md">
+            <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>
+              rocket_launch
+            </span>
+            <span className="font-label-sm text-label-sm text-primary uppercase tracking-widest">
+              {t("dashboard.onboarding.eyebrow")}
+            </span>
+          </div>
+          <h3 className="font-headline-md text-headline-md text-on-surface mb-1">{t("dashboard.onboarding.title")}</h3>
+          <p className="text-body-md text-on-surface-variant mb-lg max-w-2xl">{t("dashboard.onboarding.subtitle")}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-md">
+            <Link
+              href="/gorusmeler"
+              className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest hover:border-primary/40 hover:shadow-md transition-all"
+            >
+              <span className="material-symbols-outlined text-primary shrink-0">mic</span>
+              <span>
+                <span className="block font-label-md text-on-surface">{t("dashboard.onboarding.step1Title")}</span>
+                <span className="block text-body-sm text-on-surface-variant mt-0.5">
+                  {t("dashboard.onboarding.step1Body")}
+                </span>
+              </span>
+            </Link>
+            <Link
+              href="/gorevler"
+              className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest hover:border-primary/40 hover:shadow-md transition-all"
+            >
+              <span className="material-symbols-outlined text-primary shrink-0">task_alt</span>
+              <span>
+                <span className="block font-label-md text-on-surface">{t("dashboard.onboarding.step2Title")}</span>
+                <span className="block text-body-sm text-on-surface-variant mt-0.5">
+                  {t("dashboard.onboarding.step2Body")}
+                </span>
+              </span>
+            </Link>
+            <Link
+              href="/kisiler"
+              className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest hover:border-primary/40 hover:shadow-md transition-all"
+            >
+              <span className="material-symbols-outlined text-primary shrink-0">person_add</span>
+              <span>
+                <span className="block font-label-md text-on-surface">{t("dashboard.onboarding.step3Title")}</span>
+                <span className="block text-body-sm text-on-surface-variant mt-0.5">
+                  {t("dashboard.onboarding.step3Body")}
+                </span>
+              </span>
+            </Link>
+          </div>
+        </section>
+      ) : null}
 
       <section className="relative overflow-hidden rounded-3xl p-xl glass-card ai-banner-shimmer shadow-lg">
         <div className="relative z-10 max-w-3xl">
@@ -137,7 +199,7 @@ export function DashboardView() {
             </button>
             <Link
               href="/gorevler"
-              className="bg-white/50 border border-outline-variant text-on-surface px-lg py-sm rounded-full font-label-md hover:bg-white transition-colors"
+              className="bg-surface-container-lowest/50 border border-outline-variant text-on-surface px-lg py-sm rounded-full font-label-md hover:bg-surface-container-lowest transition-colors"
             >
               {t("dashboard.viewFullCalendar")}
             </Link>
@@ -163,7 +225,7 @@ export function DashboardView() {
               appointments.map((appt) => (
                 <article
                   key={appt.id}
-                  className="p-md rounded-xl bg-white border border-outline-variant/30 hover:shadow-md transition-shadow cursor-pointer group"
+                  className="p-md rounded-xl bg-surface-container-lowest border border-outline-variant/30 hover:shadow-md transition-shadow cursor-pointer group"
                 >
                   <div className="flex gap-md">
                     <div className="flex flex-col items-center justify-center w-14 py-2 bg-primary-container/10 rounded-lg shrink-0">
@@ -198,7 +260,7 @@ export function DashboardView() {
               </div>
             ) : null}
           </div>
-          <div className="bg-white rounded-2xl border border-outline-variant/30 overflow-hidden">
+          <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 overflow-hidden">
             {criticalTasks.length === 0 ? (
               <p className="p-md text-body-sm text-on-surface-variant">{t("dashboard.noCriticalTasks")}</p>
             ) : (
@@ -241,7 +303,7 @@ export function DashboardView() {
               approvals.map((approval) => (
                 <div
                   key={approval.id}
-                  className="bg-white rounded-2xl border border-secondary/20 shadow-sm overflow-hidden relative"
+                  className="bg-surface-container-lowest rounded-2xl border border-secondary/20 shadow-sm overflow-hidden relative"
                 >
                   <div className="absolute left-0 top-0 w-1 h-full bg-secondary" />
                   <div className="p-md">
@@ -276,7 +338,7 @@ export function DashboardView() {
                         type="button"
                         disabled={busyId === approval.id}
                         onClick={() => handleReject(approval.id)}
-                        className="flex-1 py-1.5 bg-white border border-outline-variant rounded-lg text-[12px] font-bold text-on-surface active:scale-95 transition-transform disabled:opacity-60"
+                        className="flex-1 py-1.5 bg-surface-container-lowest border border-outline-variant rounded-lg text-[12px] font-bold text-on-surface active:scale-95 transition-transform disabled:opacity-60"
                       >
                         {t("common.reject")}
                       </button>
