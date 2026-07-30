@@ -304,13 +304,22 @@ export function TasksAppointmentsView() {
                   value={newTask.dueAt}
                 />
               </div>
-              <button
-                type="submit"
-                disabled={isCreatingTask || !newTask.title.trim()}
-                className="w-full py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
-              >
-                {isCreatingTask ? t("tasks.creating") : t("tasks.create")}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={isCreatingTask || !newTask.title.trim()}
+                  className="flex-1 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
+                >
+                  {isCreatingTask ? t("tasks.creating") : t("tasks.create")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewTask({ title: "", description: "", priority: "medium", dueAt: "" })}
+                  className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
+                >
+                  {t("common.clear")}
+                </button>
+              </div>
             </form>
           ) : null}
 
@@ -423,13 +432,22 @@ export function TasksAppointmentsView() {
                 placeholder={t("tasks.locationPlaceholder")}
                 value={newAppointment.location}
               />
-              <button
-                type="submit"
-                disabled={isCreatingAppt || !newAppointment.title.trim() || !newAppointment.startAt || !newAppointment.endAt}
-                className="w-full py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
-              >
-                {isCreatingAppt ? t("tasks.creating") : t("tasks.create")}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={isCreatingAppt || !newAppointment.title.trim() || !newAppointment.startAt || !newAppointment.endAt}
+                  className="flex-1 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
+                >
+                  {isCreatingAppt ? t("tasks.creating") : t("tasks.create")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewAppointment({ title: "", startAt: "", endAt: "", location: "", description: "" })}
+                  className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
+                >
+                  {t("common.clear")}
+                </button>
+              </div>
             </form>
           ) : null}
 

@@ -140,13 +140,22 @@ export function ContactsView() {
             placeholder={t("contacts.titleRolePlaceholder")}
             value={newContact.title}
           />
-          <button
-            type="submit"
-            disabled={isCreating || !newContact.fullName.trim()}
-            className="col-span-2 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
-          >
-            {isCreating ? t("contacts.creating") : t("contacts.create")}
-          </button>
+          <div className="col-span-2 flex gap-2">
+            <button
+              type="submit"
+              disabled={isCreating || !newContact.fullName.trim()}
+              className="flex-1 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
+            >
+              {isCreating ? t("contacts.creating") : t("contacts.create")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setNewContact({ fullName: "", email: "", phone: "", company: "", title: "" })}
+              className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
+            >
+              {t("common.clear")}
+            </button>
+          </div>
         </form>
       ) : null}
 

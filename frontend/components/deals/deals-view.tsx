@@ -189,13 +189,22 @@ export function DealsView() {
               </option>
             ))}
           </select>
-          <button
-            type="submit"
-            disabled={isCreating || !newDeal.title.trim()}
-            className="col-span-2 md:col-span-5 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
-          >
-            {isCreating ? t("deals.creating") : t("deals.create")}
-          </button>
+          <div className="col-span-2 md:col-span-5 flex gap-2">
+            <button
+              type="submit"
+              disabled={isCreating || !newDeal.title.trim()}
+              className="flex-1 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
+            >
+              {isCreating ? t("deals.creating") : t("deals.create")}
+            </button>
+            <button
+              type="button"
+              onClick={() => setNewDeal({ title: "", value: "", currency: "TRY", contactId: "", expectedCloseDate: "" })}
+              className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
+            >
+              {t("common.clear")}
+            </button>
+          </div>
         </form>
       ) : null}
 
