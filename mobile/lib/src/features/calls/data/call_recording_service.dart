@@ -17,6 +17,17 @@ const String _notificationTitle = 'NeuroDesk AI';
 // sentinel yazılır. Amaç: doğrulama gecikmesini SADECE cihazdaki ilk
 // aramada ödemek, sonraki hiçbir aramada tekrar ödememek.
 const String _preferredSourceKey = 'callRecordingSourcePreference';
+// Hoparlör + mikrofon geri dönüşünde de üç aday kaynak var (unprocessed /
+// voiceRecognition / mic); hangisinin bu cihazda gerçekten duyulabilir ses
+// ürettiği ayrıca önbelleğe alınır. Örn. bazı Samsung/OneUI sürümlerinde
+// "unprocessed" başlatılabiliyor ama tamamen sessiz kayıt üretiyor -- önceden
+// bunu hiç doğrulamadan ilk başlayan kaynağı kabul ediyorduk.
+// v2: voiceCommunication kaynağı ve modeInCommunication eklendiğinde eski
+// önbellek anahtarı kasıtlı olarak değiştirildi ki önceden "mic"/"unprocessed"
+// gibi eski (ve modeNormal ile doğrulanmış) bir tercih önbelleğe yazılmış
+// cihazlar, yeni adayları hiç denemeden es geçmesin.
+const String _preferredFallbackSourceKey =
+    'callRecordingFallbackSourcePreferenceV2';
 const String _verifiedBadValue = 'verified_bad';
 const Duration _sourceVerifyWindow = Duration(milliseconds: 1200);
 const Duration _sourceVerifyPollInterval = Duration(milliseconds: 200);
@@ -27,6 +38,17 @@ const List<AndroidAudioSource> _directCallAudioSources = [
   AndroidAudioSource.voiceCall,
   AndroidAudioSource.voiceDownlink,
   AndroidAudioSource.voiceUplink,
+];
+// Hoparlör + mikrofon geri dönüş zinciri: cihaza göre hangisinin gerçekten
+// ses yakaladığı değişebildiği için sırayla doğrulanır (bkz. yukarıdaki not).
+// voiceCommunication öncelikli: VoIP amaçlı kaynak, modeInCommunication ile
+// birlikte kullanıldığında bazı OEM'lerde (özellikle Samsung/OneUI) normal
+// mic/unprocessed'in yakalayamadığı hoparlör sesini daha net yakalıyor.
+const List<AndroidAudioSource> _fallbackSpeakerphoneSources = [
+  AndroidAudioSource.voiceCommunication,
+  AndroidAudioSource.unprocessed,
+  AndroidAudioSource.voiceRecognition,
+  AndroidAudioSource.mic,
 ];
 // Cube ACR ve benzeri uygulamalardaki gibi: kayıt sırasında canlı ses
 // seviyesini izleyip hiç konuşma yakalanmadıysa kullanıcıyı arama bitmeden
@@ -129,29 +151,72 @@ class _CallRecordingTaskHandler extends TaskHandler {
 
   Future<void> _startBestEffortSpeakerphoneRecording(String filePath) async {
     if (await _tryDirectCallAudio(filePath)) return;
+    await _tryFallbackSpeakerphoneAudio(filePath);
+  }
 
-    // Guaranteed fallback: speakerphone + mic, verified on real hardware
-    // (Samsung Galaxy A33) to produce non-empty, audible recordings. Accept
-    // immediately on non-throw, same as before -- these don't get the
-    // verification window since they're the known-good last resort and
-    // delaying them further only costs recording time on the devices that
-    // actually need them.
-    final configs = <RecordConfig>[
-      _recordConfig(AndroidAudioSource.unprocessed, speakerphone: true),
-      _recordConfig(AndroidAudioSource.voiceRecognition, speakerphone: true),
-      _recordConfig(AndroidAudioSource.mic, speakerphone: true),
-    ];
+  /// Speakerphone + mic fallback chain. Unlike a plain "start the first
+  /// config that doesn't throw" loop, this verifies each candidate actually
+  /// produces audible signal (same [_tryVerifiedSource] check used for the
+  /// direct call-audio sources) -- on some devices `unprocessed` starts
+  /// successfully but records genuine silence, which previously meant every
+  /// call on that device silently failed with no signal at all. Whichever
+  /// source verifies is cached so later calls skip straight to it.
+  Future<void> _tryFallbackSpeakerphoneAudio(String filePath) async {
+    final preference = await FlutterForegroundTask.getData<String>(
+      key: _preferredFallbackSourceKey,
+    );
 
-    Object? lastError;
-    for (final config in configs) {
-      try {
-        await _recorder.start(config, path: filePath);
-        return;
-      } catch (error) {
-        lastError = error;
+    AndroidAudioSource? cachedSource;
+    for (final source in _fallbackSpeakerphoneSources) {
+      if (source.name == preference) {
+        cachedSource = source;
+        break;
       }
     }
-    throw lastError ?? Exception('Call recording could not start.');
+
+    if (cachedSource != null) {
+      try {
+        await _recorder.start(
+          _fallbackConfig(cachedSource),
+          path: filePath,
+        );
+        debugPrint(
+          'CallRecording: using cached fallback source ${cachedSource.name}',
+        );
+        return;
+      } catch (_) {
+        // Worked before, failed just now (transient) -- fall through to a
+        // fresh gauntlet below without touching the cache.
+      }
+    }
+
+    for (final source in _fallbackSpeakerphoneSources) {
+      final verified = await _tryVerifiedSource(
+        _fallbackConfig(source),
+        filePath,
+      );
+      if (verified) {
+        await FlutterForegroundTask.saveData(
+          key: _preferredFallbackSourceKey,
+          value: source.name,
+        );
+        debugPrint('CallRecording: verified fallback source ${source.name}');
+        return;
+      }
+    }
+
+    // Nothing verified audible signal within the window on this device --
+    // still start recording with plain mic rather than throw. A silent
+    // recording surfaces the existing "ses algılanamıyor" live warning and
+    // stopAndRead() signal check, which is more actionable for the user than
+    // blocking the call recording from starting at all.
+    debugPrint(
+      'CallRecording: no fallback source verified signal, starting mic unconditionally',
+    );
+    await _recorder.start(
+      _fallbackConfig(AndroidAudioSource.mic),
+      path: filePath,
+    );
   }
 
   /// Tries the direct call-audio sources (voiceCall/voiceDownlink/
@@ -262,9 +327,18 @@ class _CallRecordingTaskHandler extends TaskHandler {
     return false;
   }
 
+  // modeInCommunication package dokümantasyonunda echo-cancellation için
+  // önerilir, ama gerçek cihazda denendi: aramasız (mikrofon-only) kayıtta
+  // bile hiç sinyal yakalanamamasına yol açtı -- bu OEM'de modeNormal'e göre
+  // net bir regresyon. modeNormal'de kalıyoruz.
+  RecordConfig _fallbackConfig(AndroidAudioSource audioSource) {
+    return _recordConfig(audioSource, speakerphone: true);
+  }
+
   RecordConfig _recordConfig(
     AndroidAudioSource audioSource, {
     required bool speakerphone,
+    AudioManagerMode audioManagerMode = AudioManagerMode.modeNormal,
   }) {
     return RecordConfig(
       encoder: AudioEncoder.wav,
@@ -278,7 +352,7 @@ class _CallRecordingTaskHandler extends TaskHandler {
         audioSource: audioSource,
         speakerphone: speakerphone,
         manageBluetooth: false,
-        audioManagerMode: AudioManagerMode.modeNormal,
+        audioManagerMode: audioManagerMode,
       ),
     );
   }
