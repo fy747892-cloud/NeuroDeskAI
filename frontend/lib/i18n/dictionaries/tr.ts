@@ -484,6 +484,7 @@ export const tr: TranslationDictionary = {
     notices: {
       callCreated: "Metin görüşmesi oluşturuldu.",
       renamed: "Görüşme adı güncellendi.",
+      emptyConversationDeleted: "Çağrı ve artık boş kalan görüşme kaydı silindi.",
     },
     recentCalls: "Son Çağrılar",
     newTextCallAria: "Yeni metin görüşmesi",
@@ -536,6 +537,7 @@ export const tr: TranslationDictionary = {
     deleting: "Siliniyor...",
     deleteCallButton: "Çağrıyı Sil",
     deleteCallConfirm: "Bu çağrıyı silmek istediğine emin misin? Bu işlem geri alınamaz.",
+    deleteLastCallConfirm: "Bu, görüşmedeki tek çağrı. Sildiğinde soldaki görüşme kaydı da tamamen silinecek. Emin misin?",
     noTranscript: "Transkript yok.",
   },
   analytics: {

@@ -12,6 +12,7 @@ import {
   createCallFromText,
   Conversation,
   deleteCall,
+  deleteConversation,
   getContactMemory,
   getConversation,
   listAnalysisJobs,
@@ -306,14 +307,37 @@ export function ConversationsView() {
   }
 
   async function handleDeleteCall(callId: string) {
-    if (!tokens?.accessToken || !window.confirm(t("conversations.deleteCallConfirm"))) return;
+    if (!tokens?.accessToken || !detail) return;
+    const isLastCall = detail.calls.length <= 1;
+    const confirmMessage = isLastCall
+      ? t("conversations.deleteLastCallConfirm")
+      : t("conversations.deleteCallConfirm");
+    if (!window.confirm(confirmMessage)) return;
+    const conversationId = detail.id;
     setActiveCallId(callId);
     setError(null);
     try {
       await deleteCall(tokens.accessToken, callId);
-      setDetail((current) =>
-        current ? { ...current, calls: current.calls.filter((call) => call.id !== callId) } : current,
-      );
+      const remainingCalls = detail.calls.filter((call) => call.id !== callId);
+
+      if (remainingCalls.length === 0) {
+        try {
+          await deleteConversation(tokens.accessToken, conversationId);
+          setConversations((current) => current.filter((conversation) => conversation.id !== conversationId));
+          setDetail(null);
+          setSelectedId(null);
+          setNotice(t("conversations.notices.emptyConversationDeleted"));
+        } catch (deleteConversationError) {
+          setDetail((current) => (current ? { ...current, calls: remainingCalls } : current));
+          setError(
+            deleteConversationError instanceof Error
+              ? deleteConversationError.message
+              : t("conversations.errors.deleteFailed"),
+          );
+        }
+      } else {
+        setDetail((current) => (current ? { ...current, calls: remainingCalls } : current));
+      }
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : t("conversations.errors.deleteFailed"));
     } finally {
