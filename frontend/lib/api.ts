@@ -1847,6 +1847,19 @@ export async function deleteCall(accessToken: string, callId: string): Promise<v
   }
 }
 
+export async function deleteConversation(accessToken: string, conversationId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/conversations/${conversationId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+}
+
 export async function listCalendarAccounts(accessToken: string): Promise<CalendarAccount[]> {
   return request<CalendarAccount[]>("/api/v1/calendar/accounts", {
     cache: "no-store",

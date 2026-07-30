@@ -484,6 +484,7 @@ export const en: TranslationDictionary = {
     notices: {
       callCreated: "Text conversation created.",
       renamed: "Conversation name updated.",
+      emptyConversationDeleted: "The call and the now-empty conversation record were deleted.",
     },
     recentCalls: "Recent Calls",
     newTextCallAria: "New text conversation",
@@ -536,6 +537,7 @@ export const en: TranslationDictionary = {
     deleting: "Deleting...",
     deleteCallButton: "Delete Call",
     deleteCallConfirm: "Are you sure you want to delete this call? This cannot be undone.",
+    deleteLastCallConfirm: "This is the only call in this conversation. Deleting it will also remove the conversation entry on the left. Are you sure?",
     noTranscript: "No transcript.",
   },
   analytics: {
