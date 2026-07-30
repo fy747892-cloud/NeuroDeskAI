@@ -1,19 +1,11 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:file_picker/file_picker.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api/api_error.dart';
 import '../../../core/widgets/app_components.dart';
 import '../../../core/widgets/screen_header.dart';
-import '../../ai_approvals/data/ai_approvals_repository.dart';
-import '../../ai_approvals/domain/ai_action_approval.dart';
-import '../../ai_approvals/presentation/quick_approval_card.dart';
-import '../../appointments/data/appointments_repository.dart';
-import '../../tasks/data/tasks_repository.dart';
 import '../data/files_repository.dart';
 import '../domain/file_record.dart';
 
@@ -27,31 +19,10 @@ class FilesPage extends ConsumerStatefulWidget {
 class _FilesPageState extends ConsumerState<FilesPage> {
   String? _activeFileId;
   String? _notice;
-  bool _isUploading = false;
-  Timer? _pollingTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (!mounted) return;
-      if (_activeFileId != null || _isUploading) {
-        ref.invalidate(filesProvider);
-        ref.invalidate(pendingAiApprovalsProvider);
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _pollingTimer?.cancel();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final files = ref.watch(filesProvider);
-    final approvals = ref.watch(pendingAiApprovalsProvider);
     final theme = Theme.of(context);
 
     return RefreshIndicator(
@@ -60,264 +31,51 @@ class _FilesPageState extends ConsumerState<FilesPage> {
         padding: kScreenPadding,
         children: [
           StitchDetailHeader(
-            title: 'Dosyalar',
+            title: 'Icerik takibi',
             onBack: () =>
                 context.canPop() ? context.pop() : context.go('/app/more'),
           ),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  'PDF, Word, Excel, metin, ses ve e-posta dosyalarını yükle; AI özet ve aksiyon önerilerini çıkar.',
-                  style: theme.textTheme.bodyMedium,
-                ),
-              ),
-              IconButton.filled(
-                tooltip: 'Dosya yükle',
-                onPressed: _isUploading ? null : _pickAndUpload,
-                icon: _isUploading
-                    ? const SizedBox.square(
-                        dimension: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.upload_file),
-              ),
-              const SizedBox(width: 8),
-              IconButton.outlined(
-                tooltip: 'Dosyaları temizle',
-                onPressed: _confirmClearFiles,
-                icon: const Icon(Icons.cleaning_services_outlined),
-              ),
-            ],
+          Text(
+            'Webden yuklenen dosya, ses, e-posta ve dokumanlar burada sadece takip edilir. '
+            'Yukleme, duzenleme ve analiz baslatma islemleri web panelinden yapilir.',
+            style: theme.textTheme.bodyMedium,
           ),
           if (_notice != null) ...[
             const SizedBox(height: 12),
             _Notice(message: _notice!),
           ],
           const SizedBox(height: 16),
-          _UploadGuideCard(
-            isUploading: _isUploading,
-            onUpload: _pickAndUpload,
-          ),
-          const SizedBox(height: 16),
           files.when(
-            data: (items) => items.isEmpty
-                ? const _PageMessage(
-                    message:
-                        'Henüz dosya yok. Excel, PDF, Word veya ses dosyası yükleyerek başlayabilirsin.',
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      _FilesSummary(files: items),
-                      const SizedBox(height: 14),
-                      ...items.map(
-                        (file) => _FileCard(
-                          file: file,
-                          isActive: _activeFileId == file.id,
-                          onAnalyze: () => _analyze(file),
-                          onDownload: () => _download(file),
-                          onShowText: () => _showExtractedText(file),
-                          onShowAnalysis: () => _showAnalysis(file),
-                          onRename: () => _rename(file),
-                          onDelete: () => _confirmDelete(file),
-                          onApprovalsChanged: _refreshAfterApproval,
-                          approvals: approvals.maybeWhen(
-                            data: (list) =>
-                                _approvalsForFile(list, file).toList(),
-                            orElse: () => const [],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+            data: (items) {
+              if (items.isEmpty) {
+                return const _PageMessage(
+                  message: 'Backendde goruntulenecek icerik henuz yok.',
+                );
+              }
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _FilesSummary(files: items),
+                  const SizedBox(height: 14),
+                  for (final file in items)
+                    _FileCard(
+                      file: file,
+                      isActive: _activeFileId == file.id,
+                      onDownload: () => _download(file),
+                      onShowText: () => _showExtractedText(file),
+                      onShowAnalysis: () => _showAnalysis(file),
+                    ),
+                ],
+              );
+            },
             error: (error, stackTrace) => _PageMessage(
-              message: readableApiError(error, 'Dosyalar alınamadı.'),
+              message: readableApiError(error, 'Icerikler alinamadi.'),
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
           ),
         ],
       ),
     );
-  }
-
-  Future<void> _analyze(FileRecord file) async {
-    setState(() {
-      _activeFileId = file.id;
-      _notice = null;
-    });
-
-    try {
-      await ref.read(filesRepositoryProvider).analyzeFile(file.id);
-      _showTemporaryNotice(
-        '${file.filename} analiz edildi. Görev/randevu önerileri dosya kartında hazır.',
-      );
-      ref.invalidate(filesProvider);
-      ref.invalidate(pendingAiApprovalsProvider);
-      if (mounted) {
-        final messenger = ScaffoldMessenger.of(context);
-        messenger.hideCurrentSnackBar();
-        messenger.showSnackBar(
-          SnackBar(
-            content: const Text('Analiz tamamlandı. Öneriler dosya kartında görünecek.'),
-            action: SnackBarAction(
-              label: 'Aç',
-              onPressed: () {
-                messenger.hideCurrentSnackBar();
-                if (mounted) {
-                  setState(() => _notice = null);
-                }
-                  context.go('/app/files');
-              },
-            ),
-          ),
-        );
-      }
-    } catch (error) {
-      setState(() {
-        _notice = readableApiError(error, 'Dosya analiz edilemedi.');
-      });
-    } finally {
-      if (mounted) {
-        setState(() => _activeFileId = null);
-      }
-    }
-  }
-
-  Future<void> _pickAndUpload() async {
-    setState(() {
-      _isUploading = true;
-      _notice = null;
-    });
-
-    try {
-      final result = await FilePicker.platform.pickFiles(
-        allowMultiple: false,
-        type: FileType.custom,
-        allowedExtensions: const [
-          'pdf',
-          'docx',
-          'xlsx',
-          'txt',
-          'mp3',
-          'wav',
-          'm4a',
-          'eml',
-        ],
-        withData: false,
-        withReadStream: true,
-      );
-      final file = result?.files.single;
-      if (file == null) {
-        return;
-      }
-      if (file.size > _maxUploadSizeBytes) {
-        setState(() {
-          _notice =
-              '${file.name} yüklenemedi. En fazla ${_formatBytes(_maxUploadSizeBytes)} dosya yükleyebilirsin.';
-        });
-        return;
-      }
-      final stream = file.readStream;
-      if (stream == null || file.size <= 0) {
-        setState(() {
-          _notice = 'Dosya okunamadı.';
-        });
-        return;
-      }
-
-      final uploaded = await ref.read(filesRepositoryProvider).uploadFile(
-            filename: file.name,
-            mimeType: _mimeTypeFor(file.extension),
-            sizeBytes: file.size,
-            bytes: stream,
-          );
-      ref.invalidate(filesProvider);
-      setState(() => _activeFileId = uploaded.id);
-      try {
-        await ref.read(filesRepositoryProvider).analyzeFile(uploaded.id);
-        ref.invalidate(pendingAiApprovalsProvider);
-        _showTemporaryNotice(
-          '${uploaded.filename} yüklendi ve analiz edildi. Öneriler varsa dosya kartında hazır.',
-        );
-      } catch (error) {
-        setState(() {
-          _notice =
-              '${uploaded.filename} yüklendi, ancak analiz başlatılamadı: ${readableApiError(error, 'bilinmeyen hata')}. Karttaki Analiz et butonuyla tekrar deneyebilirsin.';
-        });
-      }
-      setState(() {
-        _activeFileId = null;
-      });
-      ref.invalidate(filesProvider);
-    } catch (error) {
-      setState(() {
-        _notice = readableApiError(error, 'Dosya yüklenemedi.');
-      });
-    } finally {
-      if (mounted) {
-        setState(() => _isUploading = false);
-      }
-    }
-  }
-
-  Future<void> _confirmDelete(FileRecord file) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Dosyayı sil'),
-        content: Text('${file.filename} kalıcı olarak silinsin mi?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Vazgeç'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Sil'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      await _delete(file);
-    }
-  }
-
-  Future<void> _confirmClearFiles() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Dosyaları temizle'),
-        content: const Text('Listedeki tüm dosyalar silinsin mi?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Vazgeç'),
-          ),
-          FilledButton.icon(
-            onPressed: () => Navigator.of(context).pop(true),
-            icon: const Icon(Icons.delete_outline),
-            label: const Text('Temizle'),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed != true) return;
-    setState(() => _notice = null);
-    try {
-      await ref.read(filesRepositoryProvider).clearFiles();
-      _showTemporaryNotice('Dosya listesi temizlendi.');
-      ref.invalidate(filesProvider);
-      ref.invalidate(pendingAiApprovalsProvider);
-    } catch (error) {
-      setState(() {
-        _notice = readableApiError(error, 'Dosyalar temizlenemedi.');
-      });
-    }
   }
 
   Future<void> _download(FileRecord file) async {
@@ -333,11 +91,11 @@ class _FilesPageState extends ConsumerState<FilesPage> {
         mode: LaunchMode.externalApplication,
       );
       if (!launched) {
-        setState(() => _notice = 'Dosya bağlantısı açılamadı.');
+        setState(() => _notice = 'Icerik baglantisi acilamadi.');
       }
     } catch (error) {
       setState(() {
-        _notice = readableApiError(error, 'Dosya indirilemedi.');
+        _notice = readableApiError(error, 'Icerik acilamadi.');
       });
     } finally {
       if (mounted) {
@@ -358,11 +116,11 @@ class _FilesPageState extends ConsumerState<FilesPage> {
       await _showLongTextDialog(
         title: '${file.filename} metni',
         status: text.status,
-        content: text.extractedText ?? 'Çıkarılmış metin yok.',
+        content: text.extractedText ?? 'Cikarilmis metin yok.',
       );
     } catch (error) {
       setState(() {
-        _notice = readableApiError(error, 'Dosya metni alınamadı.');
+        _notice = readableApiError(error, 'Icerik metni alinamadi.');
       });
     } finally {
       if (mounted) {
@@ -381,64 +139,13 @@ class _FilesPageState extends ConsumerState<FilesPage> {
       final analysis = await ref.read(filesRepositoryProvider).getAnalysis(file.id);
       if (!mounted) return;
       await _showLongTextDialog(
-        title: '${file.filename} özeti',
+        title: '${file.filename} ozeti',
         status: analysis.status,
-        content: analysis.summary ?? 'Analiz özeti yok.',
+        content: analysis.summary ?? 'Analiz ozeti yok.',
       );
     } catch (error) {
       setState(() {
-        _notice = readableApiError(error, 'Analiz özeti alınamadı.');
-      });
-    } finally {
-      if (mounted) {
-        setState(() => _activeFileId = null);
-      }
-    }
-  }
-
-  Future<void> _rename(FileRecord file) async {
-    final controller = TextEditingController(text: file.filename);
-    final newName = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Dosya adını değiştir'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          textInputAction: TextInputAction.done,
-          decoration: const InputDecoration(
-            labelText: 'Dosya adı',
-            prefixIcon: Icon(Icons.drive_file_rename_outline),
-          ),
-          onSubmitted: (value) => Navigator.of(context).pop(value),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Vazgeç'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text),
-            child: const Text('Kaydet'),
-          ),
-        ],
-      ),
-    );
-    controller.dispose();
-
-    final trimmed = newName?.trim();
-    if (trimmed == null || trimmed.isEmpty || trimmed == file.filename) return;
-    setState(() {
-      _activeFileId = file.id;
-      _notice = null;
-    });
-    try {
-      await ref.read(filesRepositoryProvider).renameFile(file.id, trimmed);
-      _showTemporaryNotice('Dosya adı güncellendi.');
-      ref.invalidate(filesProvider);
-    } catch (error) {
-      setState(() {
-        _notice = readableApiError(error, 'Dosya adı değiştirilemedi.');
+        _notice = readableApiError(error, 'Analiz ozeti alinamadi.');
       });
     } finally {
       if (mounted) {
@@ -482,137 +189,6 @@ class _FilesPageState extends ConsumerState<FilesPage> {
       ),
     );
   }
-
-  Future<void> _delete(FileRecord file) async {
-    setState(() {
-      _activeFileId = file.id;
-      _notice = null;
-    });
-
-    try {
-      await ref.read(filesRepositoryProvider).deleteFile(file.id);
-      _showTemporaryNotice('${file.filename} silindi.');
-      ref.invalidate(filesProvider);
-    } catch (error) {
-      setState(() {
-        _notice = readableApiError(error, 'Dosya silinemedi.');
-      });
-    } finally {
-      if (mounted) {
-        setState(() => _activeFileId = null);
-      }
-    }
-  }
-
-  Iterable<AiActionApproval> _approvalsForFile(
-    List<AiActionApproval> approvals,
-    FileRecord file,
-  ) {
-    return approvals.where(
-      (approval) =>
-          approval.sourceType.toLowerCase() == 'file' &&
-          approval.sourceId == file.id,
-    );
-  }
-
-  void _refreshAfterApproval() {
-    ref.invalidate(filesProvider);
-    ref.invalidate(tasksProvider);
-    ref.invalidate(appointmentsProvider);
-  }
-
-  void _showTemporaryNotice(String message) {
-    if (!mounted) return;
-    setState(() => _notice = message);
-    Future.delayed(const Duration(seconds: 5), () {
-      if (!mounted || _notice != message) return;
-      setState(() => _notice = null);
-    });
-  }
-}
-
-const _maxUploadSizeBytes = 25 * 1024 * 1024;
-
-class _UploadGuideCard extends StatelessWidget {
-  const _UploadGuideCard({
-    required this.isUploading,
-    required this.onUpload,
-  });
-
-  final bool isUploading;
-  final VoidCallback onUpload;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return AppCard(
-      padding: const EdgeInsets.all(14),
-      child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TintedIcon(icon: Icons.upload_file, color: theme.colorScheme.primary, size: 44),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Dosya yükle ve yorumlat',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Excel, PDF, Word, TXT, ses ve EML dosyaları desteklenir. En fazla ${_formatBytes(_maxUploadSizeBytes)}.',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 10),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: const [
-                      _FormatChip(label: 'Excel'),
-                      _FormatChip(label: 'PDF'),
-                      _FormatChip(label: 'Word'),
-                      _FormatChip(label: 'Ses'),
-                      _FormatChip(label: 'E-posta'),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 10),
-            FilledButton.icon(
-              onPressed: isUploading ? null : onUpload,
-              icon: isUploading
-                  ? const SizedBox.square(
-                      dimension: 16,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.add),
-              label: Text(isUploading ? 'Yükleniyor' : 'Yükle'),
-            ),
-          ],
-      ),
-    );
-  }
-}
-
-class _FormatChip extends StatelessWidget {
-  const _FormatChip({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Chip(
-      label: Text(label),
-      visualDensity: VisualDensity.compact,
-      side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
-    );
-  }
 }
 
 class _FilesSummary extends StatelessWidget {
@@ -625,62 +201,69 @@ class _FilesSummary extends StatelessWidget {
     final readyCount = files.where((file) => file.status == 'ready').length;
     final totalBytes = files.fold<int>(0, (sum, file) => sum + file.sizeBytes);
 
-    return Row(
-      children: [
-        Expanded(
-          child: _MiniStat(
-            label: 'Dosya',
-            value: files.length.toString(),
-            icon: Icons.folder_outlined,
+    return AppCard(
+      radius: kLargeCardRadius,
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Expanded(
+            child: _Metric(
+              icon: Icons.folder_outlined,
+              label: 'Icerik',
+              value: files.length.toString(),
+            ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _MiniStat(
-            label: 'Hazır',
-            value: readyCount.toString(),
-            icon: Icons.verified_outlined,
+          const SizedBox(width: 10),
+          Expanded(
+            child: _Metric(
+              icon: Icons.verified_outlined,
+              label: 'Hazir',
+              value: readyCount.toString(),
+            ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: _MiniStat(
-            label: 'Boyut',
-            value: _formatBytes(totalBytes),
-            icon: Icons.storage_outlined,
+          const SizedBox(width: 10),
+          Expanded(
+            child: _Metric(
+              icon: Icons.storage_outlined,
+              label: 'Boyut',
+              value: _formatBytes(totalBytes),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
 
-class _MiniStat extends StatelessWidget {
-  const _MiniStat({required this.label, required this.value, required this.icon});
+class _Metric extends StatelessWidget {
+  const _Metric({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
+  final IconData icon;
   final String label;
   final String value;
-  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return AppCard(
-      padding: const EdgeInsets.all(12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: theme.colorScheme.primary, size: 20),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, color: theme.colorScheme.primary, size: 20),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
           ),
-          Text(label, style: theme.textTheme.bodySmall),
-        ],
-      ),
+        ),
+        Text(label, style: theme.textTheme.bodySmall),
+      ],
     );
   }
 }
@@ -689,26 +272,16 @@ class _FileCard extends StatelessWidget {
   const _FileCard({
     required this.file,
     required this.isActive,
-    required this.approvals,
-    required this.onAnalyze,
     required this.onDownload,
     required this.onShowText,
     required this.onShowAnalysis,
-    required this.onRename,
-    required this.onDelete,
-    required this.onApprovalsChanged,
   });
 
   final FileRecord file;
   final bool isActive;
-  final List<AiActionApproval> approvals;
-  final VoidCallback onAnalyze;
   final VoidCallback onDownload;
   final VoidCallback onShowText;
   final VoidCallback onShowAnalysis;
-  final VoidCallback onRename;
-  final VoidCallback onDelete;
-  final VoidCallback onApprovalsChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -724,13 +297,21 @@ class _FileCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TintedIcon(icon: Icons.description_outlined, color: theme.colorScheme.primary),
+                TintedIcon(
+                  icon: _iconForMime(file.mimeType),
+                  color: theme.colorScheme.primary,
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(file.filename, style: theme.textTheme.titleMedium),
+                      Text(
+                        file.filename,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium,
+                      ),
                       const SizedBox(height: 4),
                       Text(
                         file.mimeType,
@@ -741,6 +322,7 @@ class _FileCard extends StatelessWidget {
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
                 _StatusChip(status: file.status),
               ],
             ),
@@ -764,49 +346,27 @@ class _FileCard extends StatelessWidget {
               spacing: 8,
               runSpacing: 8,
               children: [
-                FilledButton.icon(
-                  onPressed: isActive ? null : onAnalyze,
-                  icon: isActive
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.auto_awesome),
-                  label: const Text('Analiz et'),
-                ),
-                Tooltip(
-                  message: 'Metni göster',
-                  child: OutlinedButton.icon(
-                    onPressed: isActive ? null : onShowText,
-                    icon: const Icon(Icons.article_outlined),
-                    label: const Text('Metin'),
-                  ),
+                OutlinedButton.icon(
+                  onPressed: isActive ? null : onShowText,
+                  icon: const Icon(Icons.article_outlined),
+                  label: const Text('Metin'),
                 ),
                 OutlinedButton.icon(
                   onPressed: isActive ? null : onShowAnalysis,
                   icon: const Icon(Icons.summarize_outlined),
-                  label: const Text('Özet'),
+                  label: const Text('Ozet'),
                 ),
                 OutlinedButton.icon(
                   onPressed: isActive ? null : onDownload,
                   icon: const Icon(Icons.open_in_new),
-                  label: const Text('Aç'),
+                  label: const Text('Ac'),
                 ),
-                OutlinedButton.icon(
-                  onPressed: isActive ? null : onRename,
-                  icon: const Icon(Icons.drive_file_rename_outline),
-                  label: const Text('Ad'),
-                ),
-                OutlinedButton.icon(
-                  onPressed: isActive ? null : onDelete,
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('Sil'),
-                ),
+                if (isActive)
+                  const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
               ],
-            ),
-            QuickApprovalCard(
-              approvals: approvals,
-              onChanged: onApprovalsChanged,
             ),
           ],
         ),
@@ -874,13 +434,22 @@ class _PageMessage extends StatelessWidget {
   }
 }
 
+IconData _iconForMime(String mimeType) {
+  final lower = mimeType.toLowerCase();
+  if (lower.contains('audio')) return Icons.graphic_eq;
+  if (lower.contains('pdf')) return Icons.picture_as_pdf_outlined;
+  if (lower.contains('spreadsheet') || lower.contains('excel')) {
+    return Icons.table_chart_outlined;
+  }
+  if (lower.contains('mail') || lower.contains('message')) {
+    return Icons.mail_outline;
+  }
+  return Icons.description_outlined;
+}
+
 String _formatBytes(int bytes) {
-  if (bytes < 1024) {
-    return '$bytes B';
-  }
-  if (bytes < 1024 * 1024) {
-    return '${(bytes / 1024).round()} KB';
-  }
+  if (bytes < 1024) return '$bytes B';
+  if (bytes < 1024 * 1024) return '${(bytes / 1024).round()} KB';
   return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
 }
 
@@ -892,31 +461,15 @@ String _formatDateTime(DateTime value) {
       '${local.minute.toString().padLeft(2, '0')}';
 }
 
-String _mimeTypeFor(String? extension) {
-  return switch (extension?.toLowerCase()) {
-    'pdf' => 'application/pdf',
-    'docx' =>
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'xlsx' =>
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'txt' => 'text/plain',
-    'mp3' => 'audio/mpeg',
-    'wav' => 'audio/wav',
-    'm4a' => 'audio/x-m4a',
-    'eml' => 'message/rfc822',
-    _ => 'text/plain',
-  };
-}
-
 String _statusLabel(String status) {
   return switch (status) {
-    'ready' => 'Hazır',
-    'processing' => 'İşlemde',
+    'ready' => 'Hazir',
+    'processing' => 'Islemde',
     'failed' => 'Hata',
-    'uploaded' => 'Yüklendi',
-    'extracted' => 'Metin çıkarıldı',
+    'uploaded' => 'Yuklendi',
+    'extracted' => 'Metin cikarildi',
     'unsupported' => 'Desteklenmiyor',
-    'completed' => 'Tamamlandı',
+    'completed' => 'Tamamlandi',
     _ => status,
   };
 }

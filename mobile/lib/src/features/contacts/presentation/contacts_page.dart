@@ -7,7 +7,6 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../core/api/api_error.dart';
 import '../../../core/widgets/app_components.dart';
 import '../../../core/widgets/screen_header.dart';
-import '../../calls/data/call_recording_provider.dart';
 import '../data/contacts_repository.dart';
 import '../domain/contact.dart';
 
@@ -377,8 +376,7 @@ class _ContactCard extends ConsumerWidget {
               if (contact.phone?.trim().isNotEmpty == true)
                 IconButton.filledTonal(
                   tooltip: 'Ara',
-                  onPressed: () =>
-                      _callPhoneNumber(context, ref, contact.phone!),
+                  onPressed: () => _callPhoneNumber(context, contact.phone!),
                   icon: const Icon(Icons.call),
                 ),
             ],
@@ -390,17 +388,12 @@ class _ContactCard extends ConsumerWidget {
 
 Future<void> _callPhoneNumber(
   BuildContext context,
-  WidgetRef ref,
   String phoneNumber,
 ) async {
   final normalized = _normalizePhone(phoneNumber);
   if (normalized.isEmpty) {
     return;
   }
-
-  await ref
-      .read(callRecordingProvider.notifier)
-      .startRecording(phoneNumber: normalized);
 
   final uri = Uri(scheme: 'tel', path: normalized);
   final launched = await launchUrl(uri);

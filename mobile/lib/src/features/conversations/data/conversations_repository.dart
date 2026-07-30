@@ -34,27 +34,6 @@ class ConversationsRepository {
         .toList(growable: false);
   }
 
-  Future<CallTextResult> createCallFromText({
-    required String title,
-    required String transcriptText,
-    required List<String> participantNames,
-  }) async {
-    final response = await _dio.post<Map<String, dynamic>>(
-      '/api/v1/calls/text',
-      data: {
-        'title': title,
-        'transcript_text': transcriptText,
-        'participant_names': participantNames,
-        'language': 'tr',
-      },
-    );
-    return CallTextResult.fromJson(response.data!);
-  }
-
-  Future<void> requestAnalysis(String conversationId) async {
-    await _dio.post<void>('/api/v1/ai/analysis/conversations/$conversationId');
-  }
-
   Future<ConversationDetail> getConversation(String conversationId) async {
     final response = await _dio
         .get<Map<String, dynamic>>('/api/v1/conversations/$conversationId');
