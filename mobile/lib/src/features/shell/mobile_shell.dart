@@ -1,10 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_status.dart';
-import '../calls/data/call_state_listener.dart';
-import '../calls/data/calls_repository.dart';
 import '../dashboard/data/dashboard_repository.dart';
 
 class MobileShell extends ConsumerWidget {
@@ -17,21 +15,6 @@ class MobileShell extends ConsumerWidget {
     final location = GoRouterState.of(context).uri.path;
     final apiStatus = ref.watch(apiStatusProvider);
     final dashboard = ref.watch(dashboardProvider).valueOrNull;
-    final calls = ref.watch(callsProvider).valueOrNull ?? const [];
-    final jobs = ref.watch(callAnalysisJobsProvider).valueOrNull ?? const [];
-    final callsNeedingAttention = calls.where((call) {
-      final matchingJobs = jobs.where(
-        (job) =>
-            job.sourceType.toLowerCase() == 'conversation' &&
-            job.sourceId == call.conversationId,
-      );
-      if (matchingJobs.isEmpty) return true;
-      final latest = matchingJobs.first;
-      return latest.isPending || latest.isFailed;
-    }).length;
-
-    ref.watch(callAutoRecordListenerProvider);
-
     return Scaffold(
       body: Column(
         children: [
@@ -43,7 +26,7 @@ class MobileShell extends ConsumerWidget {
                     onRetry: () => ref.invalidate(apiStatusProvider),
                   ),
             error: (error, stackTrace) => _ApiStatusBanner(
-              statusLabel: 'Bağlantı hatası',
+              statusLabel: 'BaÄŸlantÄ± hatasÄ±',
               onRetry: () => ref.invalidate(apiStatusProvider),
             ),
             loading: () => const SizedBox.shrink(),
@@ -58,22 +41,22 @@ class MobileShell extends ConsumerWidget {
           const NavigationDestination(
             icon: Icon(Icons.home_outlined),
             selectedIcon: Icon(Icons.home_filled),
-            label: 'Özet',
+            label: 'Ã–zet',
           ),
-          NavigationDestination(
-            icon: _BadgeIcon(icon: Icons.call_outlined, count: callsNeedingAttention),
-            selectedIcon: _BadgeIcon(icon: Icons.call_rounded, count: callsNeedingAttention),
-            label: 'Çağrılar',
+          const NavigationDestination(
+            icon: Icon(Icons.folder_open_outlined),
+            selectedIcon: Icon(Icons.folder_open_rounded),
+            label: 'Icerik',
           ),
           NavigationDestination(
             icon: _BadgeIcon(icon: Icons.check_circle_outline, count: dashboard?.summary.openTasksCount ?? 0),
             selectedIcon: _BadgeIcon(icon: Icons.check_circle_rounded, count: dashboard?.summary.openTasksCount ?? 0),
-            label: 'Görevler',
+            label: 'GÃ¶revler',
           ),
           const NavigationDestination(
             icon: Icon(Icons.people_outline),
             selectedIcon: Icon(Icons.people_rounded),
-            label: 'Kişiler',
+            label: 'KiÅŸiler',
           ),
           const NavigationDestination(
             icon: Icon(Icons.apps_outlined),
@@ -86,8 +69,9 @@ class MobileShell extends ConsumerWidget {
   }
 
   int _selectedIndex(String location) {
+    if (location.startsWith('/app/files')) return 1;
     if (location.startsWith('/app/calls')) return 1;
-    if (location.startsWith('/app/conversations')) return 1;
+    if (location.startsWith('/app/conversations')) return 4;
     if (location.startsWith('/app/tasks')) return 2;
     if (location.startsWith('/app/contacts')) return 3;
     if (location.startsWith('/app/more')) return 4;
@@ -96,7 +80,6 @@ class MobileShell extends ConsumerWidget {
     if (location.startsWith('/app/appointments')) return 4;
     if (location.startsWith('/app/priority')) return 4;
     if (location.startsWith('/app/analytics')) return 4;
-    if (location.startsWith('/app/files')) return 4;
     if (location.startsWith('/app/email')) return 4;
     if (location.startsWith('/app/settings')) return 4;
     return 0;
@@ -104,7 +87,7 @@ class MobileShell extends ConsumerWidget {
 
   String _pathForIndex(int index) {
     return switch (index) {
-      1 => '/app/calls',
+      1 => '/app/files',
       2 => '/app/tasks',
       3 => '/app/contacts',
       4 => '/app/more',
@@ -150,8 +133,8 @@ class _ApiStatusBanner extends StatelessWidget {
               Expanded(
                 child: Text(
                   statusLabel == null
-                      ? 'API bağlantısı zayıf. Backend ve ağ durumunu kontrol edin.'
-                      : 'API bağlantısı zayıf: $statusLabel. Backend ve ağ durumunu kontrol edin.',
+                      ? 'API baÄŸlantÄ±sÄ± zayÄ±f. Backend ve aÄŸ durumunu kontrol edin.'
+                      : 'API baÄŸlantÄ±sÄ± zayÄ±f: $statusLabel. Backend ve aÄŸ durumunu kontrol edin.',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -168,3 +151,4 @@ class _ApiStatusBanner extends StatelessWidget {
     );
   }
 }
+

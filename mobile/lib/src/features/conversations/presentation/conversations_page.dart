@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/api/api_error.dart';
 import '../../../core/widgets/app_components.dart';
 import '../../../core/widgets/screen_header.dart';
-import '../../ai_approvals/data/ai_approvals_repository.dart';
 import '../../calls/data/calls_repository.dart';
 import '../../calls/domain/ai_analysis_job.dart';
 import '../data/conversations_repository.dart';
@@ -34,83 +33,82 @@ class _ConversationsPageState extends ConsumerState<ConversationsPage> {
     final jobs = ref.watch(callAnalysisJobsProvider).valueOrNull ?? const [];
     final theme = Theme.of(context);
 
-    return Scaffold(
-      body: RefreshIndicator(
-        onRefresh: () => ref.refresh(conversationsProvider.future),
-        child: ListView(
-          padding: kScreenPadding,
-          children: [
-            const StitchScreenHeader(title: 'Görüşmeler'),
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(kCardRadius),
-                boxShadow: kCardShadow,
-              ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (value) => setState(() => _query = value),
-                decoration: const InputDecoration(
-                  hintText: 'Görüşme veya kişi ara...',
-                  prefixIcon: Icon(Icons.search),
-                  filled: true,
-                  fillColor: Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(kCardRadius)),
-                    borderSide: BorderSide.none,
-                  ),
+    return RefreshIndicator(
+      onRefresh: () => Future.wait([
+        ref.refresh(conversationsProvider.future),
+        ref.refresh(callAnalysisJobsProvider.future),
+      ]),
+      child: ListView(
+        padding: kScreenPadding,
+        children: [
+          const StitchScreenHeader(title: 'Gorusme takibi'),
+          Text(
+            'Webden kaydedilen gorusme icerikleri ve AI analiz durumlari mobilde sadece izlenir.',
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 16),
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(kCardRadius),
+              boxShadow: kCardShadow,
+            ),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) => setState(() => _query = value),
+              decoration: const InputDecoration(
+                hintText: 'Gorusme veya kisi ara...',
+                prefixIcon: Icon(Icons.search),
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(kCardRadius)),
+                  borderSide: BorderSide.none,
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-            SectionHeading(
-              title: 'Son Görüşmeler',
-              trailing: _query.isNotEmpty ? 'Tümünü Gör' : null,
-              onTrailingTap: () => setState(() {
-                _query = '';
-                _searchController.clear();
-              }),
-            ),
-            const SizedBox(height: 10),
-            conversations.when(
-              data: (items) {
-                final filtered = items
-                    .where((conversation) => conversation.title
+          ),
+          const SizedBox(height: 20),
+          SectionHeading(
+            title: 'Son gorusmeler',
+            trailing: _query.isNotEmpty ? 'Tumunu Gor' : null,
+            onTrailingTap: () => setState(() {
+              _query = '';
+              _searchController.clear();
+            }),
+          ),
+          const SizedBox(height: 10),
+          conversations.when(
+            data: (items) {
+              final filtered = items
+                  .where(
+                    (conversation) => conversation.title
                         .toLowerCase()
-                        .contains(_query.toLowerCase()))
-                    .toList(growable: false);
-                if (filtered.isEmpty) {
-                  return _PageMessage(
-                    message: items.isEmpty
-                        ? 'Henüz görüşme yok.'
-                        : 'Aramanla eşleşen görüşme yok.',
-                  );
-                }
-                return Column(
-                  children: [
-                    for (final conversation in filtered)
-                      _ConversationCard(
-                        conversation: conversation,
-                        job: _matchingJob(jobs, conversation.id),
-                      ),
-                  ],
+                        .contains(_query.toLowerCase()),
+                  )
+                  .toList(growable: false);
+              if (filtered.isEmpty) {
+                return _PageMessage(
+                  message: items.isEmpty
+                      ? 'Backendde goruntulenecek gorusme henuz yok.'
+                      : 'Aramanla eslesen gorusme yok.',
                 );
-              },
-              error: (error, stackTrace) => _PageMessage(
-                message: readableApiError(error, 'Görüşmeler alınamadı.'),
-              ),
-              loading: () => const Center(child: CircularProgressIndicator()),
+              }
+              return Column(
+                children: [
+                  for (final conversation in filtered)
+                    _ConversationCard(
+                      conversation: conversation,
+                      job: _matchingJob(jobs, conversation.id),
+                    ),
+                ],
+              );
+            },
+            error: (error, stackTrace) => _PageMessage(
+              message: readableApiError(error, 'Gorusmeler alinamadi.'),
             ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        tooltip: 'Görüşme ekle',
-        backgroundColor: theme.colorScheme.secondary,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        onPressed: () => _showCreateCallSheet(context, ref),
-        child: const Icon(Icons.add_call),
+            loading: () => const Center(child: CircularProgressIndicator()),
+          ),
+        ],
       ),
     );
   }
@@ -123,36 +121,16 @@ class _ConversationsPageState extends ConsumerState<ConversationsPage> {
     );
     return matches.isEmpty ? null : matches.first;
   }
-
-  Future<void> _showCreateCallSheet(BuildContext context, WidgetRef ref) async {
-    await showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (context) => const _CreateCallSheet(),
-    );
-    ref.invalidate(conversationsProvider);
-    ref.invalidate(pendingAiApprovalsProvider);
-  }
 }
 
-class _ConversationCard extends ConsumerStatefulWidget {
+class _ConversationCard extends StatelessWidget {
   const _ConversationCard({required this.conversation, required this.job});
 
   final Conversation conversation;
   final AiAnalysisJob? job;
 
   @override
-  ConsumerState<_ConversationCard> createState() => _ConversationCardState();
-}
-
-class _ConversationCardState extends ConsumerState<_ConversationCard> {
-  bool _isSubmitting = false;
-
-  @override
   Widget build(BuildContext context) {
-    final conversation = widget.conversation;
-    final job = widget.job;
     final theme = Theme.of(context);
 
     return Padding(
@@ -161,14 +139,10 @@ class _ConversationCardState extends ConsumerState<_ConversationCard> {
         onTap: () => context.go('/app/conversations/${conversation.id}'),
         child: Row(
           children: [
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surfaceContainerHigh,
-                shape: BoxShape.circle,
-              ),
-              child: Icon(Icons.person, color: theme.colorScheme.primary, size: 26),
+            TintedIcon(
+              icon: Icons.forum_outlined,
+              color: theme.colorScheme.primary,
+              size: 48,
             ),
             const SizedBox(width: 14),
             Expanded(
@@ -197,50 +171,11 @@ class _ConversationCardState extends ConsumerState<_ConversationCard> {
               ),
             ),
             const SizedBox(width: 8),
-            _TrailingAction(
-              job: job,
-              isSubmitting: _isSubmitting,
-              onRequestAnalysis: _requestAnalysis,
-            ),
+            Icon(Icons.chevron_right, color: theme.colorScheme.outline),
           ],
         ),
       ),
     );
-  }
-
-  String _formatDate(DateTime value) {
-    final local = value.toLocal();
-    return '${local.day.toString().padLeft(2, '0')}.'
-        '${local.month.toString().padLeft(2, '0')} '
-        '${local.hour.toString().padLeft(2, '0')}:'
-        '${local.minute.toString().padLeft(2, '0')}';
-  }
-
-  Future<void> _requestAnalysis() async {
-    setState(() => _isSubmitting = true);
-    try {
-      await ref
-          .read(conversationsRepositoryProvider)
-          .requestAnalysis(widget.conversation.id);
-      ref.invalidate(callAnalysisJobsProvider);
-      ref.invalidate(pendingAiApprovalsProvider);
-      if (mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('AI analiz başlatıldı.')),
-        );
-      }
-    } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(readableApiError(error, 'AI analiz başlatılamadı.'))),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
-    }
   }
 }
 
@@ -253,181 +188,12 @@ class _JobStatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final (label, color) = switch (job) {
       null => ('Analiz bekliyor', const Color(0xFF6B6F82)),
-      _ when job!.isFailed => ('Analiz başarısız', const Color(0xFFDC6465)),
+      _ when job!.isFailed => ('Analiz basarisiz', const Color(0xFFDC6465)),
       _ when job!.isPending => ('Analiz ediliyor', const Color(0xFF3525CD)),
       _ => ('Analiz edildi', const Color(0xFF15803D)),
     };
 
     return StatusPill(label: label.toUpperCase(), color: color, dense: true);
-  }
-}
-
-class _TrailingAction extends StatelessWidget {
-  const _TrailingAction({
-    required this.job,
-    required this.isSubmitting,
-    required this.onRequestAnalysis,
-  });
-
-  final AiAnalysisJob? job;
-  final bool isSubmitting;
-  final VoidCallback onRequestAnalysis;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    if (isSubmitting || job?.isPending == true) {
-      return const SizedBox(
-        width: 20,
-        height: 20,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      );
-    }
-
-    if (job == null || job!.isFailed) {
-      return IconButton(
-        tooltip: job == null ? 'AI analiz başlat' : 'Tekrar dene',
-        onPressed: onRequestAnalysis,
-        icon: Icon(Icons.auto_awesome, color: theme.colorScheme.primary),
-      );
-    }
-
-    return Icon(Icons.chevron_right, color: theme.colorScheme.outline);
-  }
-}
-
-class _CreateCallSheet extends ConsumerStatefulWidget {
-  const _CreateCallSheet();
-
-  @override
-  ConsumerState<_CreateCallSheet> createState() => _CreateCallSheetState();
-}
-
-class _CreateCallSheetState extends ConsumerState<_CreateCallSheet> {
-  final _titleController = TextEditingController();
-  final _participantsController = TextEditingController();
-  final _transcriptController = TextEditingController();
-  bool _isSubmitting = false;
-  String? _errorMessage;
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _participantsController.dispose();
-    _transcriptController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Görüşme metni ekle',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: _titleController,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(labelText: 'Başlık'),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _participantsController,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(
-                labelText: 'Katılımcılar',
-                hintText: 'Virgül ile ayır',
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _transcriptController,
-              minLines: 5,
-              maxLines: 8,
-              decoration: const InputDecoration(labelText: 'Transkript'),
-            ),
-            if (_errorMessage != null) ...[
-              const SizedBox(height: 10),
-              Text(
-                _errorMessage!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ],
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _isSubmitting ? null : _submit,
-                icon: const Icon(Icons.save),
-                label: Text(_isSubmitting ? 'Kaydediliyor' : 'Kaydet'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _submit() async {
-    final title = _titleController.text.trim();
-    final transcript = _transcriptController.text.trim();
-    final participants = _participantsController.text
-        .split(',')
-        .map((name) => name.trim())
-        .where((name) => name.isNotEmpty)
-        .toList(growable: false);
-
-    if (title.isEmpty || transcript.isEmpty) {
-      setState(() {
-        _errorMessage = 'Başlık ve transkript zorunlu.';
-      });
-      return;
-    }
-
-    setState(() {
-      _isSubmitting = true;
-      _errorMessage = null;
-    });
-    try {
-      final result =
-          await ref.read(conversationsRepositoryProvider).createCallFromText(
-                title: title,
-                transcriptText: transcript,
-                participantNames: participants,
-              );
-      await ref
-          .read(conversationsRepositoryProvider)
-          .requestAnalysis(result.conversationId);
-      ref.invalidate(conversationsProvider);
-      ref.invalidate(pendingAiApprovalsProvider);
-      if (mounted) {
-        Navigator.of(context).pop();
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Görüşme kaydedildi ve analiz başladı.'),
-          ),
-        );
-      }
-    } catch (error) {
-      setState(() {
-        _errorMessage = readableApiError(error, 'Görüşme kaydedilemedi.');
-      });
-    } finally {
-      if (mounted) {
-        setState(() => _isSubmitting = false);
-      }
-    }
   }
 }
 
@@ -440,4 +206,12 @@ class _PageMessage extends StatelessWidget {
   Widget build(BuildContext context) {
     return AppCard(child: Text(message));
   }
+}
+
+String _formatDate(DateTime value) {
+  final local = value.toLocal();
+  return '${local.day.toString().padLeft(2, '0')}.'
+      '${local.month.toString().padLeft(2, '0')} '
+      '${local.hour.toString().padLeft(2, '0')}:'
+      '${local.minute.toString().padLeft(2, '0')}';
 }

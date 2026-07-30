@@ -25,13 +25,6 @@ class FilesRepository {
         .toList(growable: false);
   }
 
-  Future<FileAnalysis> analyzeFile(String fileId) async {
-    final response = await _dio.post<Map<String, dynamic>>(
-      '/api/v1/files/$fileId/analyze',
-    );
-    return FileAnalysis.fromJson(response.data!);
-  }
-
   Future<FileAnalysis> getAnalysis(String fileId) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/api/v1/files/$fileId/analysis',
@@ -53,53 +46,4 @@ class FilesRepository {
     return response.data!['download_url'] as String;
   }
 
-  Future<void> deleteFile(String fileId) async {
-    await _dio.delete<void>('/api/v1/files/$fileId');
-  }
-
-  Future<void> clearFiles() async {
-    final files = await listFiles();
-    await Future.wait(files.map((file) => deleteFile(file.id)));
-  }
-
-  Future<FileRecord> renameFile(String fileId, String filename) async {
-    final response = await _dio.patch<Map<String, dynamic>>(
-      '/api/v1/files/$fileId',
-      data: {'filename': filename.trim()},
-    );
-    return FileRecord.fromJson(response.data!);
-  }
-
-  Future<FileRecord> uploadFile({
-    required String filename,
-    required String mimeType,
-    required int sizeBytes,
-    required Stream<List<int>> bytes,
-  }) async {
-    final startResponse = await _dio.post<Map<String, dynamic>>(
-      '/api/v1/files/upload-url',
-      data: {
-        'filename': filename,
-        'mime_type': mimeType,
-        'size_bytes': sizeBytes,
-      },
-    );
-    final fileId = startResponse.data!['file_id'] as String;
-    final uploadUrl = startResponse.data!['upload_url'] as String;
-
-    await Dio().put<void>(
-      uploadUrl,
-      data: bytes,
-      options: Options(
-        contentType: mimeType,
-        headers: {'Content-Length': sizeBytes},
-      ),
-    );
-
-    final completeResponse = await _dio.post<Map<String, dynamic>>(
-      '/api/v1/files/complete-upload',
-      data: {'file_id': fileId},
-    );
-    return FileRecord.fromJson(completeResponse.data!);
-  }
 }
