@@ -60,12 +60,3 @@ def hash_refresh_token(raw_token: str) -> str:
 
 def refresh_token_expiry() -> datetime:
     return datetime.now(timezone.utc) + timedelta(days=settings.refresh_token_expire_days)
-
-
-def generate_secure_token() -> str:
-    """Generic single-use token for out-of-band flows (password reset, invites)."""
-    return secrets.token_urlsafe(48)
-
-
-def hash_token(raw_token: str) -> str:
-    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()

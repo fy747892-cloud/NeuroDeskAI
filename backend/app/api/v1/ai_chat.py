@@ -14,7 +14,6 @@ from app.modules.ai_chat.schemas import (
     ChatMessageRequest,
     ChatSessionDetailOut,
     ChatSessionOut,
-    ChatSessionUpdate,
 )
 from app.modules.ai_chat.service import ChatService
 from app.modules.audit.repository import AuditRepository
@@ -94,49 +93,3 @@ async def get_chat_session(
         **ChatSessionOut.model_validate(session).model_dump(),
         messages=[ChatMessageOut.model_validate(message) for message in messages],
     )
-
-
-@router.patch("/sessions/{session_id}", response_model=ChatSessionOut)
-async def rename_chat_session(
-    session_id: uuid.UUID,
-    body: ChatSessionUpdate,
-    current_user: User = Depends(require_permission(Permission.AI_CHAT_USE)),
-    db: AsyncSession = Depends(get_db),
-) -> ChatSession:
-    if current_user.organization_id is None:
-        raise NotFoundError("Current organization not found.")
-
-    repository = ChatRepository(db)
-    session = await repository.get_session(
-        tenant_id=current_user.tenant_id,
-        organization_id=current_user.organization_id,
-        session_id=session_id,
-    )
-    if session is None or session.user_id != current_user.id:
-        raise NotFoundError("Chat session not found.")
-
-    session = await repository.update_title(session=session, title=body.title)
-    await db.commit()
-    return session
-
-
-@router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_chat_session(
-    session_id: uuid.UUID,
-    current_user: User = Depends(require_permission(Permission.AI_CHAT_USE)),
-    db: AsyncSession = Depends(get_db),
-) -> None:
-    if current_user.organization_id is None:
-        raise NotFoundError("Current organization not found.")
-
-    repository = ChatRepository(db)
-    session = await repository.get_session(
-        tenant_id=current_user.tenant_id,
-        organization_id=current_user.organization_id,
-        session_id=session_id,
-    )
-    if session is None or session.user_id != current_user.id:
-        raise NotFoundError("Chat session not found.")
-
-    await repository.archive_session(session=session)
-    await db.commit()

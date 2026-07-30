@@ -1,19 +1,16 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   AuditLog,
   BillingPlan,
   CalendarAccount,
   connectGoogleCalendar,
-  ConsentSettings,
   EmailAccount,
-  getConsentSettings,
   getCurrentOrganization,
   getSubscription,
   getUsageSummary,
-  inviteOrganizationMember,
   listAuditLogs,
   listBillingPlans,
   listCalendarAccounts,
@@ -26,9 +23,7 @@ import {
   startOutlookConnect,
   Subscription,
   switchPlan,
-  updateConsentSettings,
   updateMemberRole,
-  updateProfile,
   UsageSummary,
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
@@ -41,14 +36,21 @@ const INTEGRATION_META: Record<string, { label: string; icon: string; tint: stri
   google: { label: "Google Calendar", icon: "calendar_today", tint: "bg-blue-50 text-blue-500" },
 };
 
-const DEFAULT_CONSENT: ConsentSettings = {
-  ai_processing: true,
-  contact_memory: true,
-  operational_reminders: true,
+type ConsentPreferences = {
+  aiProcessing: boolean;
+  contactMemory: boolean;
+  operationalReminders: boolean;
+};
+
+const CONSENT_STORAGE_KEY = "neurodesk-consent-preferences";
+const DEFAULT_CONSENT: ConsentPreferences = {
+  aiProcessing: true,
+  contactMemory: true,
+  operationalReminders: true,
 };
 
 export function SettingsView() {
-  const { user, tokens, refreshUser } = useSession();
+  const { user, tokens } = useSession();
   const { t, language } = useLanguage();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -60,19 +62,12 @@ export function SettingsView() {
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
   const [calendarAccounts, setCalendarAccounts] = useState<CalendarAccount[]>([]);
-  const [consent, setConsent] = useState<ConsentSettings>(DEFAULT_CONSENT);
-  const [isSavingConsent, setSavingConsent] = useState(false);
+  const [consent, setConsent] = useState<ConsentPreferences>(DEFAULT_CONSENT);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
   const [busyPlanCode, setBusyPlanCode] = useState<string | null>(null);
   const [busyMemberId, setBusyMemberId] = useState<string | null>(null);
-  const [isEditingProfile, setEditingProfile] = useState(false);
-  const [profileForm, setProfileForm] = useState({ fullName: "", title: "" });
-  const [isSavingProfile, setSavingProfile] = useState(false);
-  const [showInviteForm, setShowInviteForm] = useState(false);
-  const [inviteForm, setInviteForm] = useState({ email: "", role: "member" });
-  const [isInviting, setInviting] = useState(false);
   const [busyIntegration, setBusyIntegration] = useState<string | null>(null);
 
   const loadSettings = useCallback(async () => {
@@ -92,16 +87,14 @@ export function SettingsView() {
       setUsage(nextUsage);
       setEmailAccounts(nextEmailAccounts);
       setCalendarAccounts(nextCalendarAccounts);
-      const [nextOrganization, nextMembers, nextAuditLogs, nextConsent] = await Promise.all([
+      const [nextOrganization, nextMembers, nextAuditLogs] = await Promise.all([
         getCurrentOrganization(tokens.accessToken),
         listOrganizationMembers(tokens.accessToken),
         listAuditLogs(tokens.accessToken, 10),
-        getConsentSettings(tokens.accessToken),
       ]);
       setOrganization(nextOrganization);
       setMembers(nextMembers);
       setAuditLogs(nextAuditLogs);
-      setConsent(nextConsent);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : t("settings.loadError"));
     } finally {
@@ -122,51 +115,14 @@ export function SettingsView() {
   }, [searchParams, router]);
 
   useEffect(() => {
-    if (!user?.profile) return;
-    setProfileForm({ fullName: user.profile.full_name, title: user.profile.title ?? "" });
-  }, [user?.profile]);
-
-  async function handleSaveProfile(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!tokens?.accessToken || !profileForm.fullName.trim()) return;
-    setSavingProfile(true);
-    setError(null);
+    const stored = window.localStorage.getItem(CONSENT_STORAGE_KEY);
+    if (!stored) return;
     try {
-      await updateProfile(tokens.accessToken, {
-        full_name: profileForm.fullName.trim(),
-        title: profileForm.title.trim() || null,
-      });
-      await refreshUser();
-      setEditingProfile(false);
-      setNotice(t("settings.account.profileUpdated"));
-    } catch (profileError) {
-      setError(profileError instanceof Error ? profileError.message : t("settings.account.profileUpdateError"));
-    } finally {
-      setSavingProfile(false);
+      setConsent({ ...DEFAULT_CONSENT, ...JSON.parse(stored) });
+    } catch {
+      window.localStorage.removeItem(CONSENT_STORAGE_KEY);
     }
-  }
-
-  async function handleInviteMember(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!tokens?.accessToken || !inviteForm.email.trim()) return;
-    setInviting(true);
-    setError(null);
-    try {
-      const member = await inviteOrganizationMember(
-        tokens.accessToken,
-        inviteForm.email.trim(),
-        inviteForm.role,
-      );
-      setMembers((current) => [...current, member]);
-      setInviteForm({ email: "", role: "member" });
-      setShowInviteForm(false);
-      setNotice(t("settings.team.inviteSent", { email: member.email ?? inviteForm.email.trim() }));
-    } catch (inviteError) {
-      setError(inviteError instanceof Error ? inviteError.message : t("settings.team.inviteError"));
-    } finally {
-      setInviting(false);
-    }
-  }
+  }, []);
 
   async function handleSwitchPlan(planCode: string) {
     if (!tokens?.accessToken) return;
@@ -245,21 +201,11 @@ export function SettingsView() {
     }
   }
 
-  async function updateConsent(key: keyof ConsentSettings, value: boolean) {
-    if (!tokens?.accessToken) return;
+  function updateConsent(key: keyof ConsentPreferences, value: boolean) {
     const next = { ...consent, [key]: value };
     setConsent(next);
-    setSavingConsent(true);
-    setError(null);
-    try {
-      await updateConsentSettings(tokens.accessToken, next);
-      setNotice(t("settings.consent.saved"));
-    } catch (consentError) {
-      setConsent(consent);
-      setError(consentError instanceof Error ? consentError.message : t("settings.consent.saveError"));
-    } finally {
-      setSavingConsent(false);
-    }
+    window.localStorage.setItem(CONSENT_STORAGE_KEY, JSON.stringify(next));
+    setNotice(t("settings.consent.saved"));
   }
 
   const usagePercent = useMemo(() => {
@@ -319,13 +265,7 @@ export function SettingsView() {
               isBusy={busyIntegration === "google-calendar"}
               onConnect={handleConnectCalendar}
             />
-            <div
-              aria-disabled="true"
-              className="border-2 border-dashed border-outline-variant p-lg rounded-xl flex flex-col items-center justify-center opacity-60 cursor-not-allowed select-none"
-            >
-              <span className="px-2 py-0.5 mb-sm rounded-full bg-surface-container-highest text-outline text-[10px] font-bold uppercase tracking-wide">
-                {t("settings.integrations.comingSoonBadge")}
-              </span>
+            <div className="border-2 border-dashed border-outline-variant p-lg rounded-xl flex flex-col items-center justify-center opacity-60">
               <div className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center mb-sm">
                 <span className="material-symbols-outlined">add</span>
               </div>
@@ -410,54 +350,15 @@ export function SettingsView() {
         </section>
 
         <section className="col-span-12 space-y-md">
-          <div className="flex items-center justify-between mb-sm flex-wrap gap-2">
+          <div className="flex items-center justify-between mb-sm">
             <h3 className="font-headline-md text-headline-md flex items-center gap-2">
               <span className="material-symbols-outlined text-primary">groups</span>
               {t("settings.team.title")}
             </h3>
-            <div className="flex items-center gap-3">
-              <span className="text-body-sm text-on-surface-variant">
-                {t("settings.team.memberCount", { count: members.length })}
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowInviteForm((v) => !v)}
-                className="flex items-center gap-1.5 text-primary text-[12px] font-bold hover:underline"
-              >
-                <span className="material-symbols-outlined text-[16px]">person_add</span>
-                {t("settings.team.inviteButton")}
-              </button>
-            </div>
+            <span className="text-body-sm text-on-surface-variant">
+              {t("settings.team.memberCount", { count: members.length })}
+            </span>
           </div>
-
-          {showInviteForm ? (
-            <form onSubmit={handleInviteMember} className="glass-card p-lg rounded-xl flex flex-wrap gap-2 items-start">
-              <input
-                className="flex-1 min-w-[200px] bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
-                onChange={(e) => setInviteForm((f) => ({ ...f, email: e.target.value }))}
-                placeholder={t("settings.team.invitePlaceholder")}
-                type="email"
-                value={inviteForm.email}
-              />
-              <select
-                className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
-                onChange={(e) => setInviteForm((f) => ({ ...f, role: e.target.value }))}
-                value={inviteForm.role}
-              >
-                <option value="admin">{t("settings.team.roles.admin")}</option>
-                <option value="member">{t("settings.team.roles.member")}</option>
-                <option value="viewer">{t("settings.team.roles.viewer")}</option>
-              </select>
-              <button
-                type="submit"
-                disabled={isInviting || !inviteForm.email.trim()}
-                className="py-2 px-4 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
-              >
-                {isInviting ? t("common.loading") : t("settings.team.inviteSubmit")}
-              </button>
-            </form>
-          ) : null}
-
           <div className="glass-card rounded-xl overflow-hidden">
             {members.length === 0 ? (
               <p className="p-lg text-body-sm text-on-surface-variant">{t("settings.team.noMembers")}</p>
@@ -492,15 +393,7 @@ export function SettingsView() {
                           </span>
                         </div>
                       </td>
-                      <td className="px-lg py-md text-body-sm">
-                        {member.status === "invited" ? (
-                          <span className="px-2 py-0.5 rounded-full bg-secondary/10 text-secondary text-[11px] font-bold uppercase tracking-wide">
-                            {t("settings.team.statusInvited")}
-                          </span>
-                        ) : (
-                          member.status
-                        )}
-                      </td>
+                      <td className="px-lg py-md text-body-sm">{member.status}</td>
                       <td className="px-lg py-md">
                         <select
                           className="bg-transparent border-none focus:ring-0 text-body-md font-medium text-on-surface cursor-pointer"
@@ -528,83 +421,34 @@ export function SettingsView() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-lg mt-lg">
         <section className="glass-card p-lg rounded-xl">
-          <div className="flex items-center justify-between mb-md">
-            <h3 className="font-headline-md text-headline-md">{t("settings.account.title")}</h3>
-            {!isEditingProfile ? (
-              <button
-                type="button"
-                onClick={() => setEditingProfile(true)}
-                className="text-primary text-[12px] font-bold hover:underline"
-              >
-                {t("common.edit")}
-              </button>
-            ) : null}
+          <h3 className="font-headline-md text-headline-md mb-md">{t("settings.account.title")}</h3>
+          <div className="space-y-2">
+            <MetricLine label={t("common.email")} value={user?.email ?? "--"} />
+            <MetricLine label={t("settings.account.userStatus")} value={user?.status ?? "--"} />
+            <MetricLine label={t("settings.account.organizationName")} value={organization?.name ?? "--"} />
           </div>
-
-          {isEditingProfile ? (
-            <form onSubmit={handleSaveProfile} className="space-y-2">
-              <input
-                className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
-                onChange={(e) => setProfileForm((f) => ({ ...f, fullName: e.target.value }))}
-                placeholder={t("auth.fullName")}
-                value={profileForm.fullName}
-              />
-              <input
-                className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
-                onChange={(e) => setProfileForm((f) => ({ ...f, title: e.target.value }))}
-                placeholder={t("contacts.titleRolePlaceholder")}
-                value={profileForm.title}
-              />
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  disabled={isSavingProfile || !profileForm.fullName.trim()}
-                  className="flex-1 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
-                >
-                  {isSavingProfile ? t("common.loading") : t("common.save")}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditingProfile(false)}
-                  className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
-                >
-                  {t("common.cancel")}
-                </button>
-              </div>
-            </form>
-          ) : (
-            <div className="space-y-2">
-              <MetricLine label={t("auth.fullName")} value={user?.profile?.full_name ?? "--"} />
-              <MetricLine label={t("common.email")} value={user?.email ?? "--"} />
-              <MetricLine label={t("settings.account.userStatus")} value={user?.status ?? "--"} />
-              <MetricLine label={t("settings.account.organizationName")} value={organization?.name ?? "--"} />
-            </div>
-          )}
         </section>
 
         <section className="glass-card p-lg rounded-xl">
           <h3 className="font-headline-md text-headline-md mb-md">{t("settings.consent.title")}</h3>
           <div className="space-y-3">
             <ConsentToggle
-              checked={consent.ai_processing}
+              checked={consent.aiProcessing}
               description={t("settings.consent.aiProcessingDescription")}
-              disabled={isSavingConsent}
               label={t("settings.consent.aiProcessingLabel")}
-              onChange={(value) => updateConsent("ai_processing", value)}
+              onChange={(value) => updateConsent("aiProcessing", value)}
             />
             <ConsentToggle
-              checked={consent.contact_memory}
+              checked={consent.contactMemory}
               description={t("settings.consent.contactMemoryDescription")}
-              disabled={isSavingConsent}
               label={t("settings.consent.contactMemoryLabel")}
-              onChange={(value) => updateConsent("contact_memory", value)}
+              onChange={(value) => updateConsent("contactMemory", value)}
             />
             <ConsentToggle
-              checked={consent.operational_reminders}
+              checked={consent.operationalReminders}
               description={t("settings.consent.operationalRemindersDescription")}
-              disabled={isSavingConsent}
               label={t("settings.consent.operationalRemindersLabel")}
-              onChange={(value) => updateConsent("operational_reminders", value)}
+              onChange={(value) => updateConsent("operationalReminders", value)}
             />
           </div>
         </section>
@@ -727,13 +571,11 @@ function IntegrationCard({
 function ConsentToggle({
   checked,
   description,
-  disabled = false,
   label,
   onChange,
 }: {
   checked: boolean;
   description: string;
-  disabled?: boolean;
   label: string;
   onChange: (value: boolean) => void;
 }) {
@@ -741,10 +583,9 @@ function ConsentToggle({
     <label className="flex items-start gap-3 cursor-pointer">
       <input
         checked={checked}
-        disabled={disabled}
         onChange={(event) => onChange(event.target.checked)}
         type="checkbox"
-        className="mt-1 disabled:opacity-60"
+        className="mt-1"
       />
       <span>
         <strong className="block text-body-sm text-on-surface">{label}</strong>

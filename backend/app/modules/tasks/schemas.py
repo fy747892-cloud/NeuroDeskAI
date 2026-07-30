@@ -29,8 +29,6 @@ class TaskCreate(BaseModel):
     priority: str = Field(default="medium", min_length=1, max_length=50)
     due_at: datetime | None = None
     contact_id: UUID | None = None
-    repeat_count: int | None = Field(default=None, ge=2, le=52)
-    repeat_interval_days: int = Field(default=7, ge=1, le=365)
 
 
 class TaskUpdate(BaseModel):

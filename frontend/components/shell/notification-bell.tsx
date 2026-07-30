@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { listNotifications, markAllNotificationsRead, markNotificationRead, type Notification } from "@/lib/api";
+import { listNotifications, markNotificationRead, type Notification } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
 import { formatRelative } from "@/lib/format";
@@ -26,8 +26,6 @@ export function NotificationBell() {
 
   useEffect(() => {
     load();
-    const timer = window.setInterval(load, 20000);
-    return () => window.clearInterval(timer);
   }, [load]);
 
   useEffect(() => {
@@ -43,17 +41,6 @@ export function NotificationBell() {
   async function handleOpen() {
     setOpen((prev) => !prev);
     await load();
-  }
-
-  async function handleMarkAllRead() {
-    if (!tokens?.accessToken) return;
-    const now = new Date().toISOString();
-    setNotifications((prev) => prev.map((item) => (item.read_at ? item : { ...item, read_at: now })));
-    try {
-      await markAllNotificationsRead(tokens.accessToken);
-    } catch {
-      await load();
-    }
   }
 
   async function handleRead(id: string) {
@@ -84,24 +71,13 @@ export function NotificationBell() {
 
       {isOpen ? (
         <div className="absolute right-0 mt-2 w-[calc(100vw-2rem)] max-w-80 max-h-[70vh] overflow-y-auto custom-scrollbar bg-surface-container-lowest border border-outline-variant/30 rounded-xl shadow-xl z-50">
-          <div className="px-lg py-md border-b border-outline-variant/20 flex items-center justify-between gap-2">
+          <div className="px-lg py-md border-b border-outline-variant/20 flex items-center justify-between">
             <h4 className="font-label-md text-label-md">{t("shell.notifications.title")}</h4>
-            <div className="flex items-center gap-2 shrink-0">
-              {unreadCount > 0 ? (
-                <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                  {t("shell.notifications.newCount", { count: unreadCount })}
-                </span>
-              ) : null}
-              {unreadCount > 0 ? (
-                <button
-                  type="button"
-                  onClick={handleMarkAllRead}
-                  className="text-[11px] font-bold text-on-surface-variant hover:text-primary hover:underline"
-                >
-                  {t("shell.notifications.markAllRead")}
-                </button>
-              ) : null}
-            </div>
+            {unreadCount > 0 ? (
+              <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                {t("shell.notifications.newCount", { count: unreadCount })}
+              </span>
+            ) : null}
           </div>
           {notifications.length === 0 ? (
             <p className="px-lg py-lg text-body-sm text-on-surface-variant">{t("shell.notifications.empty")}</p>

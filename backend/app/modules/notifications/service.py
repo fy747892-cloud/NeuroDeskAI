@@ -85,13 +85,6 @@ class NotificationService:
     async def mark_read(self, *, notification: Notification) -> Notification:
         return await self._notifications.mark_read(notification=notification)
 
-    async def mark_all_read(
-        self, *, tenant_id: uuid.UUID, organization_id: uuid.UUID, user_id: uuid.UUID
-    ) -> int:
-        return await self._notifications.mark_all_read(
-            tenant_id=tenant_id, organization_id=organization_id, user_id=user_id
-        )
-
     async def process_due(
         self,
         *,

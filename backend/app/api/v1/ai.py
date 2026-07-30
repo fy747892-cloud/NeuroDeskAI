@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import require_permission
-from app.core.errors import NotFoundError, ValidationAppError
+from app.core.errors import NotFoundError
 from app.core.permissions import Permission
 from app.db.session import get_db
 from app.modules.ai.models import AIAnalysisJob
@@ -12,7 +12,6 @@ from app.modules.ai.repository import AIRepository
 from app.modules.ai.schemas import AIActionApprovalOut, AIActionApproveIn, AIAnalysisJobOut
 from app.modules.ai.service import AIAnalysisService
 from app.modules.audit.repository import AuditRepository
-from app.modules.users.consent import get_consent
 from app.modules.users.models import User
 
 router = APIRouter(prefix="/ai/analysis", tags=["ai-analysis"])
@@ -32,11 +31,6 @@ async def request_conversation_analysis(
 ) -> AIAnalysisJob:
     if current_user.organization_id is None:
         raise NotFoundError("Current organization not found.")
-    if not get_consent(current_user)["ai_processing"]:
-        raise ValidationAppError(
-            "AI processing is turned off in your settings. Turn it back on in "
-            "Settings to analyze conversations."
-        )
 
     service = AIAnalysisService(db)
     job = await service.request_conversation_analysis(

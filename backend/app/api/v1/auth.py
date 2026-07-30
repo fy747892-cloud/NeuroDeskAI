@@ -5,15 +5,7 @@ from app.api.v1.deps import get_current_user
 from app.core.rate_limit import RateLimiter
 from app.db.redis import get_redis
 from app.db.session import get_db
-from app.modules.auth.schemas import (
-    AcceptInviteRequest,
-    ForgotPasswordRequest,
-    LoginRequest,
-    RefreshRequest,
-    RegisterRequest,
-    ResetPasswordRequest,
-    TokenResponse,
-)
+from app.modules.auth.schemas import LoginRequest, RefreshRequest, RegisterRequest, TokenResponse
 from app.modules.auth.service import AuthService, DeviceContext
 from app.modules.users.models import User
 
@@ -85,42 +77,3 @@ async def logout_all(
 ) -> None:
     service = AuthService(db)
     await service.logout_all(user_id=current_user.id)
-
-
-@router.post("/forgot-password", status_code=204)
-async def forgot_password(
-    body: ForgotPasswordRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-    redis=Depends(get_redis),
-) -> None:
-    limiter = RateLimiter(redis)
-    client_ip = request.client.host if request.client else "unknown"
-    await limiter.check(key=f"forgot-password:{client_ip}:{body.email.lower()}", limit=3, window_seconds=300)
-
-    service = AuthService(db)
-    await service.request_password_reset(email=body.email)
-
-
-@router.post("/reset-password", status_code=204)
-async def reset_password(
-    body: ResetPasswordRequest,
-    db: AsyncSession = Depends(get_db),
-) -> None:
-    service = AuthService(db)
-    await service.reset_password(raw_token=body.token, new_password=body.new_password)
-
-
-@router.post("/accept-invite", response_model=TokenResponse)
-async def accept_invite(
-    body: AcceptInviteRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-) -> TokenResponse:
-    service = AuthService(db)
-    return await service.accept_invite(
-        raw_token=body.token,
-        password=body.password,
-        display_name=body.display_name,
-        device=_device_context(request),
-    )

@@ -10,7 +10,7 @@ from app.db.session import get_db
 from app.modules.audit.repository import AuditRepository
 from app.modules.notifications.models import Notification
 from app.modules.notifications.repository import NotificationRepository
-from app.modules.notifications.schemas import MarkAllReadOut, NotificationOut, ProcessDueOut
+from app.modules.notifications.schemas import NotificationOut, ProcessDueOut
 from app.modules.notifications.service import NotificationService
 from app.modules.users.models import User
 
@@ -53,22 +53,6 @@ async def mark_notification_read(
     notification = await NotificationService(db).mark_read(notification=notification)
     await db.commit()
     return notification
-
-
-@router.post("/read-all", response_model=MarkAllReadOut)
-async def mark_all_notifications_read(
-    current_user: User = Depends(require_permission(Permission.NOTIFICATIONS_READ)),
-    db: AsyncSession = Depends(get_db),
-) -> MarkAllReadOut:
-    if current_user.organization_id is None:
-        raise NotFoundError("Current organization not found.")
-    updated = await NotificationService(db).mark_all_read(
-        tenant_id=current_user.tenant_id,
-        organization_id=current_user.organization_id,
-        user_id=current_user.id,
-    )
-    await db.commit()
-    return MarkAllReadOut(updated=updated)
 
 
 @router.post("/process-due", response_model=ProcessDueOut)

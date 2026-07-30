@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.notifications.models import Notification
@@ -123,22 +123,6 @@ class NotificationRepository:
         notification.read_at = datetime.now(timezone.utc)
         await self._db.flush()
         return notification
-
-    async def mark_all_read(
-        self, *, tenant_id: uuid.UUID, organization_id: uuid.UUID, user_id: uuid.UUID
-    ) -> int:
-        result = await self._db.execute(
-            update(Notification)
-            .where(
-                Notification.tenant_id == tenant_id,
-                Notification.organization_id == organization_id,
-                Notification.user_id == user_id,
-                Notification.read_at.is_(None),
-            )
-            .values(status="read", read_at=datetime.now(timezone.utc))
-        )
-        await self._db.flush()
-        return result.rowcount or 0
 
     async def mark_sent(self, *, notification: Notification, sent_at: datetime) -> Notification:
         notification.status = "sent"

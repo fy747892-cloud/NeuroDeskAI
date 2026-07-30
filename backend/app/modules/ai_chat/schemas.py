@@ -42,7 +42,3 @@ class ChatSessionDetailOut(ChatSessionOut):
 class ChatMessageRequest(BaseModel):
     session_id: UUID | None = None
     message: str = Field(min_length=1, max_length=4_000)
-
-
-class ChatSessionUpdate(BaseModel):
-    title: str = Field(min_length=1, max_length=255)

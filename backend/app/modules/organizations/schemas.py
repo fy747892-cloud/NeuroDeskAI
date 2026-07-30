@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.core.permissions import Role
 
@@ -40,9 +40,4 @@ class OrganizationMemberOut(BaseModel):
 
 
 class OrganizationMemberRoleUpdate(BaseModel):
-    role: Role
-
-
-class OrganizationMemberInvite(BaseModel):
-    email: EmailStr
     role: Role
