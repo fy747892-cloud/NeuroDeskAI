@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   addContactNote,
@@ -10,9 +11,11 @@ import {
   ContactTimelineEvent,
   Deal,
   DEAL_STAGES,
+  deleteContact,
   getContact,
   getContactMemory,
   listDeals,
+  updateContact,
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
@@ -38,6 +41,7 @@ const EVENT_LABEL_KEY: Record<string, string> = {
 export function ContactDetailView({ contactId }: { contactId: string }) {
   const { tokens } = useSession();
   const { t, language } = useLanguage();
+  const router = useRouter();
   const [contact, setContact] = useState<ContactDetail | null>(null);
   const [memory, setMemory] = useState<ContactMemory | null>(null);
   const [deals, setDeals] = useState<Deal[]>([]);
@@ -47,6 +51,10 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
   const [isAddingNote, setAddingNote] = useState(false);
+  const [isEditingContact, setEditingContact] = useState(false);
+  const [editForm, setEditForm] = useState({ fullName: "", email: "", phone: "", company: "", title: "" });
+  const [isSavingContact, setSavingContact] = useState(false);
+  const [isDeletingContact, setDeletingContact] = useState(false);
 
   const load = useCallback(async () => {
     if (!tokens?.accessToken) return;
@@ -86,6 +94,55 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
       setError(noteError instanceof Error ? noteError.message : t("contactDetail.noteAddError"));
     } finally {
       setAddingNote(false);
+    }
+  }
+
+  function startEditingContact() {
+    if (!contact) return;
+    setEditForm({
+      fullName: contact.full_name,
+      email: contact.email ?? "",
+      phone: contact.phone ?? "",
+      company: contact.company ?? "",
+      title: contact.title ?? "",
+    });
+    setEditingContact(true);
+    setError(null);
+  }
+
+  async function handleSaveContact(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tokens?.accessToken || !editForm.fullName.trim()) return;
+    setSavingContact(true);
+    setError(null);
+    try {
+      const updated = await updateContact(tokens.accessToken, contactId, {
+        full_name: editForm.fullName.trim(),
+        email: editForm.email.trim() || null,
+        phone: editForm.phone.trim() || null,
+        company: editForm.company.trim() || null,
+        title: editForm.title.trim() || null,
+      });
+      setContact((current) => (current ? { ...current, ...updated } : current));
+      setEditingContact(false);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : t("contactDetail.updateError"));
+    } finally {
+      setSavingContact(false);
+    }
+  }
+
+  async function handleDeleteContact() {
+    if (!tokens?.accessToken || !contact) return;
+    if (!window.confirm(t("contactDetail.deleteConfirm", { name: contact.full_name }))) return;
+    setDeletingContact(true);
+    setError(null);
+    try {
+      await deleteContact(tokens.accessToken, contactId);
+      router.push("/kisiler");
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : t("contactDetail.deleteError"));
+      setDeletingContact(false);
     }
   }
 
@@ -162,46 +219,119 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
       <div className="grid grid-cols-12 gap-lg">
         <div className="col-span-12 lg:col-span-3 space-y-lg">
           <div className="bg-surface-container-lowest border border-outline-variant p-xl rounded-2xl bento-card flex flex-col items-center text-center">
-            <div className="w-20 h-20 rounded-2xl bg-primary-container/20 flex items-center justify-center text-primary font-bold text-2xl mb-md shrink-0">
-              {getInitials(contact.full_name)}
-            </div>
-            <h2 className="font-headline-md text-headline-md text-on-surface">{contact.full_name}</h2>
-            <p className="text-primary font-label-md mb-xl">
-              {[contact.title, contact.company].filter(Boolean).join(", ") || contact.status}
-            </p>
-            <div className="w-full space-y-4 text-left">
-              {contact.email ? (
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-outline">mail</span>
-                  <span className="text-body-md truncate">{contact.email}</span>
+            {isEditingContact ? (
+              <form onSubmit={handleSaveContact} className="w-full space-y-2 text-left">
+                <input
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                  onChange={(e) => setEditForm((f) => ({ ...f, fullName: e.target.value }))}
+                  placeholder={t("contacts.fullNamePlaceholder")}
+                  value={editForm.fullName}
+                />
+                <input
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                  onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                  placeholder={t("common.email")}
+                  type="email"
+                  value={editForm.email}
+                />
+                <input
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                  onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                  placeholder={t("common.phone")}
+                  value={editForm.phone}
+                />
+                <input
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                  onChange={(e) => setEditForm((f) => ({ ...f, company: e.target.value }))}
+                  placeholder={t("common.company")}
+                  value={editForm.company}
+                />
+                <input
+                  className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                  onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder={t("contacts.titleRolePlaceholder")}
+                  value={editForm.title}
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={isSavingContact || !editForm.fullName.trim()}
+                    className="flex-1 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
+                  >
+                    {isSavingContact ? t("common.loading") : t("common.save")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingContact(false)}
+                    className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
+                  >
+                    {t("common.cancel")}
+                  </button>
                 </div>
-              ) : null}
-              {contact.phone ? (
-                <div className="flex items-center gap-3">
-                  <span className="material-symbols-outlined text-outline">call</span>
-                  <span className="text-body-md">{contact.phone}</span>
+              </form>
+            ) : (
+              <>
+                <div className="w-20 h-20 rounded-2xl bg-primary-container/20 flex items-center justify-center text-primary font-bold text-2xl mb-md shrink-0">
+                  {getInitials(contact.full_name)}
                 </div>
-              ) : null}
-              <div className="flex items-center gap-3">
-                <span className="material-symbols-outlined text-outline">calendar_today</span>
-                <span className="text-body-md">
-                  {t("contactDetail.registeredPrefix")}
-                  {formatDate(contact.created_at, language)}
-                </span>
-              </div>
-            </div>
-            <div className="w-full flex gap-2 mt-xl">
-              {contact.email ? (
-                <a href={`mailto:${contact.email}`} className="flex-1 bg-primary text-on-primary py-2 rounded-lg font-label-sm active:scale-95 transition-transform">
-                  {t("common.email")}
-                </a>
-              ) : null}
-              {contact.phone ? (
-                <a href={`tel:${contact.phone}`} className="flex-1 border border-outline-variant text-on-surface-variant py-2 rounded-lg font-label-sm active:scale-95 transition-transform">
-                  {t("contactDetail.callAction")}
-                </a>
-              ) : null}
-            </div>
+                <h2 className="font-headline-md text-headline-md text-on-surface">{contact.full_name}</h2>
+                <p className="text-primary font-label-md mb-xl">
+                  {[contact.title, contact.company].filter(Boolean).join(", ") || contact.status}
+                </p>
+                <div className="w-full space-y-4 text-left">
+                  {contact.email ? (
+                    <div className="flex items-center gap-3">
+                      <span className="material-symbols-outlined text-outline">mail</span>
+                      <span className="text-body-md truncate">{contact.email}</span>
+                    </div>
+                  ) : null}
+                  {contact.phone ? (
+                    <div className="flex items-center gap-3">
+                      <span className="material-symbols-outlined text-outline">call</span>
+                      <span className="text-body-md">{contact.phone}</span>
+                    </div>
+                  ) : null}
+                  <div className="flex items-center gap-3">
+                    <span className="material-symbols-outlined text-outline">calendar_today</span>
+                    <span className="text-body-md">
+                      {t("contactDetail.registeredPrefix")}
+                      {formatDate(contact.created_at, language)}
+                    </span>
+                  </div>
+                </div>
+                <div className="w-full flex gap-2 mt-xl">
+                  {contact.email ? (
+                    <a href={`mailto:${contact.email}`} className="flex-1 bg-primary text-on-primary py-2 rounded-lg font-label-sm active:scale-95 transition-transform">
+                      {t("common.email")}
+                    </a>
+                  ) : null}
+                  {contact.phone ? (
+                    <a href={`tel:${contact.phone}`} className="flex-1 border border-outline-variant text-on-surface-variant py-2 rounded-lg font-label-sm active:scale-95 transition-transform">
+                      {t("contactDetail.callAction")}
+                    </a>
+                  ) : null}
+                </div>
+                <div className="w-full flex gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={startEditingContact}
+                    className="flex-1 border border-outline-variant text-on-surface-variant py-2 rounded-lg font-label-sm flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">edit</span>
+                    {t("common.edit")}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isDeletingContact}
+                    onClick={handleDeleteContact}
+                    className="flex-1 border border-error/30 text-error py-2 rounded-lg font-label-sm flex items-center justify-center gap-1.5 active:scale-95 transition-transform disabled:opacity-60"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                    {isDeletingContact ? t("common.loading") : t("common.delete")}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           <div className="bg-surface-container-lowest border border-outline-variant p-lg rounded-2xl">

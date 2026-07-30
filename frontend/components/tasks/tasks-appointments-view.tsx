@@ -9,10 +9,14 @@ import {
   connectGoogleCalendar,
   createAppointment,
   createTask,
+  deleteAppointment,
+  deleteTask,
   getPriorityQueue,
   listAppointments,
   listCalendarAccounts,
   PriorityQueue,
+  updateAppointment,
+  updateTask,
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { Language, useLanguage } from "@/lib/i18n/context";
@@ -38,7 +42,17 @@ export function TasksAppointmentsView() {
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [isCreatingTask, setCreatingTask] = useState(false);
-  const [newTask, setNewTask] = useState({ title: "", description: "", priority: "medium", dueAt: "" });
+  const [newTask, setNewTask] = useState({
+    title: "",
+    description: "",
+    priority: "medium",
+    dueAt: "",
+    repeat: "none",
+    repeatCount: "4",
+  });
+  const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
+  const [taskEditForm, setTaskEditForm] = useState({ title: "", priority: "medium", dueAt: "" });
+  const [isSavingTaskEdit, setSavingTaskEdit] = useState(false);
 
   // Calendar state
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -55,7 +69,12 @@ export function TasksAppointmentsView() {
     endAt: "",
     location: "",
     description: "",
+    repeat: "none",
+    repeatCount: "4",
   });
+  const [editingApptId, setEditingApptId] = useState<string | null>(null);
+  const [apptEditForm, setApptEditForm] = useState({ title: "", startAt: "", endAt: "", location: "" });
+  const [isSavingApptEdit, setSavingApptEdit] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -159,13 +178,16 @@ export function TasksAppointmentsView() {
     setCreatingTask(true);
     setError(null);
     try {
+      const repeat = repeatToPayload(newTask.repeat, newTask.repeatCount);
       await createTask(tokens.accessToken, {
         title: newTask.title.trim(),
         description: newTask.description.trim() || null,
         priority: newTask.priority,
         due_at: newTask.dueAt ? new Date(newTask.dueAt).toISOString() : null,
+        repeat_count: repeat.repeat_count,
+        repeat_interval_days: repeat.repeat_interval_days,
       });
-      setNewTask({ title: "", description: "", priority: "medium", dueAt: "" });
+      setNewTask({ title: "", description: "", priority: "medium", dueAt: "", repeat: "none", repeatCount: "4" });
       setShowTaskForm(false);
       setNotice(t("tasks.taskCreated"));
       await loadQueue();
@@ -176,8 +198,53 @@ export function TasksAppointmentsView() {
     }
   }
 
+  function startEditingTask(item: PriorityQueue["items"][number]) {
+    setEditingTaskId(item.item_id);
+    setTaskEditForm({
+      title: item.title,
+      priority: item.priority,
+      dueAt: item.due_at ? toDateTimeLocal(item.due_at) : "",
+    });
+    setError(null);
+  }
+
+  async function handleSaveTaskEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tokens?.accessToken || !editingTaskId || !taskEditForm.title.trim()) return;
+    setSavingTaskEdit(true);
+    setError(null);
+    try {
+      await updateTask(tokens.accessToken, editingTaskId, {
+        title: taskEditForm.title.trim(),
+        priority: taskEditForm.priority,
+        due_at: taskEditForm.dueAt ? new Date(taskEditForm.dueAt).toISOString() : null,
+      });
+      setEditingTaskId(null);
+      setNotice(t("tasks.taskUpdated"));
+      await loadQueue();
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : t("tasks.taskUpdateError"));
+    } finally {
+      setSavingTaskEdit(false);
+    }
+  }
+
+  async function handleDeleteTask(itemId: string) {
+    if (!tokens?.accessToken || !window.confirm(t("tasks.taskDeleteConfirm"))) return;
+    setBusyItemId(itemId);
+    setError(null);
+    try {
+      await deleteTask(tokens.accessToken, itemId);
+      await loadQueue();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : t("tasks.taskDeleteError"));
+    } finally {
+      setBusyItemId(null);
+    }
+  }
+
   async function handleCancelAppointment(appointmentId: string) {
-    if (!tokens?.accessToken) return;
+    if (!tokens?.accessToken || !window.confirm(t("tasks.appointmentCancelConfirm"))) return;
     setActiveApptId(appointmentId);
     try {
       const updated = await cancelAppointment(tokens.accessToken, appointmentId);
@@ -186,6 +253,53 @@ export function TasksAppointmentsView() {
       setError(cancelError instanceof Error ? cancelError.message : t("tasks.appointmentCancelError"));
     } finally {
       setActiveApptId(null);
+    }
+  }
+
+  async function handleDeleteAppointment(appointmentId: string) {
+    if (!tokens?.accessToken || !window.confirm(t("tasks.appointmentDeleteConfirm"))) return;
+    setActiveApptId(appointmentId);
+    setError(null);
+    try {
+      await deleteAppointment(tokens.accessToken, appointmentId);
+      setAppointments((current) => current.filter((item) => item.id !== appointmentId));
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : t("tasks.appointmentDeleteError"));
+    } finally {
+      setActiveApptId(null);
+    }
+  }
+
+  function startEditingAppointment(appointment: Appointment) {
+    setEditingApptId(appointment.id);
+    setApptEditForm({
+      title: appointment.title,
+      startAt: toDateTimeLocal(appointment.start_at),
+      endAt: toDateTimeLocal(appointment.end_at),
+      location: appointment.location ?? "",
+    });
+    setError(null);
+  }
+
+  async function handleSaveAppointmentEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tokens?.accessToken || !editingApptId || !apptEditForm.title.trim()) return;
+    setSavingApptEdit(true);
+    setError(null);
+    try {
+      const updated = await updateAppointment(tokens.accessToken, editingApptId, {
+        title: apptEditForm.title.trim(),
+        start_at: apptEditForm.startAt ? new Date(apptEditForm.startAt).toISOString() : undefined,
+        end_at: apptEditForm.endAt ? new Date(apptEditForm.endAt).toISOString() : undefined,
+        location: apptEditForm.location.trim() || null,
+      });
+      setAppointments((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setEditingApptId(null);
+      setNotice(t("tasks.appointmentUpdated"));
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : t("tasks.appointmentUpdateError"));
+    } finally {
+      setSavingApptEdit(false);
     }
   }
 
@@ -210,15 +324,18 @@ export function TasksAppointmentsView() {
     setCreatingAppt(true);
     setError(null);
     try {
+      const repeat = repeatToPayload(newAppointment.repeat, newAppointment.repeatCount);
       const appointment = await createAppointment(tokens.accessToken, {
         title: newAppointment.title.trim(),
         description: newAppointment.description.trim() || null,
         location: newAppointment.location.trim() || null,
         start_at: new Date(newAppointment.startAt).toISOString(),
         end_at: new Date(newAppointment.endAt).toISOString(),
+        repeat_count: repeat.repeat_count,
+        repeat_interval_days: repeat.repeat_interval_days,
       });
       setAppointments((current) => [appointment, ...current]);
-      setNewAppointment({ title: "", startAt: "", endAt: "", location: "", description: "" });
+      setNewAppointment({ title: "", startAt: "", endAt: "", location: "", description: "", repeat: "none", repeatCount: "4" });
       setShowApptForm(false);
       setNotice(t("tasks.appointmentCreated"));
     } catch (createError) {
@@ -305,16 +422,43 @@ export function TasksAppointmentsView() {
                 />
               </div>
               <div className="flex gap-2">
+                <select
+                  className="flex-1 bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                  onChange={(e) => setNewTask((current) => ({ ...current, repeat: e.target.value }))}
+                  value={newTask.repeat}
+                >
+                  <option value="none">{t("tasks.repeatNone")}</option>
+                  <option value="daily">{t("tasks.repeatDaily")}</option>
+                  <option value="weekly">{t("tasks.repeatWeekly")}</option>
+                  <option value="monthly">{t("tasks.repeatMonthly")}</option>
+                </select>
+                {newTask.repeat !== "none" ? (
+                  <input
+                    className="w-24 bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                    min={2}
+                    max={52}
+                    onChange={(e) => setNewTask((current) => ({ ...current, repeatCount: e.target.value }))}
+                    type="number"
+                    value={newTask.repeatCount}
+                    aria-label={t("tasks.repeatCountAria")}
+                  />
+                ) : null}
+              </div>
+              <div className="flex gap-2">
                 <button
                   type="submit"
-                  disabled={isCreatingTask || !newTask.title.trim()}
+                  disabled={
+                    isCreatingTask || !newTask.title.trim() || (newTask.repeat !== "none" && !newTask.dueAt)
+                  }
                   className="flex-1 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
                 >
                   {isCreatingTask ? t("tasks.creating") : t("tasks.create")}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setNewTask({ title: "", description: "", priority: "medium", dueAt: "" })}
+                  onClick={() =>
+                    setNewTask({ title: "", description: "", priority: "medium", dueAt: "", repeat: "none", repeatCount: "4" })
+                  }
                   className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
                 >
                   {t("common.clear")}
@@ -331,6 +475,56 @@ export function TasksAppointmentsView() {
             {queue?.items.map((item) => {
               const borderClass = item.score >= 80 ? "border-l-error" : item.priority === "high" ? "border-l-secondary" : "border-l-primary/30";
               const badgeClass = item.score >= 80 ? "bg-error-container text-on-error-container" : "bg-surface-container-highest text-on-surface-variant";
+
+              if (item.item_type === "task" && editingTaskId === item.item_id) {
+                return (
+                  <form
+                    key={`${item.item_type}-${item.item_id}`}
+                    onSubmit={handleSaveTaskEdit}
+                    className={`glass-card p-lg rounded-xl space-y-2 border-l-4 ${borderClass}`}
+                  >
+                    <input
+                      className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                      onChange={(e) => setTaskEditForm((f) => ({ ...f, title: e.target.value }))}
+                      value={taskEditForm.title}
+                    />
+                    <div className="flex gap-2">
+                      <select
+                        className="flex-1 bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                        onChange={(e) => setTaskEditForm((f) => ({ ...f, priority: e.target.value }))}
+                        value={taskEditForm.priority}
+                      >
+                        <option value="low">{t("tasks.priorityLow")}</option>
+                        <option value="medium">{t("tasks.priorityMedium")}</option>
+                        <option value="high">{t("tasks.priorityHigh")}</option>
+                      </select>
+                      <input
+                        className="flex-1 bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                        onChange={(e) => setTaskEditForm((f) => ({ ...f, dueAt: e.target.value }))}
+                        type="datetime-local"
+                        value={taskEditForm.dueAt}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={isSavingTaskEdit || !taskEditForm.title.trim()}
+                        className="flex-1 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
+                      >
+                        {isSavingTaskEdit ? t("common.loading") : t("common.save")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingTaskId(null)}
+                        className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
+                      >
+                        {t("common.cancel")}
+                      </button>
+                    </div>
+                  </form>
+                );
+              }
+
               return (
                 <div
                   key={`${item.item_type}-${item.item_id}`}
@@ -365,6 +559,27 @@ export function TasksAppointmentsView() {
                       </p>
                     ) : null}
                   </div>
+                  {item.item_type === "task" ? (
+                    <div className="hidden group-hover:flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => startEditingTask(item)}
+                        aria-label={t("common.edit")}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busyItemId === item.item_id}
+                        onClick={() => handleDeleteTask(item.item_id)}
+                        aria-label={t("common.delete")}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-error hover:bg-error-container/20 disabled:opacity-60"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                      </button>
+                    </div>
+                  ) : null}
                 </div>
               );
             })}
@@ -433,6 +648,29 @@ export function TasksAppointmentsView() {
                 value={newAppointment.location}
               />
               <div className="flex gap-2">
+                <select
+                  className="flex-1 bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                  onChange={(e) => setNewAppointment((a) => ({ ...a, repeat: e.target.value }))}
+                  value={newAppointment.repeat}
+                >
+                  <option value="none">{t("tasks.repeatNone")}</option>
+                  <option value="daily">{t("tasks.repeatDaily")}</option>
+                  <option value="weekly">{t("tasks.repeatWeekly")}</option>
+                  <option value="monthly">{t("tasks.repeatMonthly")}</option>
+                </select>
+                {newAppointment.repeat !== "none" ? (
+                  <input
+                    className="w-24 bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                    min={2}
+                    max={52}
+                    onChange={(e) => setNewAppointment((a) => ({ ...a, repeatCount: e.target.value }))}
+                    type="number"
+                    value={newAppointment.repeatCount}
+                    aria-label={t("tasks.repeatCountAria")}
+                  />
+                ) : null}
+              </div>
+              <div className="flex gap-2">
                 <button
                   type="submit"
                   disabled={isCreatingAppt || !newAppointment.title.trim() || !newAppointment.startAt || !newAppointment.endAt}
@@ -442,7 +680,17 @@ export function TasksAppointmentsView() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setNewAppointment({ title: "", startAt: "", endAt: "", location: "", description: "" })}
+                  onClick={() =>
+                    setNewAppointment({
+                      title: "",
+                      startAt: "",
+                      endAt: "",
+                      location: "",
+                      description: "",
+                      repeat: "none",
+                      repeatCount: "4",
+                    })
+                  }
                   className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
                 >
                   {t("common.clear")}
@@ -530,28 +778,98 @@ export function TasksAppointmentsView() {
               {!isCalendarLoading && selectedDayAppointments.length === 0 ? (
                 <p className="text-body-sm text-on-surface-variant">{t("tasks.noAppointmentsToday")}</p>
               ) : null}
-              {selectedDayAppointments.map((appointment) => (
-                <div
-                  key={appointment.id}
-                  className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 p-md flex items-center justify-between gap-md"
-                >
-                  <div className="min-w-0">
-                    <p className="font-label-md text-on-surface truncate">{appointment.title}</p>
-                    <p className="text-body-sm text-on-surface-variant truncate">
-                      {formatDateTime(appointment.start_at, language)} - {formatTime(appointment.end_at, language)} ·{" "}
-                      {appointment.location ?? t("tasks.online")}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    disabled={appointment.status === "cancelled" || activeApptId === appointment.id}
-                    onClick={() => handleCancelAppointment(appointment.id)}
-                    className="text-error text-[12px] font-bold hover:underline disabled:opacity-60 shrink-0"
+              {selectedDayAppointments.map((appointment) =>
+                editingApptId === appointment.id ? (
+                  <form
+                    key={appointment.id}
+                    onSubmit={handleSaveAppointmentEdit}
+                    className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 p-md space-y-2"
                   >
-                    {appointment.status === "cancelled" ? t("tasks.cancelled") : t("tasks.cancel")}
-                  </button>
-                </div>
-              ))}
+                    <input
+                      className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                      onChange={(e) => setApptEditForm((f) => ({ ...f, title: e.target.value }))}
+                      value={apptEditForm.title}
+                    />
+                    <div className="flex gap-2">
+                      <input
+                        className="flex-1 bg-surface-container-low border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                        onChange={(e) => setApptEditForm((f) => ({ ...f, startAt: e.target.value }))}
+                        type="datetime-local"
+                        value={apptEditForm.startAt}
+                      />
+                      <input
+                        className="flex-1 bg-surface-container-low border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                        onChange={(e) => setApptEditForm((f) => ({ ...f, endAt: e.target.value }))}
+                        type="datetime-local"
+                        value={apptEditForm.endAt}
+                      />
+                    </div>
+                    <input
+                      className="w-full bg-surface-container-low border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                      onChange={(e) => setApptEditForm((f) => ({ ...f, location: e.target.value }))}
+                      placeholder={t("tasks.locationPlaceholder")}
+                      value={apptEditForm.location}
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={isSavingApptEdit || !apptEditForm.title.trim()}
+                        className="flex-1 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
+                      >
+                        {isSavingApptEdit ? t("common.loading") : t("common.save")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingApptId(null)}
+                        className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
+                      >
+                        {t("common.cancel")}
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <div
+                    key={appointment.id}
+                    className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 p-md flex items-center justify-between gap-md"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-label-md text-on-surface truncate">{appointment.title}</p>
+                      <p className="text-body-sm text-on-surface-variant truncate">
+                        {formatDateTime(appointment.start_at, language)} - {formatTime(appointment.end_at, language)} ·{" "}
+                        {appointment.location ?? t("tasks.online")}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        disabled={appointment.status === "cancelled" || activeApptId === appointment.id}
+                        onClick={() => startEditingAppointment(appointment)}
+                        aria-label={t("common.edit")}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high disabled:opacity-40"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">edit</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={appointment.status === "cancelled" || activeApptId === appointment.id}
+                        onClick={() => handleCancelAppointment(appointment.id)}
+                        className="text-error text-[12px] font-bold hover:underline disabled:opacity-60 px-1"
+                      >
+                        {appointment.status === "cancelled" ? t("tasks.cancelled") : t("tasks.cancel")}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={activeApptId === appointment.id}
+                        onClick={() => handleDeleteAppointment(appointment.id)}
+                        aria-label={t("common.delete")}
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-error hover:bg-error-container/20 disabled:opacity-60"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">delete</span>
+                      </button>
+                    </div>
+                  </div>
+                ),
+              )}
             </div>
           </div>
 
@@ -574,6 +892,29 @@ export function TasksAppointmentsView() {
       </div>
     </div>
   );
+}
+
+function toDateTimeLocal(iso: string): string {
+  const date = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function repeatToPayload(
+  repeat: string,
+  countStr: string,
+): { repeat_count: number | null; repeat_interval_days: number } {
+  const count = Math.max(2, Math.min(52, Number(countStr) || 2));
+  switch (repeat) {
+    case "daily":
+      return { repeat_count: count, repeat_interval_days: 1 };
+    case "weekly":
+      return { repeat_count: count, repeat_interval_days: 7 };
+    case "monthly":
+      return { repeat_count: count, repeat_interval_days: 30 };
+    default:
+      return { repeat_count: null, repeat_interval_days: 7 };
+  }
 }
 
 function startOfMonth(date: Date): Date {

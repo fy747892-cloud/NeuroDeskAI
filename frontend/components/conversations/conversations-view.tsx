@@ -54,7 +54,7 @@ export function ConversationsView() {
   const [newCall, setNewCall] = useState({ participants: "", phone: "", title: "", transcript: "" });
   const [recordingMeta, setRecordingMeta] = useState({ participants: "", title: "" });
   const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
-  const [recordingState, setRecordingState] = useState<"idle" | "recording" | "uploading" | "analyzing">("idle");
+  const [recordingState, setRecordingState] = useState<"idle" | "recording" | "uploading">("idle");
   const [recordingStartedAt, setRecordingStartedAt] = useState<number | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -211,10 +211,7 @@ export function ConversationsView() {
         participant_names: [],
         duration_seconds: durationSeconds,
       });
-      setRecordingState("analyzing");
-      const job = await requestConversationAnalysis(tokens.accessToken, result.conversation.id);
       setConversations((current) => [result.conversation, ...current.filter((item) => item.id !== result.conversation.id)]);
-      setAnalysisJobs((current) => [job, ...current.filter((item) => item.id !== job.id)]);
       setSelectedId(result.conversation.id);
       setDetail(await getConversation(tokens.accessToken, result.conversation.id));
       setRecordingMeta({ participants: "", title: result.conversation.title });
@@ -273,6 +270,9 @@ export function ConversationsView() {
         ),
       ]);
 
+      const job = await requestConversationAnalysis(tokens.accessToken, pendingRecordedConversationId);
+      setAnalysisJobs((current) => [job, ...current.filter((item) => item.id !== job.id)]);
+
       const updated = await getConversation(tokens.accessToken, pendingRecordedConversationId);
       setDetail(updated);
       setConversations((current) =>
@@ -283,7 +283,7 @@ export function ConversationsView() {
       setPendingRecordedConversationId(null);
       setRecordingMeta({ participants: "", title: "" });
       setSelectedContactIds([]);
-      setNotice(t("conversations.audio.metadataSaved"));
+      setNotice(t("conversations.audio.metadataSavedAnalyzing"));
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : t("conversations.audio.metadataSaveFailed"));
     } finally {
@@ -306,7 +306,7 @@ export function ConversationsView() {
   }
 
   async function handleDeleteCall(callId: string) {
-    if (!tokens?.accessToken) return;
+    if (!tokens?.accessToken || !window.confirm(t("conversations.deleteCallConfirm"))) return;
     setActiveCallId(callId);
     setError(null);
     try {
@@ -771,7 +771,7 @@ function CallBlock({ call, isBusy, onDelete }: { call: Call; isBusy: boolean; on
           {turns.map((turn, index) => (
             <div className="flex gap-6" key={index}>
               <div className="flex-shrink-0 w-12 pt-1 text-right font-label-sm text-label-sm text-outline-variant font-mono">
-                {String(index).padStart(2, "0")}:00
+                #{index + 1}
               </div>
               <div className="flex-1">
                 {turn.speaker ? (

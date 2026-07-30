@@ -1111,8 +1111,8 @@ export async function updateContact(
   accessToken: string,
   contactId: string,
   payload: ContactUpdatePayload,
-): Promise<ContactDetail> {
-  return request<ContactDetail>(`/api/v1/contacts/${contactId}`, {
+): Promise<Contact> {
+  return request<Contact>(`/api/v1/contacts/${contactId}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
     headers: {
