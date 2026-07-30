@@ -45,7 +45,7 @@ class PyannoteDiarizationProvider:
             from pyannote.audio import Pipeline
 
             PyannoteDiarizationProvider._pipeline = Pipeline.from_pretrained(
-                settings.diarization_model, use_auth_token=settings.hf_token
+                settings.diarization_model, token=settings.hf_token
             )
         return PyannoteDiarizationProvider._pipeline
 
@@ -54,10 +54,13 @@ class PyannoteDiarizationProvider:
 
         pipeline = self._get_pipeline()
         waveform, sample_rate = torchaudio.load(io.BytesIO(audio_bytes))
-        diarization = pipeline({"waveform": waveform, "sample_rate": sample_rate})
+        output = pipeline({"waveform": waveform, "sample_rate": sample_rate})
+        # pyannote.audio >=4 wraps the classic Annotation in a DiarizeOutput;
+        # speaker_diarization is the pyannote.core.Annotation with itertracks().
+        annotation = getattr(output, "speaker_diarization", output)
         return [
             SpeakerTurn(start=turn.start, end=turn.end, speaker=speaker)
-            for turn, _track, speaker in diarization.itertracks(yield_label=True)
+            for turn, _track, speaker in annotation.itertracks(yield_label=True)
         ]
 
 

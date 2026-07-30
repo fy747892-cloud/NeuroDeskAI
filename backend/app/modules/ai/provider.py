@@ -183,22 +183,41 @@ class OpenAICompatibleAIProvider:
             "response_format": "verbose_json",
             "temperature": "0",
         }
-        if include_guidance:
+        if include_guidance and language == "tr":
+            # Whisper's `prompt` conditions the decoder's initial tokens, so an
+            # English prompt can bias short/ambiguous audio toward an English
+            # transcript even with language="tr" set -- write the prompt itself
+            # in Turkish to avoid fighting the language hint.
             data["prompt"] = (
-                "This is a Turkish phone call recording. Transcribe only "
-                "speech that is actually audible. Write clear Turkish with "
-                "normal punctuation and sentence breaks. If speakers are "
-                "clearly distinguishable, use short labels such as Müşteri: "
-                "and Temsilci:. Do not invent subtitles, credits, signatures, "
+                "Bu Türkçe bir telefon görüşmesi kaydı. Sadece gerçekten "
+                "duyulabilen konuşmayı yaz. Türkçe olarak, normal noktalama "
+                "ve cümle sonlarıyla net bir şekilde yaz. Konuşmacılar "
+                "birbirinden ayırt edilebiliyorsa Müşteri: ve Temsilci: gibi "
+                "kısa etiketler kullan. Altyazı, jenerik, imza, müzik veya "
+                "duyulmayan bölümler uydurma."
+            )
+            data["prompt"] += (
+                " Bu kayıt hoparlörden alınmış olabilir: karşı "
+                "taraf daha sessiz, yankılı veya mikrofona uzak olabilir. "
+                "Her iki tarafı da dikkatle dinle, duyulan sessiz karşı "
+                "tarafı atlama. Ayrılabiliyorsa Temsilci: ve Musteri: "
+                "etiketlerini tercih et."
+            )
+        elif include_guidance:
+            data["prompt"] = (
+                "This is a phone call recording. Transcribe only speech "
+                "that is actually audible. Write clear text with normal "
+                "punctuation and sentence breaks. If speakers are clearly "
+                "distinguishable, use short labels such as Customer: and "
+                "Agent:. Do not invent subtitles, credits, signatures, "
                 "music, or inaudible sections."
             )
-        if include_guidance:
             data["prompt"] += (
                 " This is a speakerphone capture: the remote speaker may be "
                 "quieter, echoey, or farther from the microphone. Carefully "
                 "listen for both sides and do not omit the quieter remote "
-                "speaker when audible. Prefer speaker labels Temsilci: and "
-                "Musteri: when turns can be separated."
+                "speaker when audible. Prefer speaker labels Agent: and "
+                "Customer: when turns can be separated."
             )
         if language:
             data["language"] = language
