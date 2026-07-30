@@ -1,3 +1,4 @@
+import re
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -443,6 +444,13 @@ def _prepare_approval_payload(item: dict, *, action_type: str) -> dict | None:
 def _normalize_future_appointment_datetime(payload: dict) -> None:
     start_at = _parse_datetime_or_none(payload.get("proposed_datetime") or payload.get("start_at"))
     if start_at is None:
+        start_at = _infer_turkish_datetime_hint(
+            " ".join(
+                str(payload.get(key) or "")
+                for key in ("time_hint", "source_excerpt", "title", "description")
+            )
+        )
+    if start_at is None:
         return
     if start_at.tzinfo is None:
         start_at = start_at.replace(tzinfo=timezone.utc)
@@ -462,6 +470,48 @@ def _normalize_future_appointment_datetime(payload: dict) -> None:
 
     payload["proposed_datetime"] = start_at.isoformat()
     payload["end_datetime"] = end_at.isoformat()
+
+
+def _infer_turkish_datetime_hint(text: str) -> datetime | None:
+    normalized = text.casefold()
+    if not normalized.strip():
+        return None
+
+    weekdays = {
+        "pazartesi": 0,
+        "salı": 1,
+        "sali": 1,
+        "çarşamba": 2,
+        "carsamba": 2,
+        "perşembe": 3,
+        "persembe": 3,
+        "cuma": 4,
+        "cumartesi": 5,
+        "pazar": 6,
+    }
+    matched_weekday = next((day for name, day in weekdays.items() if name in normalized), None)
+    if matched_weekday is None:
+        return None
+
+    hour = 9
+    minute = 0
+    time_match = re.search(r"(?:saat\s*)?(\d{1,2})(?:[:.](\d{2}))?", normalized)
+    if time_match:
+        hour = int(time_match.group(1))
+        minute = int(time_match.group(2) or 0)
+        if 0 <= hour <= 7:
+            hour += 12
+        if hour > 23 or minute > 59:
+            return None
+
+    now = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=3)))
+    days_ahead = (matched_weekday - now.weekday()) % 7
+    candidate = (now + timedelta(days=days_ahead)).replace(
+        hour=hour, minute=minute, second=0, microsecond=0
+    )
+    if candidate <= now:
+        candidate += timedelta(days=7)
+    return candidate
 
 
 def _parse_datetime_or_none(value) -> datetime | None:

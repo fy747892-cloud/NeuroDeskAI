@@ -2,15 +2,20 @@
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
+  addConversationParticipant,
   AIAnalysisJob,
   Call,
+  Contact,
+  ContactMemory,
   ConversationDetail,
   createCallFromAudio,
   createCallFromText,
   Conversation,
   deleteCall,
+  getContactMemory,
   getConversation,
   listAnalysisJobs,
+  listContacts,
   listConversations,
   requestConversationAnalysis,
   updateConversation,
@@ -30,6 +35,8 @@ export function ConversationsView() {
   const { t, language } = useLanguage();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [analysisJobs, setAnalysisJobs] = useState<AIAnalysisJob[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [contactMemories, setContactMemories] = useState<Record<string, ContactMemory>>({});
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -39,13 +46,14 @@ export function ConversationsView() {
   const [isCreating, setCreating] = useState(false);
   const [isAnalyzing, setAnalyzing] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
-  const [showAudioForm, setShowAudioForm] = useState(false);
+  const [pendingRecordedConversationId, setPendingRecordedConversationId] = useState<string | null>(null);
   const [activeCallId, setActiveCallId] = useState<string | null>(null);
   const [isRenaming, setRenaming] = useState(false);
   const [isEditingTitle, setEditingTitle] = useState(false);
   const [editingTitle, setEditingTitleValue] = useState("");
   const [newCall, setNewCall] = useState({ participants: "", phone: "", title: "", transcript: "" });
-  const [audioCall, setAudioCall] = useState({ participants: "", phone: "", title: "" });
+  const [recordingMeta, setRecordingMeta] = useState({ participants: "", title: "" });
+  const [selectedContactIds, setSelectedContactIds] = useState<string[]>([]);
   const [recordingState, setRecordingState] = useState<"idle" | "recording" | "uploading" | "analyzing">("idle");
   const [recordingStartedAt, setRecordingStartedAt] = useState<number | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -74,6 +82,18 @@ export function ConversationsView() {
   useEffect(() => {
     loadConversations();
   }, [loadConversations]);
+
+  useEffect(() => {
+    async function loadContacts() {
+      if (!tokens?.accessToken) return;
+      try {
+        setContacts(await listContacts(tokens.accessToken));
+      } catch {
+        setContacts([]);
+      }
+    }
+    loadContacts();
+  }, [tokens?.accessToken]);
 
   useEffect(() => {
     return () => {
@@ -185,10 +205,10 @@ export function ConversationsView() {
     setNotice(null);
     try {
       const result = await createCallFromAudio(tokens.accessToken, {
-        title: audioCall.title.trim() || "Webden kaydedilen görüşme",
+        title: "Webden kaydedilen görüşme",
         audio: audioBlob,
-        phone_number: audioCall.phone.trim() || null,
-        participant_names: audioCall.participants.split(",").map((p) => p.trim()).filter(Boolean),
+        phone_number: null,
+        participant_names: [],
         duration_seconds: durationSeconds,
       });
       setRecordingState("analyzing");
@@ -197,8 +217,10 @@ export function ConversationsView() {
       setAnalysisJobs((current) => [job, ...current.filter((item) => item.id !== job.id)]);
       setSelectedId(result.conversation.id);
       setDetail(await getConversation(tokens.accessToken, result.conversation.id));
-      setAudioCall({ participants: "", phone: "", title: "" });
-      setShowAudioForm(false);
+      setRecordingMeta({ participants: "", title: result.conversation.title });
+      setSelectedContactIds([]);
+      setContactMemories({});
+      setPendingRecordedConversationId(result.conversation.id);
       setNotice(t("conversations.audio.success"));
     } catch (recordingError) {
       setError(recordingError instanceof Error ? recordingError.message : t("conversations.audio.processFailed"));
@@ -215,6 +237,72 @@ export function ConversationsView() {
     setRecordingState("idle");
     setRecordingStartedAt(null);
     setNotice(t("conversations.audio.cancelled"));
+  }
+
+  async function handleSaveRecordingMeta(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tokens?.accessToken || !pendingRecordedConversationId) return;
+
+    setCreating(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const title = recordingMeta.title.trim();
+      if (title) {
+        await updateConversation(tokens.accessToken, pendingRecordedConversationId, { title });
+      }
+
+      const manualNames = recordingMeta.participants.split(",").map((p) => p.trim()).filter(Boolean);
+      const selectedContacts = contacts.filter((contact) => selectedContactIds.includes(contact.id));
+      const selectedNames = new Set(selectedContacts.map((contact) => normalizeName(contact.full_name)));
+      await Promise.all([
+        ...manualNames
+          .filter((name) => !selectedNames.has(normalizeName(name)))
+          .map((name) =>
+            addConversationParticipant(tokens.accessToken, pendingRecordedConversationId, {
+              display_name: name,
+              participant_type: "manual",
+            }),
+          ),
+        ...selectedContacts.map((contact) =>
+          addConversationParticipant(tokens.accessToken, pendingRecordedConversationId, {
+            display_name: contact.full_name,
+            participant_type: "contact",
+            participant_id: contact.id,
+          }),
+        ),
+      ]);
+
+      const updated = await getConversation(tokens.accessToken, pendingRecordedConversationId);
+      setDetail(updated);
+      setConversations((current) =>
+        current.map((conversation) =>
+          conversation.id === updated.id ? { ...conversation, title: updated.title } : conversation,
+        ),
+      );
+      setPendingRecordedConversationId(null);
+      setRecordingMeta({ participants: "", title: "" });
+      setSelectedContactIds([]);
+      setNotice(t("conversations.audio.metadataSaved"));
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : t("conversations.audio.metadataSaveFailed"));
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function toggleSelectedContact(contactId: string) {
+    const isSelected = selectedContactIds.includes(contactId);
+    setSelectedContactIds((current) =>
+      current.includes(contactId) ? current.filter((id) => id !== contactId) : [...current, contactId],
+    );
+    if (!tokens?.accessToken || isSelected || contactMemories[contactId]) return;
+    try {
+      const memory = await getContactMemory(tokens.accessToken, contactId);
+      setContactMemories((current) => ({ ...current, [contactId]: memory }));
+    } catch {
+      // Contact memory is optional context; saving metadata should still work.
+    }
   }
 
   async function handleDeleteCall(callId: string) {
@@ -291,26 +379,22 @@ export function ConversationsView() {
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => {
-                setShowAudioForm((value) => !value);
-                setShowCreateForm(false);
-              }}
+              disabled={recordingState !== "idle"}
+              onClick={handleStartRecording}
               className={
                 "flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-label-sm font-bold transition-colors " +
-                (showAudioForm
+                (recordingState !== "idle"
                   ? "bg-primary text-on-primary"
                   : "bg-primary-container/20 text-primary hover:bg-primary-container/30")
               }
-              aria-pressed={showAudioForm}
             >
               <span className="material-symbols-outlined text-[18px]">mic</span>
-              {t("conversations.audio.openButton")}
+              {recordingState === "idle" ? t("conversations.audio.start") : t(`conversations.audio.${recordingState}`)}
             </button>
             <button
               type="button"
               onClick={() => {
                 setShowCreateForm((value) => !value);
-                setShowAudioForm(false);
               }}
               className={
                 "flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-label-sm font-bold transition-colors " +
@@ -326,7 +410,7 @@ export function ConversationsView() {
           </div>
         </div>
 
-        {showAudioForm ? (
+        {recordingState === "recording" ? (
           <div className="p-md space-y-3 border-b border-surface-container-highest">
             {error ? <p className="text-error text-[11px]">{error}</p> : null}
             <div className="rounded-lg border border-surface-container-highest bg-surface-container-low p-3 space-y-2">
@@ -334,55 +418,95 @@ export function ConversationsView() {
                 <span className="material-symbols-outlined text-[18px]">mic</span>
                 <span>{t("conversations.audio.title")}</span>
               </div>
-              <input
-                className="w-full bg-white rounded-lg px-3 py-2 text-body-sm"
-                onChange={(e) => setAudioCall((c) => ({ ...c, title: e.target.value }))}
-                placeholder={t("conversations.audio.titlePlaceholder")}
-                value={audioCall.title}
-              />
-              <input
-                className="w-full bg-white rounded-lg px-3 py-2 text-body-sm"
-                onChange={(e) => setAudioCall((c) => ({ ...c, participants: e.target.value }))}
-                placeholder={t("conversations.form.participantsPlaceholder")}
-                value={audioCall.participants}
-              />
-              <input
-                className="w-full bg-white rounded-lg px-3 py-2 text-body-sm"
-                onChange={(e) => setAudioCall((c) => ({ ...c, phone: e.target.value }))}
-                placeholder={t("conversations.audio.phonePlaceholder")}
-                value={audioCall.phone}
-              />
               <div className="flex gap-2">
-                {recordingState === "recording" ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleStopRecording}
-                      className="flex-1 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold"
-                    >
-                      {t("conversations.audio.stop")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCancelRecording}
-                      className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
-                    >
-                      {t("conversations.audio.cancel")}
-                    </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    disabled={recordingState !== "idle"}
-                    onClick={handleStartRecording}
-                    className="w-full py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
-                  >
-                    {recordingState === "idle" ? t("conversations.audio.start") : t(`conversations.audio.${recordingState}`)}
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={handleStopRecording}
+                  className="flex-1 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold"
+                >
+                  {t("conversations.audio.stop")}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelRecording}
+                  className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
+                >
+                  {t("conversations.audio.cancel")}
+                </button>
               </div>
               <p className="text-[11px] text-on-surface-variant">{t("conversations.audio.hint")}</p>
             </div>
+          </div>
+        ) : null}
+
+        {pendingRecordedConversationId ? (
+          <div className="p-md border-b border-surface-container-highest">
+            {error ? <p className="text-error text-[11px] mb-2">{error}</p> : null}
+            <form onSubmit={handleSaveRecordingMeta} className="space-y-2">
+              <input
+                className="w-full bg-surface-container-low rounded-lg px-3 py-2 text-body-sm"
+                onChange={(e) => setRecordingMeta((current) => ({ ...current, title: e.target.value }))}
+                placeholder={t("conversations.audio.titlePlaceholder")}
+                value={recordingMeta.title}
+              />
+              <input
+                className="w-full bg-surface-container-low rounded-lg px-3 py-2 text-body-sm"
+                onChange={(e) => setRecordingMeta((current) => ({ ...current, participants: e.target.value }))}
+                placeholder={t("conversations.form.participantsPlaceholder")}
+                value={recordingMeta.participants}
+              />
+              {contacts.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-[11px] font-bold uppercase tracking-wider text-on-surface-variant">
+                    {t("conversations.audio.matchContacts")}
+                  </p>
+                  <div className="max-h-40 overflow-y-auto custom-scrollbar space-y-1">
+                    {contacts.map((contact) => {
+                      const selected = selectedContactIds.includes(contact.id);
+                      return (
+                        <button
+                          key={contact.id}
+                          type="button"
+                          onClick={() => toggleSelectedContact(contact.id)}
+                          className={
+                            "w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-body-sm border " +
+                            (selected
+                              ? "border-primary bg-primary-container/10 text-primary"
+                              : "border-transparent bg-surface-container-low text-on-surface hover:bg-surface-container-high")
+                          }
+                        >
+                          <span className="material-symbols-outlined text-[18px]">
+                            {selected ? "check_circle" : "person"}
+                          </span>
+                          <span className="truncate">{contact.full_name}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+              <ContactMemoryPreview contacts={contacts} memories={contactMemories} selectedIds={selectedContactIds} />
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={isCreating || !recordingMeta.title.trim()}
+                  className="flex-1 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
+                >
+                  {isCreating ? t("conversations.form.submitting") : t("conversations.audio.saveMetadata")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRecordingMeta({ participants: "", title: "" });
+                    setSelectedContactIds([]);
+                    setContactMemories({});
+                  }}
+                  className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
+                >
+                  {t("conversations.form.clear")}
+                </button>
+              </div>
+            </form>
           </div>
         ) : null}
 
@@ -409,13 +533,22 @@ export function ConversationsView() {
                 rows={3}
                 value={newCall.transcript}
               />
-              <button
-                type="submit"
-                disabled={isCreating || !newCall.title.trim() || !newCall.transcript.trim()}
-                className="w-full py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
-              >
-                {isCreating ? t("conversations.form.submitting") : t("conversations.form.submit")}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={isCreating || !newCall.title.trim() || !newCall.transcript.trim()}
+                  className="flex-1 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
+                >
+                  {isCreating ? t("conversations.form.submitting") : t("conversations.form.submit")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewCall({ participants: "", phone: "", title: "", transcript: "" })}
+                  className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
+                >
+                  {t("conversations.form.clear")}
+                </button>
+              </div>
             </form>
           </div>
         ) : null}
@@ -654,6 +787,56 @@ function CallBlock({ call, isBusy, onDelete }: { call: Call; isBusy: boolean; on
       )}
     </div>
   );
+}
+
+function ContactMemoryPreview({
+  contacts,
+  memories,
+  selectedIds,
+}: {
+  contacts: Contact[];
+  memories: Record<string, ContactMemory>;
+  selectedIds: string[];
+}) {
+  const { t, language } = useLanguage();
+  const selectedContacts = contacts.filter((contact) => selectedIds.includes(contact.id));
+  if (selectedContacts.length === 0) return null;
+
+  return (
+    <div className="space-y-2">
+      {selectedContacts.map((contact) => {
+        const memory = memories[contact.id];
+        return (
+          <div key={contact.id} className="rounded-lg border border-primary/10 bg-primary-container/5 p-2 text-[11px]">
+            <p className="font-bold text-primary mb-1">{contact.full_name}</p>
+            {memory ? (
+              <div className="space-y-1 text-on-surface-variant">
+                <p>
+                  {t("conversations.audio.historyLastConversation")}{" "}
+                  {memory.last_conversation
+                    ? `${memory.last_conversation.title} · ${formatDateTime(memory.last_conversation.occurred_at, language)}`
+                    : t("conversations.audio.historyNone")}
+                </p>
+                <p>
+                  {t("conversations.audio.historyPendingWork", { count: memory.pending_items_count })}
+                  {memory.next_appointment
+                    ? ` · ${t("conversations.audio.historyNextAppointment")} ${formatDateTime(memory.next_appointment.start_at, language)}`
+                    : ""}
+                </p>
+                {memory.last_topic ? <p className="text-on-surface">{memory.last_topic}</p> : null}
+              </div>
+            ) : (
+              <p className="text-on-surface-variant">{t("common.loading")}</p>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function normalizeName(value: string): string {
+  return value.trim().toLocaleLowerCase("tr-TR");
 }
 
 function stopRecorder(recorder: MediaRecorder, chunks: Blob[]): Promise<Blob> {
