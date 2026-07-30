@@ -121,6 +121,7 @@ export type ConversationParticipant = {
   id: string;
   display_name: string;
   participant_type: string;
+  participant_id?: string | null;
 };
 
 export type ConversationDetail = Conversation & {
@@ -269,6 +270,12 @@ export type DealUpdatePayload = Partial<DealCreatePayload>;
 export type ConversationUpdatePayload = {
   title?: string;
   status?: string;
+};
+
+export type ConversationParticipantCreatePayload = {
+  display_name: string;
+  participant_type?: string;
+  participant_id?: string | null;
 };
 
 export type ChatSource = {
@@ -834,6 +841,24 @@ export async function updateConversation(
   return request<ConversationDetail>(`/api/v1/conversations/${conversationId}`, {
     method: "PATCH",
     body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function addConversationParticipant(
+  accessToken: string,
+  conversationId: string,
+  payload: ConversationParticipantCreatePayload,
+): Promise<ConversationParticipant> {
+  return request<ConversationParticipant>(`/api/v1/conversations/${conversationId}/participants`, {
+    method: "POST",
+    body: JSON.stringify({
+      display_name: payload.display_name,
+      participant_type: payload.participant_type ?? "manual",
+      participant_id: payload.participant_id ?? null,
+    }),
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },

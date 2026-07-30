@@ -151,8 +151,8 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
 
       <Link
-        href="/ai-chat"
-        aria-label={t("shell.voiceAria")}
+        href="/gorusmeler"
+        aria-label={t("shell.recordAria")}
         className="fixed bottom-md right-md sm:bottom-xl sm:right-xl z-50 w-14 h-14 sm:w-16 sm:h-16 bg-primary text-on-primary rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all"
       >
         <span className="material-symbols-outlined text-[32px]" style={{ fontVariationSettings: "'FILL' 1" }}>
@@ -237,7 +237,7 @@ function SideNavContent({
           <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>
             mic
           </span>
-          {t("shell.voiceTrigger")}
+          {t("shell.recordTrigger")}
         </Link>
 
         <div className="flex items-center gap-3 mt-md p-2 rounded-lg hover:bg-surface-container-high transition-colors">
