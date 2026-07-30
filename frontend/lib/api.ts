@@ -591,6 +591,8 @@ export type OrganizationMember = {
   role: string;
   status: string;
   created_at: string;
+  email: string | null;
+  full_name: string | null;
 };
 
 export type AuditLog = {

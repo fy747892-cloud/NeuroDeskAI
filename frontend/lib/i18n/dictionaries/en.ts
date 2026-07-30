@@ -332,6 +332,22 @@ export const en: TranslationDictionary = {
       ready: "Ready",
       size: "Size",
     },
+    actions: {
+      analyze: "Analyze",
+      text: "Text",
+      summary: "Summary",
+      open: "Open",
+    },
+    status: {
+      ready: "Ready",
+      processing: "Processing",
+      failed: "Failed",
+      uploaded: "Uploaded",
+      extracted: "Text extracted",
+      unsupported: "Unsupported",
+      completed: "Completed",
+      unknown: "Unknown status",
+    },
   },
   contactDetail: {
     eventType: { call: "Calls", email: "Emails", appointment: "Appointments", task: "Tasks" },

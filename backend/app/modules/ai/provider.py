@@ -38,6 +38,17 @@ class MockAIProvider:
             raise RuntimeError("Mock provider received empty audio.")
         return f"[mock transcript for {filename}, {len(audio_bytes)} bytes]"
 
+    async def transcribe_audio_with_timestamps(
+        self, *, audio_bytes: bytes, filename: str, content_type: str, language: str | None
+    ) -> tuple[str, list[dict[str, Any]]]:
+        text = await self.transcribe_audio(
+            audio_bytes=audio_bytes,
+            filename=filename,
+            content_type=content_type,
+            language=language,
+        )
+        return text, [{"start": 0.0, "end": 1.0, "text": text}]
+
     async def analyze_conversation(self, *, title: str, transcript_text: str) -> AnalysisOutput:
         if "[mock-fail]" in transcript_text.lower():
             raise RuntimeError("Mock provider failed to analyze conversation.")
@@ -103,11 +114,32 @@ class OpenAICompatibleAIProvider:
     async def transcribe_audio(
         self, *, audio_bytes: bytes, filename: str, content_type: str, language: str | None
     ) -> str:
+        text, _segments = await self._transcribe_with_retry(
+            audio_bytes=audio_bytes,
+            filename=filename,
+            content_type=content_type,
+            language=language,
+        )
+        return text
+
+    async def transcribe_audio_with_timestamps(
+        self, *, audio_bytes: bytes, filename: str, content_type: str, language: str | None
+    ) -> tuple[str, list[dict[str, Any]]]:
+        return await self._transcribe_with_retry(
+            audio_bytes=audio_bytes,
+            filename=filename,
+            content_type=content_type,
+            language=language,
+        )
+
+    async def _transcribe_with_retry(
+        self, *, audio_bytes: bytes, filename: str, content_type: str, language: str | None
+    ) -> tuple[str, list[dict[str, Any]]]:
         if not self._api_key:
             raise RuntimeError("LLM_API_KEY is required when LLM_PROVIDER is openai.")
 
         try:
-            transcript = await with_retry(
+            text, segments = await with_retry(
                 lambda: self._post_transcription(
                     audio_bytes=audio_bytes,
                     filename=filename,
@@ -125,7 +157,7 @@ class OpenAICompatibleAIProvider:
                 exc.response.status_code,
                 _safe_response_preview(exc.response),
             )
-            transcript = await with_retry(
+            text, segments = await with_retry(
                 lambda: self._post_transcription(
                     audio_bytes=audio_bytes,
                     filename=filename,
@@ -134,7 +166,7 @@ class OpenAICompatibleAIProvider:
                     include_guidance=False,
                 )
             )
-        return _validate_transcript_text(transcript)
+        return _validate_transcript_text(text), segments
 
     async def _post_transcription(
         self,
@@ -144,11 +176,11 @@ class OpenAICompatibleAIProvider:
         content_type: str,
         language: str | None,
         include_guidance: bool,
-    ) -> str:
+    ) -> tuple[str, list[dict[str, Any]]]:
         headers = {"Authorization": f"Bearer {self._api_key}"}
         data = {
             "model": self.stt_model_name,
-            "response_format": "text",
+            "response_format": "verbose_json",
             "temperature": "0",
         }
         if include_guidance:
@@ -179,7 +211,7 @@ class OpenAICompatibleAIProvider:
                 files=files,
             )
         response.raise_for_status()
-        return response.text
+        return _parse_transcription_response(response)
 
     async def analyze_conversation(self, *, title: str, transcript_text: str) -> AnalysisOutput:
         if not self._api_key:
@@ -272,6 +304,21 @@ def get_ai_provider():
     if provider in {"openai", "openai-compatible"}:
         return OpenAICompatibleAIProvider()
     raise RuntimeError(f"Unsupported LLM provider: {settings.llm_provider}")
+
+
+def _parse_transcription_response(response: httpx.Response) -> tuple[str, list[dict[str, Any]]]:
+    # response_format=verbose_json normally yields {"text": ..., "segments": [...]},
+    # but some OpenAI-compatible STT servers ignore response_format and return
+    # plain text anyway -- fall back to that instead of raising.
+    try:
+        payload = response.json()
+    except ValueError:
+        return response.text, []
+    if not isinstance(payload, dict):
+        return response.text, []
+    text = str(payload.get("text") or "")
+    segments = payload.get("segments")
+    return text, segments if isinstance(segments, list) else []
 
 
 def _safe_response_preview(response: httpx.Response, *, max_length: int = 500) -> str:

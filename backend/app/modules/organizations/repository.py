@@ -4,6 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.organizations.models import Organization, OrganizationMember, Tenant
+from app.modules.users.models import User, UserProfile
 
 
 class OrganizationRepository:
@@ -102,7 +103,27 @@ class OrganizationRepository:
             )
             .order_by(OrganizationMember.created_at.asc())
         )
-        return list(result.scalars().all())
+        members = list(result.scalars().all())
+        if not members:
+            return members
+
+        # OrganizationMember only stores user_id; attach email/full_name here
+        # (rather than a relationship) so OrganizationMemberOut.from_attributes
+        # can read them without changing the ORM model's join surface.
+        user_ids = [member.user_id for member in members]
+        user_result = await self._db.execute(
+            select(User.id, User.email, UserProfile.full_name)
+            .outerjoin(UserProfile, UserProfile.user_id == User.id)
+            .where(User.id.in_(user_ids))
+        )
+        user_info = {row.id: (row.email, row.full_name) for row in user_result.all()}
+
+        for member in members:
+            email, full_name = user_info.get(member.user_id, (None, None))
+            member.email = email
+            member.full_name = full_name
+
+        return members
 
     async def get_member_by_id(
         self,

@@ -332,6 +332,22 @@ export const tr: TranslationDictionary = {
       ready: "Hazır",
       size: "Boyut",
     },
+    actions: {
+      analyze: "Analiz et",
+      text: "Metin",
+      summary: "Özet",
+      open: "Aç",
+    },
+    status: {
+      ready: "Hazır",
+      processing: "İşlemde",
+      failed: "Hata",
+      uploaded: "Yüklendi",
+      extracted: "Metin çıkarıldı",
+      unsupported: "Desteklenmiyor",
+      completed: "Tamamlandı",
+      unknown: "Bilinmeyen durum",
+    },
   },
   contactDetail: {
     eventType: { call: "Görüşmeler", email: "E-postalar", appointment: "Randevular", task: "Görevler" },

@@ -98,7 +98,7 @@ async def test_ai_provider_rejects_whisper_hallucinations(hallucinated_text):
         with patch.object(
             OpenAICompatibleAIProvider,
             "_post_transcription",
-            new=AsyncMock(return_value=hallucinated_text),
+            new=AsyncMock(return_value=(hallucinated_text, [])),
         ):
             with pytest.raises(RuntimeError):
                 await provider.transcribe_audio(
@@ -118,7 +118,10 @@ async def test_ai_provider_accepts_real_transcript_mentioning_watching():
             OpenAICompatibleAIProvider,
             "_post_transcription",
             new=AsyncMock(
-                return_value="Thank you for the meeting today, let's proceed with pricing."
+                return_value=(
+                    "Thank you for the meeting today, let's proceed with pricing.",
+                    [],
+                )
             ),
         ):
             text = await provider.transcribe_audio(

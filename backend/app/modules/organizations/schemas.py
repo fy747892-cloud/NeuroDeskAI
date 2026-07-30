@@ -35,6 +35,8 @@ class OrganizationMemberOut(BaseModel):
     role: str
     status: str
     created_at: datetime
+    email: str | None = None
+    full_name: str | None = None
 
 
 class OrganizationMemberRoleUpdate(BaseModel):

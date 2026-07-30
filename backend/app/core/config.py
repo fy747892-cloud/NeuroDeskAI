@@ -45,6 +45,10 @@ class Settings(BaseSettings):
     llm_tts_voice: str = "alloy"
     llm_timeout_seconds: float = 30.0
 
+    diarization_provider: str = "disabled"
+    diarization_model: str = "pyannote/speaker-diarization-3.1"
+    hf_token: str = ""
+
     email_provider: str = "mock"
     smtp_host: str = ""
     smtp_port: int = 587
