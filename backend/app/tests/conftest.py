@@ -5,6 +5,7 @@ import os
 # outbound SMTP email). Set before any app import triggers Settings() to load.
 os.environ["LLM_PROVIDER"] = "mock"
 os.environ["EMAIL_PROVIDER"] = "mock"
+os.environ["DIARIZATION_PROVIDER"] = "disabled"
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
