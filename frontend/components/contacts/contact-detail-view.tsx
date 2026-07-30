@@ -227,13 +227,22 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
                 rows={2}
                 value={newNote}
               />
-              <button
-                type="submit"
-                disabled={isAddingNote || !newNote.trim()}
-                className="w-full py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
-              >
-                {isAddingNote ? t("contactDetail.addingNote") : t("contactDetail.addNote")}
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={isAddingNote || !newNote.trim()}
+                  className="flex-1 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
+                >
+                  {isAddingNote ? t("contactDetail.addingNote") : t("contactDetail.addNote")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setNewNote("")}
+                  className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
+                >
+                  {t("common.clear")}
+                </button>
+              </div>
             </form>
           </div>
         </div>

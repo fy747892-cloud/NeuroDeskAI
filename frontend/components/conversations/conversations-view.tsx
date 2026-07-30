@@ -503,7 +503,7 @@ export function ConversationsView() {
                   }}
                   className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
                 >
-                  {t("conversations.form.clear")}
+                  {t("common.clear")}
                 </button>
               </div>
             </form>
@@ -546,7 +546,7 @@ export function ConversationsView() {
                   onClick={() => setNewCall({ participants: "", phone: "", title: "", transcript: "" })}
                   className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
                 >
-                  {t("conversations.form.clear")}
+                  {t("common.clear")}
                 </button>
               </div>
             </form>

@@ -245,6 +245,15 @@ export function AIChatView() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
+                disabled={!prompt}
+                onClick={() => setPrompt("")}
+                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors text-on-surface-variant disabled:opacity-40"
+                aria-label={t("common.clear")}
+              >
+                <span className="material-symbols-outlined">backspace</span>
+              </button>
+              <button
+                type="button"
                 onClick={() => setVoiceOpen(true)}
                 className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-high transition-colors text-on-surface-variant"
                 aria-label={t("aiChat.voiceCommandAria")}
@@ -330,14 +339,27 @@ function VoiceOverlay({
         <span className="px-3 py-1 rounded-full bg-primary-container/10 text-primary font-label-sm text-label-sm uppercase tracking-wider mb-4 inline-block">
           {t("aiChat.realTimeTranscript")}
         </span>
-        <form id="voice-form" onSubmit={handleVoiceSubmit}>
+        <form id="voice-form" onSubmit={handleVoiceSubmit} className="relative">
           <input
             autoFocus
-            className="w-full bg-transparent border-b-2 border-primary/20 focus:border-primary text-center font-headline-lg text-headline-lg text-on-surface font-medium leading-relaxed outline-none pb-2"
+            className="w-full bg-transparent border-b-2 border-primary/20 focus:border-primary text-center font-headline-lg text-headline-lg text-on-surface font-medium leading-relaxed outline-none pb-2 pr-12"
             onChange={(e) => setTranscript(e.target.value)}
             placeholder={t("aiChat.voiceInputPlaceholder")}
             value={transcript}
           />
+          <button
+            type="button"
+            disabled={!transcript}
+            onClick={() => {
+              setTranscript("");
+              setResponse(null);
+              setActionMeta(null);
+            }}
+            className="absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full text-on-surface-variant hover:bg-surface-container-high disabled:opacity-40"
+            aria-label={t("common.clear")}
+          >
+            <span className="material-symbols-outlined">backspace</span>
+          </button>
         </form>
       </div>
 
