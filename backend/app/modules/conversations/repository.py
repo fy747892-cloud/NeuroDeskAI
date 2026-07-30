@@ -111,7 +111,9 @@ class ConversationRepository:
             select(Conversation)
             .options(
                 selectinload(Conversation.participants),
-                selectinload(Conversation.calls).selectinload(Call.transcriptions),
+                selectinload(Conversation.calls.and_(Call.is_deleted.is_(False))).selectinload(
+                    Call.transcriptions
+                ),
             )
             .where(
                 Conversation.tenant_id == tenant_id,
