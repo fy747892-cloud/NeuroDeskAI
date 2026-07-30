@@ -58,10 +58,20 @@ class ChatRepository:
                 ChatSession.tenant_id == tenant_id,
                 ChatSession.organization_id == organization_id,
                 ChatSession.user_id == user_id,
+                ChatSession.status != "archived",
             )
             .order_by(ChatSession.created_at.desc())
         )
         return list(result.scalars().all())
+
+    async def update_title(self, *, session: ChatSession, title: str) -> ChatSession:
+        session.title = title
+        await self._db.flush()
+        return session
+
+    async def archive_session(self, *, session: ChatSession) -> None:
+        session.status = "archived"
+        await self._db.flush()
 
     async def add_message(
         self,

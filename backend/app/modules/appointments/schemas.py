@@ -44,6 +44,8 @@ class AppointmentCreate(_TimeRangeMixin):
     timezone: str | None = Field(default=None, max_length=64)
     contact_id: UUID | None = None
     force: bool = False
+    repeat_count: int | None = Field(default=None, ge=2, le=52)
+    repeat_interval_days: int = Field(default=7, ge=1, le=365)
 
 
 class AppointmentUpdate(_TimeRangeMixin):

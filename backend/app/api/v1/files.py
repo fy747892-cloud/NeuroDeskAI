@@ -23,6 +23,7 @@ from app.modules.files.schemas import (
     UploadUrlIn,
     UploadUrlOut,
 )
+from app.modules.users.consent import get_consent
 from app.modules.files.service import FileService
 from app.modules.users.models import User
 
@@ -165,6 +166,11 @@ async def analyze_file(
     current_user: User = Depends(require_permission(Permission.FILES_MANAGE)),
     db: AsyncSession = Depends(get_db),
 ):
+    if not get_consent(current_user)["ai_processing"]:
+        raise ValidationAppError(
+            "AI processing is turned off in your settings. Turn it back on in "
+            "Settings to analyze files."
+        )
     file = await _get_current_file(db, current_user, file_id)
     await FileService(db).analyze(file=file)
     await AuditRepository(db).record(

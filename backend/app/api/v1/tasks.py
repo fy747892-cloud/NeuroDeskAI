@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -69,6 +70,22 @@ async def create_task(
         contact_id=body.contact_id,
     )
     await _record_task_audit(db, request, current_user, "task.created", task)
+
+    if body.repeat_count and body.due_at is not None:
+        interval = timedelta(days=body.repeat_interval_days)
+        for occurrence in range(1, body.repeat_count):
+            recurring_task = await TaskService(db).create_manual_task(
+                tenant_id=current_user.tenant_id,
+                organization_id=current_user.organization_id,
+                user_id=current_user.id,
+                title=body.title,
+                description=body.description,
+                priority=body.priority,
+                due_at=body.due_at + interval * occurrence,
+                contact_id=body.contact_id,
+            )
+            await _record_task_audit(db, request, current_user, "task.created", recurring_task)
+
     await db.commit()
     return task
 

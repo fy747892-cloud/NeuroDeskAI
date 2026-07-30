@@ -48,15 +48,21 @@ class OrganizationRepository:
         organization_id: uuid.UUID,
         user_id: uuid.UUID,
         role: str,
+        status: str = "active",
     ) -> OrganizationMember:
         member = OrganizationMember(
             tenant_id=tenant_id,
             organization_id=organization_id,
             user_id=user_id,
             role=role,
-            status="active",
+            status=status,
         )
         self._db.add(member)
+        await self._db.flush()
+        return member
+
+    async def activate_member(self, *, member: OrganizationMember) -> OrganizationMember:
+        member.status = "active"
         await self._db.flush()
         return member
 
@@ -98,7 +104,7 @@ class OrganizationRepository:
             .where(
                 OrganizationMember.tenant_id == tenant_id,
                 OrganizationMember.organization_id == organization_id,
-                OrganizationMember.status == "active",
+                OrganizationMember.status.in_(["active", "invited"]),
                 OrganizationMember.is_deleted.is_(False),
             )
             .order_by(OrganizationMember.created_at.asc())
@@ -124,6 +130,23 @@ class OrganizationRepository:
             member.full_name = full_name
 
         return members
+
+    async def get_member_any_status(
+        self,
+        *,
+        tenant_id: uuid.UUID,
+        organization_id: uuid.UUID,
+        user_id: uuid.UUID,
+    ) -> OrganizationMember | None:
+        result = await self._db.execute(
+            select(OrganizationMember).where(
+                OrganizationMember.tenant_id == tenant_id,
+                OrganizationMember.organization_id == organization_id,
+                OrganizationMember.user_id == user_id,
+                OrganizationMember.is_deleted.is_(False),
+            )
+        )
+        return result.scalar_one_or_none()
 
     async def get_member_by_id(
         self,

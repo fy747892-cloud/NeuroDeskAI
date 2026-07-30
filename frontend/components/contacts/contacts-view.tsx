@@ -110,32 +110,32 @@ export function ContactsView() {
       {showForm ? (
         <form onSubmit={handleCreateContact} className="glass-card p-lg rounded-xl mb-lg grid grid-cols-2 gap-3">
           <input
-            className="bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+            className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
             onChange={(e) => setNewContact((c) => ({ ...c, fullName: e.target.value }))}
             placeholder={t("contacts.fullNamePlaceholder")}
             value={newContact.fullName}
           />
           <input
-            className="bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+            className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
             onChange={(e) => setNewContact((c) => ({ ...c, email: e.target.value }))}
             placeholder={t("common.email")}
             type="email"
             value={newContact.email}
           />
           <input
-            className="bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+            className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
             onChange={(e) => setNewContact((c) => ({ ...c, phone: e.target.value }))}
             placeholder={t("common.phone")}
             value={newContact.phone}
           />
           <input
-            className="bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+            className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
             onChange={(e) => setNewContact((c) => ({ ...c, company: e.target.value }))}
             placeholder={t("common.company")}
             value={newContact.company}
           />
           <input
-            className="bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm col-span-2"
+            className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm col-span-2"
             onChange={(e) => setNewContact((c) => ({ ...c, title: e.target.value }))}
             placeholder={t("contacts.titleRolePlaceholder")}
             value={newContact.title}

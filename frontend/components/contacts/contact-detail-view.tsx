@@ -221,7 +221,7 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
             </div>
             <form onSubmit={handleAddNote} className="space-y-2">
               <textarea
-                className="w-full bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
                 onChange={(e) => setNewNote(e.target.value)}
                 placeholder={t("contactDetail.addNotePlaceholder")}
                 rows={2}

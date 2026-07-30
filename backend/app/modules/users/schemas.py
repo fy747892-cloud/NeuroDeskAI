@@ -29,3 +29,15 @@ class UserProfileUpdate(BaseModel):
     full_name: str | None = Field(default=None, min_length=1, max_length=255)
     title: str | None = Field(default=None, max_length=255)
     avatar_url: HttpUrl | None = None
+
+
+class ConsentOut(BaseModel):
+    ai_processing: bool
+    contact_memory: bool
+    operational_reminders: bool
+
+
+class ConsentUpdate(BaseModel):
+    ai_processing: bool
+    contact_memory: bool
+    operational_reminders: bool

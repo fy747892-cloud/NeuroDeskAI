@@ -4,9 +4,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.v1.deps import get_current_user
 from app.db.session import get_db
 from app.modules.audit.repository import AuditRepository
+from app.modules.users.consent import get_consent
 from app.modules.users.models import User
 from app.modules.users.repository import UserRepository
-from app.modules.users.schemas import UserOut, UserProfileUpdate
+from app.modules.users.schemas import ConsentOut, ConsentUpdate, UserOut, UserProfileUpdate
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -51,3 +52,33 @@ async def update_me(
     )
     await db.commit()
     return await users.get_by_id(current_user.id) or current_user
+
+
+@router.get("/me/consent", response_model=ConsentOut)
+async def get_my_consent(current_user: User = Depends(get_current_user)) -> ConsentOut:
+    return ConsentOut(**get_consent(current_user))
+
+
+@router.patch("/me/consent", response_model=ConsentOut)
+async def update_my_consent(
+    body: ConsentUpdate,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> ConsentOut:
+    users = UserRepository(db)
+    await users.update_consent(user=current_user, consent=body.model_dump())
+
+    await AuditRepository(db).record(
+        tenant_id=current_user.tenant_id,
+        actor_id=current_user.id,
+        action="user.consent_updated",
+        entity_type="user",
+        entity_id=current_user.id,
+        request_id=request.headers.get("x-request-id"),
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        metadata=body.model_dump(),
+    )
+    await db.commit()
+    return ConsentOut(**body.model_dump())

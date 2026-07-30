@@ -308,7 +308,7 @@ function FileCard({
             <form onSubmit={onRename} className="flex items-center gap-2">
               <input
                 autoFocus
-                className="min-w-0 flex-1 bg-white border border-outline-variant/40 rounded-lg px-3 py-2 text-body-sm"
+                className="min-w-0 flex-1 bg-surface-container-lowest border border-outline-variant/40 rounded-lg px-3 py-2 text-body-sm"
                 onChange={(event) => onEditingFilenameChange(event.target.value)}
                 placeholder={t("files.renamePlaceholder")}
                 value={editingFilename}
@@ -325,7 +325,7 @@ function FileCard({
                 type="button"
                 disabled={isActive}
                 onClick={onCancelEdit}
-                className="w-9 h-9 rounded-lg border border-outline-variant/40 text-on-surface-variant bg-white flex items-center justify-center disabled:opacity-60"
+                className="w-9 h-9 rounded-lg border border-outline-variant/40 text-on-surface-variant bg-surface-container-lowest flex items-center justify-center disabled:opacity-60"
                 aria-label={t("common.cancel")}
               >
                 <span className="material-symbols-outlined text-[18px]">close</span>
@@ -383,8 +383,8 @@ function ActionButton({
   const className = primary
     ? "bg-primary text-on-primary"
     : danger
-      ? "border border-error/30 text-error bg-white"
-      : "border border-outline-variant/40 text-on-surface-variant bg-white";
+      ? "border border-error/30 text-error bg-surface-container-lowest"
+      : "border border-outline-variant/40 text-on-surface-variant bg-surface-container-lowest";
   return (
     <button
       type="button"

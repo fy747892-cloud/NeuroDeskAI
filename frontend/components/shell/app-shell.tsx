@@ -8,6 +8,7 @@ import { openSearchPalette, SearchPalette } from "@/components/shell/search-pale
 import { NotificationBell } from "@/components/shell/notification-bell";
 import { UserMenu } from "@/components/shell/user-menu";
 import { LanguageSwitcher } from "@/components/shell/language-switcher";
+import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { useSession } from "@/lib/session";
 import { getDashboard } from "@/lib/api";
 import { useLanguage } from "@/lib/i18n/context";
@@ -136,6 +137,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="hidden sm:block">
               <LanguageSwitcher />
             </div>
+            <ThemeToggle />
             <NotificationBell />
             <Link
               href="/ayarlar"

@@ -238,7 +238,7 @@ export function TasksAppointmentsView() {
             onClick={() => setActiveView("list")}
             className={
               "px-4 py-1.5 rounded-md font-label-sm text-label-sm transition-all " +
-              (activeView === "list" ? "bg-white shadow-sm text-primary" : "text-on-surface-variant hover:text-on-surface")
+              (activeView === "list" ? "bg-surface-container-lowest shadow-sm text-primary" : "text-on-surface-variant hover:text-on-surface")
             }
           >
             {t("tasks.listView")}
@@ -248,7 +248,7 @@ export function TasksAppointmentsView() {
             onClick={() => setActiveView("calendar")}
             className={
               "px-4 py-1.5 rounded-md font-label-sm text-label-sm transition-all " +
-              (activeView === "calendar" ? "bg-white shadow-sm text-primary" : "text-on-surface-variant hover:text-on-surface")
+              (activeView === "calendar" ? "bg-surface-container-lowest shadow-sm text-primary" : "text-on-surface-variant hover:text-on-surface")
             }
           >
             {t("tasks.calendarView")}
@@ -276,20 +276,20 @@ export function TasksAppointmentsView() {
           {showTaskForm ? (
             <form onSubmit={handleCreateTask} className="glass-card p-lg rounded-xl space-y-2">
               <input
-                className="w-full bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
                 onChange={(e) => setNewTask((current) => ({ ...current, title: e.target.value }))}
                 placeholder={t("tasks.taskTitlePlaceholder")}
                 value={newTask.title}
               />
               <input
-                className="w-full bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
                 onChange={(e) => setNewTask((current) => ({ ...current, description: e.target.value }))}
                 placeholder={t("tasks.descriptionPlaceholder")}
                 value={newTask.description}
               />
               <div className="flex gap-2">
                 <select
-                  className="flex-1 bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                  className="flex-1 bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
                   onChange={(e) => setNewTask((current) => ({ ...current, priority: e.target.value }))}
                   value={newTask.priority}
                 >
@@ -298,7 +298,7 @@ export function TasksAppointmentsView() {
                   <option value="high">{t("tasks.priorityHigh")}</option>
                 </select>
                 <input
-                  className="flex-1 bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                  className="flex-1 bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
                   onChange={(e) => setNewTask((current) => ({ ...current, dueAt: e.target.value }))}
                   type="datetime-local"
                   value={newTask.dueAt}
@@ -407,27 +407,27 @@ export function TasksAppointmentsView() {
           {showApptForm ? (
             <form onSubmit={handleCreateAppointment} className="glass-card p-lg rounded-xl space-y-2 mb-lg">
               <input
-                className="w-full bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
                 onChange={(e) => setNewAppointment((a) => ({ ...a, title: e.target.value }))}
                 placeholder={t("tasks.titlePlaceholder")}
                 value={newAppointment.title}
               />
               <div className="flex gap-2">
                 <input
-                  className="flex-1 bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                  className="flex-1 bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
                   onChange={(e) => setNewAppointment((a) => ({ ...a, startAt: e.target.value }))}
                   type="datetime-local"
                   value={newAppointment.startAt}
                 />
                 <input
-                  className="flex-1 bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                  className="flex-1 bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
                   onChange={(e) => setNewAppointment((a) => ({ ...a, endAt: e.target.value }))}
                   type="datetime-local"
                   value={newAppointment.endAt}
                 />
               </div>
               <input
-                className="w-full bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
                 onChange={(e) => setNewAppointment((a) => ({ ...a, location: e.target.value }))}
                 placeholder={t("tasks.locationPlaceholder")}
                 value={newAppointment.location}
@@ -533,7 +533,7 @@ export function TasksAppointmentsView() {
               {selectedDayAppointments.map((appointment) => (
                 <div
                   key={appointment.id}
-                  className="bg-white rounded-xl border border-outline-variant/30 p-md flex items-center justify-between gap-md"
+                  className="bg-surface-container-lowest rounded-xl border border-outline-variant/30 p-md flex items-center justify-between gap-md"
                 >
                   <div className="min-w-0">
                     <p className="font-label-md text-on-surface truncate">{appointment.title}</p>

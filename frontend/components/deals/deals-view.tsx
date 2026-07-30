@@ -156,20 +156,20 @@ export function DealsView() {
       {showForm ? (
         <form onSubmit={handleCreateDeal} className="glass-card p-lg rounded-xl mb-lg grid grid-cols-2 md:grid-cols-5 gap-3">
           <input
-            className="bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm col-span-2"
+            className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm col-span-2"
             onChange={(e) => setNewDeal((d) => ({ ...d, title: e.target.value }))}
             placeholder={t("deals.titlePlaceholder")}
             value={newDeal.title}
           />
           <input
-            className="bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+            className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
             onChange={(e) => setNewDeal((d) => ({ ...d, value: e.target.value }))}
             placeholder={t("deals.valuePlaceholder")}
             type="number"
             value={newDeal.value}
           />
           <select
-            className="bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+            className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
             onChange={(e) => setNewDeal((d) => ({ ...d, currency: e.target.value }))}
             value={newDeal.currency}
           >
@@ -178,7 +178,7 @@ export function DealsView() {
             <option value="EUR">EUR</option>
           </select>
           <select
-            className="bg-white border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+            className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
             onChange={(e) => setNewDeal((d) => ({ ...d, contactId: e.target.value }))}
             value={newDeal.contactId}
           >

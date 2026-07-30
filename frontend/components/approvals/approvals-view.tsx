@@ -153,7 +153,7 @@ export function ApprovalsView() {
         </div>
       </div>
 
-      <aside className="w-[320px] bg-white border-l border-outline-variant/20 flex flex-col p-xl shrink-0">
+      <aside className="w-[320px] bg-surface-container-lowest border-l border-outline-variant/20 flex flex-col p-xl shrink-0">
         <div className="mb-xl">
           <h4 className="font-label-md text-on-surface uppercase tracking-widest text-[11px] font-black mb-md opacity-40">
             {t("approvals.intelligenceVelocity")}
@@ -263,7 +263,7 @@ function ActionCard({
       {fields.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-md mb-xl">
           {fields.map(([key, value]) => (
-            <div key={key} className="bg-white/50 border border-outline-variant/30 rounded-lg p-3 min-w-0">
+            <div key={key} className="bg-surface-container-lowest/50 border border-outline-variant/30 rounded-lg p-3 min-w-0">
               <label className="block text-[10px] font-bold text-on-surface-variant opacity-60 uppercase mb-1">
                 {key}
               </label>

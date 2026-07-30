@@ -606,7 +606,7 @@ export function ConversationsView() {
         ) : null}
         {!isDetailLoading && detail ? (
           <>
-            <div className="p-xl border-b border-surface-container-highest bg-white">
+            <div className="p-xl border-b border-surface-container-highest bg-surface-container-lowest">
               <div className="flex justify-between items-start mb-6">
                 <div className="min-w-0 flex-1">
                   {isEditingTitle ? (
@@ -633,7 +633,7 @@ export function ConversationsView() {
                           setEditingTitle(false);
                           setEditingTitleValue("");
                         }}
-                        className="w-10 h-10 rounded-lg border border-outline-variant/40 text-on-surface-variant bg-white flex items-center justify-center disabled:opacity-60"
+                        className="w-10 h-10 rounded-lg border border-outline-variant/40 text-on-surface-variant bg-surface-container-lowest flex items-center justify-center disabled:opacity-60"
                         aria-label={t("common.cancel")}
                       >
                         <span className="material-symbols-outlined text-[18px]">close</span>

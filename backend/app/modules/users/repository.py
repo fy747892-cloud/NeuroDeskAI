@@ -83,3 +83,10 @@ class UserRepository:
         user.organization_id = organization_id
         await self._db.flush()
         return user
+
+    async def update_consent(self, *, user: User, consent: dict[str, bool]) -> User:
+        metadata = dict(user.user_metadata or {})
+        metadata["consent"] = consent
+        user.user_metadata = metadata
+        await self._db.flush()
+        return user

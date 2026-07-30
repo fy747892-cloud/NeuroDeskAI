@@ -137,7 +137,7 @@ export function DashboardView() {
             </button>
             <Link
               href="/gorevler"
-              className="bg-white/50 border border-outline-variant text-on-surface px-lg py-sm rounded-full font-label-md hover:bg-white transition-colors"
+              className="bg-surface-container-lowest/50 border border-outline-variant text-on-surface px-lg py-sm rounded-full font-label-md hover:bg-surface-container-lowest transition-colors"
             >
               {t("dashboard.viewFullCalendar")}
             </Link>
@@ -163,7 +163,7 @@ export function DashboardView() {
               appointments.map((appt) => (
                 <article
                   key={appt.id}
-                  className="p-md rounded-xl bg-white border border-outline-variant/30 hover:shadow-md transition-shadow cursor-pointer group"
+                  className="p-md rounded-xl bg-surface-container-lowest border border-outline-variant/30 hover:shadow-md transition-shadow cursor-pointer group"
                 >
                   <div className="flex gap-md">
                     <div className="flex flex-col items-center justify-center w-14 py-2 bg-primary-container/10 rounded-lg shrink-0">
@@ -198,7 +198,7 @@ export function DashboardView() {
               </div>
             ) : null}
           </div>
-          <div className="bg-white rounded-2xl border border-outline-variant/30 overflow-hidden">
+          <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 overflow-hidden">
             {criticalTasks.length === 0 ? (
               <p className="p-md text-body-sm text-on-surface-variant">{t("dashboard.noCriticalTasks")}</p>
             ) : (
@@ -241,7 +241,7 @@ export function DashboardView() {
               approvals.map((approval) => (
                 <div
                   key={approval.id}
-                  className="bg-white rounded-2xl border border-secondary/20 shadow-sm overflow-hidden relative"
+                  className="bg-surface-container-lowest rounded-2xl border border-secondary/20 shadow-sm overflow-hidden relative"
                 >
                   <div className="absolute left-0 top-0 w-1 h-full bg-secondary" />
                   <div className="p-md">
@@ -276,7 +276,7 @@ export function DashboardView() {
                         type="button"
                         disabled={busyId === approval.id}
                         onClick={() => handleReject(approval.id)}
-                        className="flex-1 py-1.5 bg-white border border-outline-variant rounded-lg text-[12px] font-bold text-on-surface active:scale-95 transition-transform disabled:opacity-60"
+                        className="flex-1 py-1.5 bg-surface-container-lowest border border-outline-variant rounded-lg text-[12px] font-bold text-on-surface active:scale-95 transition-transform disabled:opacity-60"
                       >
                         {t("common.reject")}
                       </button>
