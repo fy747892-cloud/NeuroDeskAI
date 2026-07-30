@@ -12,8 +12,9 @@ import {
   updateFile,
   uploadFile,
 } from "@/lib/api";
-import { useLanguage } from "@/lib/i18n/context";
+import { Language, useLanguage } from "@/lib/i18n/context";
 import { useSession } from "@/lib/session";
+import { formatDateTime } from "@/lib/format";
 
 type DialogState = {
   title: string;
@@ -26,7 +27,7 @@ const acceptedExtensions = ".pdf,.docx,.xlsx,.txt,.mp3,.wav,.m4a,.eml";
 
 export function FilesView() {
   const { tokens } = useSession();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [files, setFiles] = useState<FileRecord[]>([]);
   const [isLoading, setLoading] = useState(true);
@@ -95,7 +96,7 @@ export function FilesView() {
         status: analysis.status,
         content: analysis.summary ?? t("files.noSummary"),
       });
-      setNotice(t("files.analysisCompleted", { status: statusLabel(analysis.status) }));
+      setNotice(t("files.analysisCompleted", { status: statusLabel(analysis.status, t) }));
       await loadFiles();
     } catch (analyzeError) {
       setError(analyzeError instanceof Error ? analyzeError.message : t("files.analysisError"));
@@ -242,6 +243,7 @@ export function FilesView() {
           <FileCard
             key={file.id}
             file={file}
+            language={language}
             isActive={activeFileId === file.id}
             onAnalyze={() => handleAnalyze(file)}
             onCancelEdit={() => {
@@ -267,6 +269,7 @@ export function FilesView() {
 
 function FileCard({
   file,
+  language,
   isActive,
   onAnalyze,
   onCancelEdit,
@@ -280,6 +283,7 @@ function FileCard({
   editingFilename,
 }: {
   file: FileRecord;
+  language: Language;
   isActive: boolean;
   onAnalyze: () => void;
   onCancelEdit: () => void;
@@ -331,7 +335,7 @@ function FileCard({
             <div className="flex items-center justify-between gap-md">
               <h3 className="font-label-md text-label-md text-on-surface truncate">{file.filename}</h3>
               <span className="px-2 py-0.5 rounded-full bg-surface-container-high text-[11px] font-bold text-on-surface-variant shrink-0">
-                {statusLabel(file.status)}
+                {statusLabel(file.status, t)}
               </span>
             </div>
           )}
@@ -343,19 +347,19 @@ function FileCard({
             </span>
             <span className="flex items-center gap-1">
               <span className="material-symbols-outlined text-[16px]">schedule</span>
-              {formatDateTime(file.created_at)}
+              {formatDateTime(file.created_at, language)}
             </span>
           </div>
         </div>
       </div>
 
       <div className="mt-lg flex flex-wrap gap-2">
-        <ActionButton disabled={isActive} icon="auto_awesome" label="Analiz et" onClick={onAnalyze} primary />
-        <ActionButton disabled={isActive} icon="article" label="Metin" onClick={onShowText} />
-        <ActionButton disabled={isActive} icon="summarize" label="Özet" onClick={onShowAnalysis} />
-        <ActionButton disabled={isActive} icon="edit" label="Düzenle" onClick={onEdit} />
-        <ActionButton disabled={isActive} icon="open_in_new" label="Aç" onClick={onDownload} />
-        <ActionButton disabled={isActive} icon="delete" label="Sil" onClick={onDelete} danger />
+        <ActionButton disabled={isActive} icon="auto_awesome" label={t("files.actions.analyze")} onClick={onAnalyze} primary />
+        <ActionButton disabled={isActive} icon="article" label={t("files.actions.text")} onClick={onShowText} />
+        <ActionButton disabled={isActive} icon="summarize" label={t("files.actions.summary")} onClick={onShowAnalysis} />
+        <ActionButton disabled={isActive} icon="edit" label={t("common.edit")} onClick={onEdit} />
+        <ActionButton disabled={isActive} icon="open_in_new" label={t("files.actions.open")} onClick={onDownload} />
+        <ActionButton disabled={isActive} icon="delete" label={t("common.delete")} onClick={onDelete} danger />
       </div>
     </article>
   );
@@ -405,6 +409,7 @@ function Metric({ icon, label, value }: { icon: string; label: string; value: st
 }
 
 function TextDialog({ dialog, onClose }: { dialog: NonNullable<DialogState>; onClose: () => void }) {
+  const { t } = useLanguage();
   return (
     <div className="fixed inset-0 z-[80] bg-black/40 flex items-center justify-center p-xl" role="dialog" aria-modal="true">
       <div className="bg-surface rounded-xl shadow-2xl max-w-3xl w-full max-h-[80vh] flex flex-col">
@@ -412,7 +417,7 @@ function TextDialog({ dialog, onClose }: { dialog: NonNullable<DialogState>; onC
           <div>
             <h3 className="font-headline-md text-headline-md">{dialog.title}</h3>
             <span className="inline-flex mt-2 px-2 py-0.5 rounded-full bg-primary/10 text-primary text-[11px] font-bold">
-              {statusLabel(dialog.status)}
+              {statusLabel(dialog.status, t)}
             </span>
           </div>
           <button type="button" onClick={onClose} className="text-on-surface-variant hover:text-on-surface">
@@ -427,24 +432,24 @@ function TextDialog({ dialog, onClose }: { dialog: NonNullable<DialogState>; onC
   );
 }
 
-function statusLabel(status: string): string {
+function statusLabel(status: string, t: (path: string) => string): string {
   switch (status) {
     case "ready":
-      return "Hazır";
+      return t("files.status.ready");
     case "processing":
-      return "İşlemde";
+      return t("files.status.processing");
     case "failed":
-      return "Hata";
+      return t("files.status.failed");
     case "uploaded":
-      return "Yüklendi";
+      return t("files.status.uploaded");
     case "extracted":
-      return "Metin çıkarıldı";
+      return t("files.status.extracted");
     case "unsupported":
-      return "Desteklenmiyor";
+      return t("files.status.unsupported");
     case "completed":
-      return "Tamamlandı";
+      return t("files.status.completed");
     default:
-      return "Bilinmeyen durum";
+      return t("files.status.unknown");
   }
 }
 
@@ -452,13 +457,4 @@ function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat("tr-TR", {
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date(value));
 }

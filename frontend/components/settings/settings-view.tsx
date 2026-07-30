@@ -386,9 +386,11 @@ export function SettingsView() {
                       <td className="px-lg py-md">
                         <div className="flex items-center gap-md">
                           <div className="w-9 h-9 rounded-full bg-primary-container/20 flex items-center justify-center text-primary text-[11px] font-bold">
-                            {getInitials(member.user_id)}
+                            {getInitials(member.full_name ?? member.email)}
                           </div>
-                          <span className="font-label-md text-on-surface truncate">{member.user_id}</span>
+                          <span className="font-label-md text-on-surface truncate">
+                            {member.full_name ?? member.email ?? member.user_id}
+                          </span>
                         </div>
                       </td>
                       <td className="px-lg py-md text-body-sm">{member.status}</td>
