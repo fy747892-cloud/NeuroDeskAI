@@ -11,6 +11,7 @@ from app.api.v1.deps import require_permission
 from app.core.errors import NotFoundError, ProviderError, ValidationAppError
 from app.core.permissions import Permission
 from app.db.session import get_db
+from app.modules.ai.diarization import build_diarized_transcript, get_diarization_provider
 from app.modules.ai.provider import get_ai_provider
 from app.modules.audit.repository import AuditRepository
 from app.modules.conversations.repository import ConversationRepository
@@ -110,14 +111,27 @@ async def create_call_from_audio(
     if len(audio_bytes) > MAX_AUDIO_BYTES:
         raise ValidationAppError("Uploaded audio file is too large.")
 
+    names = [name.strip() for name in participant_names.split(",") if name.strip()]
+    filename = audio.filename or "recording.m4a"
+
     provider = get_ai_provider()
+    diarization_provider = get_diarization_provider()
+    segments: list[dict] = []
     try:
-        transcript_text = await provider.transcribe_audio(
-            audio_bytes=audio_bytes,
-            filename=audio.filename or "recording.m4a",
-            content_type=audio.content_type or "audio/mp4",
-            language=language,
-        )
+        if diarization_provider is not None:
+            transcript_text, segments = await provider.transcribe_audio_with_timestamps(
+                audio_bytes=audio_bytes,
+                filename=filename,
+                content_type=audio.content_type or "audio/mp4",
+                language=language,
+            )
+        else:
+            transcript_text = await provider.transcribe_audio(
+                audio_bytes=audio_bytes,
+                filename=filename,
+                content_type=audio.content_type or "audio/mp4",
+                language=language,
+            )
     except httpx.HTTPStatusError as exc:
         logger.warning(
             "Call audio transcription failed. status=%s content_type=%s filename=%s body=%s",
@@ -153,7 +167,16 @@ async def create_call_from_audio(
             "Ses metne \u00e7evrilemedi. AI sa\u011flay\u0131c\u0131s\u0131n\u0131, kotay\u0131 veya ses dosyas\u0131 format\u0131n\u0131 kontrol edin."
         ) from exc
 
-    names = [name.strip() for name in participant_names.split(",") if name.strip()]
+    if diarization_provider is not None:
+        diarized_text = ""
+        try:
+            turns = await diarization_provider.diarize(audio_bytes=audio_bytes, filename=filename)
+            diarized_text = build_diarized_transcript(segments, turns, participant_names=names)
+        except Exception:
+            logger.warning("Diarization failed; falling back to plain transcript.", exc_info=True)
+        transcript_text = diarized_text if diarized_text else _format_transcript_text(transcript_text)
+    else:
+        transcript_text = _format_transcript_text(transcript_text)
 
     conversations = ConversationRepository(db)
     conversation, call, transcription = await conversations.create_call_with_transcription(
@@ -161,7 +184,7 @@ async def create_call_from_audio(
         organization_id=current_user.organization_id,
         user_id=current_user.id,
         title=title,
-        transcript_text=_format_transcript_text(transcript_text),
+        transcript_text=transcript_text,
         participant_names=names,
         call_direction=call_direction,
         phone_number=phone_number,
