@@ -40,6 +40,8 @@ from app.modules.deals.models import Deal  # noqa: F401
 from app.modules.email.models import EmailAccount, EmailMessageMetadata, EmailToken  # noqa: F401
 from app.modules.files.models import DocumentAnalysisResult, DocumentText, File  # noqa: F401
 from app.modules.notifications.models import Notification  # noqa: F401
+from app.modules.observability.models import ClientErrorReport  # noqa: F401
+from app.modules.feedback.models import Feedback  # noqa: F401
 from app.modules.organizations.models import Organization, OrganizationMember, Tenant  # noqa: F401
 from app.modules.search.models import Embedding  # noqa: F401
 from app.modules.tasks.models import Task  # noqa: F401

@@ -1,3 +1,4 @@
+import pyotp
 from httpx import AsyncClient
 
 
@@ -244,3 +245,200 @@ async def test_logout_all_revokes_every_session(client: AsyncClient):
         "/api/v1/auth/refresh", json={"refresh_token": second_refresh_token}
     )
     assert refresh_response.status_code == 401
+
+
+async def test_list_sessions_shows_each_login(client: AsyncClient):
+    tokens = await _register(client, email="sessions@example.com")
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+    await client.post(
+        "/api/v1/auth/login",
+        json={"email": "sessions@example.com", "password": "SuperSecret123"},
+    )
+
+    response = await client.get("/api/v1/auth/sessions", headers=headers)
+    assert response.status_code == 200
+    assert len(response.json()) == 2
+
+
+async def test_revoke_single_session_only_kills_that_device(client: AsyncClient):
+    tokens = await _register(client, email="revokeone@example.com")
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+    sessions_before = await client.get("/api/v1/auth/sessions", headers=headers)
+    original_session_ids = {s["id"] for s in sessions_before.json()}
+
+    second_login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "revokeone@example.com", "password": "SuperSecret123"},
+    )
+    second_refresh_token = second_login.json()["refresh_token"]
+
+    sessions_response = await client.get("/api/v1/auth/sessions", headers=headers)
+    sessions = sessions_response.json()
+    assert len(sessions) == 2
+
+    new_session_id = next(s["id"] for s in sessions if s["id"] not in original_session_ids)
+    revoke_response = await client.delete(
+        f"/api/v1/auth/sessions/{new_session_id}", headers=headers
+    )
+    assert revoke_response.status_code == 204
+
+    # Check the untouched session first: attempting the revoked token below
+    # trips reuse-detection, which (by design, see
+    # test_refresh_rotation_and_reuse_detection) revokes every session for
+    # the user as a compromise response — checking it after would always
+    # fail regardless of whether single-session revoke was correctly scoped.
+    still_alive_refresh_response = await client.post(
+        "/api/v1/auth/refresh", json={"refresh_token": tokens["refresh_token"]}
+    )
+    assert still_alive_refresh_response.status_code == 200
+
+    revoked_refresh_response = await client.post(
+        "/api/v1/auth/refresh", json={"refresh_token": second_refresh_token}
+    )
+    assert revoked_refresh_response.status_code == 401
+
+
+async def test_cannot_revoke_another_users_session(client: AsyncClient):
+    tokens_a = await _register(client, email="sessionowner@example.com")
+    tokens_b = await _register(client, email="sessionintruder@example.com")
+
+    sessions_response = await client.get(
+        "/api/v1/auth/sessions", headers={"Authorization": f"Bearer {tokens_a['access_token']}"}
+    )
+    session_id = sessions_response.json()[0]["id"]
+
+    revoke_response = await client.delete(
+        f"/api/v1/auth/sessions/{session_id}",
+        headers={"Authorization": f"Bearer {tokens_b['access_token']}"},
+    )
+    assert revoke_response.status_code == 403
+
+
+async def _enable_totp(client: AsyncClient, email: str) -> tuple[dict, str, list[str]]:
+    tokens = await _register(client, email=email)
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+    setup_response = await client.post("/api/v1/auth/2fa/setup", headers=headers)
+    assert setup_response.status_code == 200
+    secret = setup_response.json()["secret"]
+
+    code = pyotp.TOTP(secret).now()
+    verify_response = await client.post(
+        "/api/v1/auth/2fa/verify", headers=headers, json={"code": code}
+    )
+    assert verify_response.status_code == 200
+    recovery_codes = verify_response.json()["recovery_codes"]
+    assert len(recovery_codes) == 8
+
+    return tokens, secret, recovery_codes
+
+
+async def test_totp_setup_and_verify_enables_2fa(client: AsyncClient):
+    tokens = await _register(client, email="totpsetup@example.com")
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+    status_before = await client.get("/api/v1/auth/2fa/status", headers=headers)
+    assert status_before.json()["enabled"] is False
+
+    setup_response = await client.post("/api/v1/auth/2fa/setup", headers=headers)
+    assert setup_response.status_code == 200
+    secret = setup_response.json()["secret"]
+
+    valid_code = pyotp.TOTP(secret).now()
+    verify_response = await client.post(
+        "/api/v1/auth/2fa/verify", headers=headers, json={"code": valid_code}
+    )
+    assert verify_response.status_code == 200
+    assert len(verify_response.json()["recovery_codes"]) == 8
+
+    status_after = await client.get("/api/v1/auth/2fa/status", headers=headers)
+    assert status_after.json()["enabled"] is True
+
+
+async def test_login_requires_totp_code_once_2fa_enabled(client: AsyncClient):
+    _, secret, _ = await _enable_totp(client, "totplogin@example.com")
+
+    password_only = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "totplogin@example.com", "password": "SuperSecret123"},
+    )
+    assert password_only.status_code == 200
+    assert password_only.json()["mfa_required"] is True
+    assert password_only.json()["access_token"] is None
+
+    wrong_code = await client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "totplogin@example.com",
+            "password": "SuperSecret123",
+            "totp_code": "000000",
+        },
+    )
+    assert wrong_code.status_code == 401
+
+    valid_code = pyotp.TOTP(secret).now()
+    with_code = await client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "totplogin@example.com",
+            "password": "SuperSecret123",
+            "totp_code": valid_code,
+        },
+    )
+    assert with_code.status_code == 200
+    assert with_code.json()["mfa_required"] is False
+    assert "access_token" in with_code.json()
+
+
+async def test_login_with_recovery_code_is_single_use(client: AsyncClient):
+    _, _, recovery_codes = await _enable_totp(client, "totprecovery@example.com")
+    code = recovery_codes[0]
+
+    first_use = await client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "totprecovery@example.com",
+            "password": "SuperSecret123",
+            "recovery_code": code,
+        },
+    )
+    assert first_use.status_code == 200
+    assert "access_token" in first_use.json()
+
+    second_use = await client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "totprecovery@example.com",
+            "password": "SuperSecret123",
+            "recovery_code": code,
+        },
+    )
+    assert second_use.status_code == 401
+
+
+async def test_disable_totp_requires_valid_code(client: AsyncClient):
+    tokens, secret, _ = await _enable_totp(client, "totpdisable@example.com")
+    headers = {"Authorization": f"Bearer {tokens['access_token']}"}
+
+    wrong_code_response = await client.post(
+        "/api/v1/auth/2fa/disable", headers=headers, json={"code": "000000"}
+    )
+    assert wrong_code_response.status_code == 401
+
+    valid_code = pyotp.TOTP(secret).now()
+    disable_response = await client.post(
+        "/api/v1/auth/2fa/disable", headers=headers, json={"code": valid_code}
+    )
+    assert disable_response.status_code == 204
+
+    status_response = await client.get("/api/v1/auth/2fa/status", headers=headers)
+    assert status_response.json()["enabled"] is False
+
+    login_response = await client.post(
+        "/api/v1/auth/login",
+        json={"email": "totpdisable@example.com", "password": "SuperSecret123"},
+    )
+    assert login_response.status_code == 200
+    assert login_response.json()["mfa_required"] is False

@@ -41,3 +41,7 @@ class ConsentUpdate(BaseModel):
     ai_processing: bool
     contact_memory: bool
     operational_reminders: bool
+
+
+class DeleteAccountRequest(BaseModel):
+    password: str

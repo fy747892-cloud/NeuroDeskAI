@@ -4,6 +4,8 @@ import { DragEvent, FormEvent, useCallback, useEffect, useMemo, useState } from 
 import { Contact, createDeal, Deal, DEAL_STAGES, deleteDeal, listContacts, listDeals, updateDeal } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
+import { useToast } from "@/lib/toast";
+import { Skeleton } from "@/components/shell/skeleton";
 import { formatMoney } from "@/lib/format";
 
 const STAGE_LABEL_KEY: Record<string, string> = {
@@ -29,10 +31,10 @@ const OPEN_STAGES = new Set(["lead", "proposal_sent", "negotiation", "invoiced"]
 export function DealsView() {
   const { tokens } = useSession();
   const { t, language } = useLanguage();
+  const { showToast } = useToast();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
   const [isCreating, setCreating] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -108,7 +110,7 @@ export function DealsView() {
     try {
       await deleteDeal(tokens.accessToken, deal.id);
       setDeals((current) => current.filter((item) => item.id !== deal.id));
-      setNotice(t("deals.dealDeleted"));
+      showToast(t("deals.dealDeleted"), "success");
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : t("deals.dealDeleteError"));
     } finally {
@@ -161,7 +163,7 @@ export function DealsView() {
       });
       setDeals((current) => [created, ...current]);
       setNewDeal({ title: "", value: "", currency: "TRY", contactId: "", expectedCloseDate: "" });
-      setNotice(t("deals.dealCreated"));
+      showToast(t("deals.dealCreated"), "success");
       setShowForm(false);
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : t("deals.dealCreateError"));
@@ -198,7 +200,6 @@ export function DealsView() {
       </div>
 
       {error ? <p className="text-error text-body-sm mb-md">{error}</p> : null}
-      {notice ? <p className="text-primary text-body-sm mb-md">{notice}</p> : null}
 
       {showForm ? (
         <form onSubmit={handleCreateDeal} className="glass-card p-lg rounded-xl mb-lg grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -257,7 +258,15 @@ export function DealsView() {
 
       <div className="flex-1 overflow-x-auto pb-4">
         <div className="flex gap-gutter">
-          {columns.map(({ stage, deals: stageDeals }) => (
+          {isLoading
+            ? DEAL_STAGES.map((stage) => (
+                <div key={stage} className="kanban-column flex flex-col bg-surface-container-low/50 rounded-xl p-sm shrink-0 gap-sm">
+                  <Skeleton className="h-4 w-24 mx-2 mt-2" />
+                  <Skeleton className="h-24 w-full rounded-lg" />
+                  <Skeleton className="h-24 w-full rounded-lg" />
+                </div>
+              ))
+            : columns.map(({ stage, deals: stageDeals }) => (
             <div
               key={stage}
               onDragOver={(event) => handleColumnDragOver(event, stage)}

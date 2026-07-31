@@ -2,16 +2,21 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import QRCode from "qrcode";
 import {
   AuditLog,
   BillingPlan,
   CalendarAccount,
   connectGoogleCalendar,
   ConsentSettings,
+  deleteMyAccount,
+  disableTotp,
   EmailAccount,
+  exportMyData,
   getConsentSettings,
   getCurrentOrganization,
   getSubscription,
+  getTotpStatus,
   getUsageSummary,
   inviteOrganizationMember,
   listAuditLogs,
@@ -19,20 +24,28 @@ import {
   listCalendarAccounts,
   listEmailAccounts,
   listOrganizationMembers,
+  listSessions,
+  logoutAllSessions,
   Organization,
   OrganizationMember,
   revokeEmailAccount,
+  revokeSession,
+  setupTotp,
   startGmailConnect,
   startOutlookConnect,
   Subscription,
   switchPlan,
+  TotpSetup,
   updateConsentSettings,
   updateMemberRole,
   updateProfile,
   UsageSummary,
+  UserSession,
+  verifyTotp,
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
+import { useToast } from "@/lib/toast";
 import { formatDateTime, formatMoney, getInitials } from "@/lib/format";
 
 const INTEGRATION_META: Record<string, { label: string; icon: string; tint: string }> = {
@@ -48,8 +61,9 @@ const DEFAULT_CONSENT: ConsentSettings = {
 };
 
 export function SettingsView() {
-  const { user, tokens, refreshUser } = useSession();
+  const { user, tokens, refreshUser, signOut } = useSession();
   const { t, language } = useLanguage();
+  const { showToast } = useToast();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [plans, setPlans] = useState<BillingPlan[]>([]);
@@ -63,7 +77,6 @@ export function SettingsView() {
   const [consent, setConsent] = useState<ConsentSettings>(DEFAULT_CONSENT);
   const [isSavingConsent, setSavingConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
   const [busyPlanCode, setBusyPlanCode] = useState<string | null>(null);
   const [busyMemberId, setBusyMemberId] = useState<string | null>(null);
@@ -74,6 +87,21 @@ export function SettingsView() {
   const [inviteForm, setInviteForm] = useState({ email: "", role: "member" });
   const [isInviting, setInviting] = useState(false);
   const [busyIntegration, setBusyIntegration] = useState<string | null>(null);
+  const [sessions, setSessions] = useState<UserSession[]>([]);
+  const [busySessionId, setBusySessionId] = useState<string | null>(null);
+  const [isLoggingOutAll, setLoggingOutAll] = useState(false);
+  const [totpEnabled, setTotpEnabled] = useState(false);
+  const [totpSetup, setTotpSetup] = useState<TotpSetup | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [totpVerifyCode, setTotpVerifyCode] = useState("");
+  const [recoveryCodes, setRecoveryCodes] = useState<string[] | null>(null);
+  const [showDisableTotpForm, setShowDisableTotpForm] = useState(false);
+  const [totpDisableCode, setTotpDisableCode] = useState("");
+  const [isTotpBusy, setTotpBusy] = useState(false);
+  const [isExportingData, setExportingData] = useState(false);
+  const [showDeleteAccountForm, setShowDeleteAccountForm] = useState(false);
+  const [deleteAccountPassword, setDeleteAccountPassword] = useState("");
+  const [isDeletingAccount, setDeletingAccount] = useState(false);
 
   const loadSettings = useCallback(async () => {
     if (!tokens?.accessToken) return;
@@ -92,16 +120,21 @@ export function SettingsView() {
       setUsage(nextUsage);
       setEmailAccounts(nextEmailAccounts);
       setCalendarAccounts(nextCalendarAccounts);
-      const [nextOrganization, nextMembers, nextAuditLogs, nextConsent] = await Promise.all([
-        getCurrentOrganization(tokens.accessToken),
-        listOrganizationMembers(tokens.accessToken),
-        listAuditLogs(tokens.accessToken, 10),
-        getConsentSettings(tokens.accessToken),
-      ]);
+      const [nextOrganization, nextMembers, nextAuditLogs, nextConsent, nextSessions, nextTotpStatus] =
+        await Promise.all([
+          getCurrentOrganization(tokens.accessToken),
+          listOrganizationMembers(tokens.accessToken),
+          listAuditLogs(tokens.accessToken, 10),
+          getConsentSettings(tokens.accessToken),
+          listSessions(tokens.accessToken),
+          getTotpStatus(tokens.accessToken),
+        ]);
       setOrganization(nextOrganization);
       setMembers(nextMembers);
       setAuditLogs(nextAuditLogs);
       setConsent(nextConsent);
+      setSessions(nextSessions);
+      setTotpEnabled(nextTotpStatus.enabled);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : t("settings.loadError"));
     } finally {
@@ -117,7 +150,7 @@ export function SettingsView() {
     const connected = searchParams.get("connected");
     if (!connected) return;
     const label = connected === "gmail" ? "Gmail" : connected === "outlook" ? "Outlook" : connected;
-    setNotice(t("settings.integrations.connectedNotice", { provider: label }));
+    showToast(t("settings.integrations.connectedNotice", { provider: label }), "success");
     router.replace("/ayarlar");
   }, [searchParams, router]);
 
@@ -138,7 +171,7 @@ export function SettingsView() {
       });
       await refreshUser();
       setEditingProfile(false);
-      setNotice(t("settings.account.profileUpdated"));
+      showToast(t("settings.account.profileUpdated"), "success");
     } catch (profileError) {
       setError(profileError instanceof Error ? profileError.message : t("settings.account.profileUpdateError"));
     } finally {
@@ -160,7 +193,7 @@ export function SettingsView() {
       setMembers((current) => [...current, member]);
       setInviteForm({ email: "", role: "member" });
       setShowInviteForm(false);
-      setNotice(t("settings.team.inviteSent", { email: member.email ?? inviteForm.email.trim() }));
+      showToast(t("settings.team.inviteSent", { email: member.email ?? inviteForm.email.trim() }), "success");
     } catch (inviteError) {
       setError(inviteError instanceof Error ? inviteError.message : t("settings.team.inviteError"));
     } finally {
@@ -175,7 +208,7 @@ export function SettingsView() {
     try {
       const updated = await switchPlan(tokens.accessToken, planCode);
       setSubscription(updated);
-      setNotice(t("settings.billing.planUpdated", { planName: updated.plan.name }));
+      showToast(t("settings.billing.planUpdated", { planName: updated.plan.name }), "success");
     } catch (switchError) {
       setError(switchError instanceof Error ? switchError.message : t("settings.billing.planUpdateError"));
     } finally {
@@ -230,6 +263,134 @@ export function SettingsView() {
     }
   }
 
+  async function handleRevokeSession(sessionId: string) {
+    if (!tokens?.accessToken) return;
+    setBusySessionId(sessionId);
+    setError(null);
+    try {
+      await revokeSession(tokens.accessToken, sessionId);
+      setSessions((current) => current.filter((item) => item.id !== sessionId));
+      showToast(t("settings.sessions.revoked"), "success");
+    } catch (revokeError) {
+      setError(revokeError instanceof Error ? revokeError.message : t("settings.sessions.revokeError"));
+    } finally {
+      setBusySessionId(null);
+    }
+  }
+
+  async function handleLogoutAllSessions() {
+    if (!tokens?.accessToken || !window.confirm(t("settings.sessions.logoutAllConfirm"))) return;
+    setLoggingOutAll(true);
+    setError(null);
+    try {
+      await logoutAllSessions(tokens.accessToken);
+      await signOut();
+      router.replace("/giris");
+    } catch (logoutError) {
+      setError(logoutError instanceof Error ? logoutError.message : t("settings.sessions.logoutAllError"));
+      setLoggingOutAll(false);
+    }
+  }
+
+  async function handleStartTotpSetup() {
+    if (!tokens?.accessToken) return;
+    setTotpBusy(true);
+    setError(null);
+    try {
+      const setup = await setupTotp(tokens.accessToken);
+      const qr = await QRCode.toDataURL(setup.otpauth_url);
+      setTotpSetup(setup);
+      setQrDataUrl(qr);
+      setTotpVerifyCode("");
+    } catch (setupError) {
+      setError(setupError instanceof Error ? setupError.message : t("settings.totp.setupError"));
+    } finally {
+      setTotpBusy(false);
+    }
+  }
+
+  function handleCancelTotpSetup() {
+    setTotpSetup(null);
+    setQrDataUrl(null);
+    setTotpVerifyCode("");
+  }
+
+  async function handleVerifyTotp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tokens?.accessToken || !totpVerifyCode.trim()) return;
+    setTotpBusy(true);
+    setError(null);
+    try {
+      const result = await verifyTotp(tokens.accessToken, totpVerifyCode.trim());
+      setTotpEnabled(true);
+      setRecoveryCodes(result.recovery_codes);
+      setTotpSetup(null);
+      setQrDataUrl(null);
+      setTotpVerifyCode("");
+      showToast(t("settings.totp.enabled"), "success");
+    } catch (verifyError) {
+      setError(verifyError instanceof Error ? verifyError.message : t("settings.totp.verifyError"));
+    } finally {
+      setTotpBusy(false);
+    }
+  }
+
+  async function handleDisableTotp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tokens?.accessToken || !totpDisableCode.trim()) return;
+    setTotpBusy(true);
+    setError(null);
+    try {
+      await disableTotp(tokens.accessToken, totpDisableCode.trim());
+      setTotpEnabled(false);
+      setShowDisableTotpForm(false);
+      setTotpDisableCode("");
+      showToast(t("settings.totp.disabled"), "success");
+    } catch (disableError) {
+      setError(disableError instanceof Error ? disableError.message : t("settings.totp.disableError"));
+    } finally {
+      setTotpBusy(false);
+    }
+  }
+
+  async function handleExportData() {
+    if (!tokens?.accessToken) return;
+    setExportingData(true);
+    setError(null);
+    try {
+      const data = await exportMyData(tokens.accessToken);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "neurodesk-verilerim.json";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (exportError) {
+      setError(exportError instanceof Error ? exportError.message : t("settings.dangerZone.exportError"));
+    } finally {
+      setExportingData(false);
+    }
+  }
+
+  async function handleDeleteAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tokens?.accessToken || !deleteAccountPassword.trim()) return;
+    if (!window.confirm(t("settings.dangerZone.deleteConfirm"))) return;
+    setDeletingAccount(true);
+    setError(null);
+    try {
+      await deleteMyAccount(tokens.accessToken, deleteAccountPassword);
+      await signOut();
+      router.replace("/giris");
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : t("settings.dangerZone.deleteError"));
+      setDeletingAccount(false);
+    }
+  }
+
   async function handleConnectCalendar() {
     if (!tokens?.accessToken) return;
     setBusyIntegration("google-calendar");
@@ -237,7 +398,7 @@ export function SettingsView() {
     try {
       const account = await connectGoogleCalendar(tokens.accessToken);
       setCalendarAccounts((current) => [account, ...current]);
-      setNotice(t("settings.integrations.googleCalendarConnected"));
+      showToast(t("settings.integrations.googleCalendarConnected"), "success");
     } catch (connectError) {
       setError(connectError instanceof Error ? connectError.message : t("tasks.calendarConnectError"));
     } finally {
@@ -253,7 +414,7 @@ export function SettingsView() {
     setError(null);
     try {
       await updateConsentSettings(tokens.accessToken, next);
-      setNotice(t("settings.consent.saved"));
+      showToast(t("settings.consent.saved"), "success");
     } catch (consentError) {
       setConsent(consent);
       setError(consentError instanceof Error ? consentError.message : t("settings.consent.saveError"));
@@ -285,7 +446,6 @@ export function SettingsView() {
       </header>
 
       {error ? <p className="text-error text-body-sm mb-md">{error}</p> : null}
-      {notice ? <p className="text-primary text-body-sm mb-md">{notice}</p> : null}
 
       <div className="grid grid-cols-12 gap-lg">
         <section className="col-span-12 lg:col-span-8 space-y-md">
@@ -609,6 +769,249 @@ export function SettingsView() {
           </div>
         </section>
       </div>
+
+      <section className="glass-card rounded-xl overflow-hidden mt-lg">
+        <div className="px-lg py-md border-b border-outline-variant/30 flex items-center justify-between flex-wrap gap-2">
+          <div>
+            <h3 className="font-headline-md text-headline-md flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">devices</span>
+              {t("settings.sessions.title")}
+            </h3>
+            <p className="text-body-sm text-on-surface-variant mt-xs">{t("settings.sessions.subtitle")}</p>
+          </div>
+          {sessions.length > 0 ? (
+            <button
+              type="button"
+              disabled={isLoggingOutAll}
+              onClick={handleLogoutAllSessions}
+              className="text-error text-[12px] font-bold hover:underline disabled:opacity-60"
+            >
+              {isLoggingOutAll ? t("common.loading") : t("settings.sessions.logoutAll")}
+            </button>
+          ) : null}
+        </div>
+        {sessions.length === 0 ? (
+          <p className="p-lg text-body-sm text-on-surface-variant">{t("settings.sessions.empty")}</p>
+        ) : (
+          <ul className="divide-y divide-outline-variant/10">
+            {sessions.map((session) => (
+              <li key={session.id} className="px-lg py-md flex items-center justify-between gap-md">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="material-symbols-outlined text-on-surface-variant shrink-0">laptop_mac</span>
+                  <div className="min-w-0">
+                    <p className="font-label-md text-on-surface truncate">
+                      {session.user_agent ?? t("settings.sessions.unknownDevice")}
+                    </p>
+                    <p className="text-body-sm text-on-surface-variant truncate">
+                      {session.ip_address ?? t("settings.sessions.unknownIp")} ·{" "}
+                      {t("settings.sessions.signedInAt", { date: formatDateTime(session.created_at, language) })}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  disabled={busySessionId === session.id}
+                  onClick={() => handleRevokeSession(session.id)}
+                  className="text-error text-[12px] font-bold hover:underline disabled:opacity-60 shrink-0"
+                >
+                  {busySessionId === session.id ? t("common.loading") : t("settings.sessions.revoke")}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="glass-card p-lg rounded-xl mt-lg">
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-md">
+          <div>
+            <h3 className="font-headline-md text-headline-md flex items-center gap-2">
+              <span className="material-symbols-outlined text-primary">shield_lock</span>
+              {t("settings.totp.title")}
+            </h3>
+            <p className="text-body-sm text-on-surface-variant mt-xs">{t("settings.totp.subtitle")}</p>
+          </div>
+          <span
+            className={
+              "px-2 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider shrink-0 " +
+              (totpEnabled ? "bg-green-100 text-green-700" : "bg-surface-container-high text-on-surface-variant")
+            }
+          >
+            {totpEnabled ? t("settings.totp.statusEnabled") : t("settings.totp.statusDisabled")}
+          </span>
+        </div>
+
+        {recoveryCodes ? (
+          <div className="mb-md p-md rounded-lg border border-primary/30 bg-primary-container/10">
+            <p className="font-label-md text-on-surface mb-1">{t("settings.totp.recoveryCodesTitle")}</p>
+            <p className="text-body-sm text-on-surface-variant mb-sm">{t("settings.totp.recoveryCodesHint")}</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-md font-mono text-body-sm">
+              {recoveryCodes.map((code) => (
+                <code key={code} className="px-2 py-1 rounded bg-surface-container-lowest text-center">
+                  {code}
+                </code>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setRecoveryCodes(null)}
+              className="text-primary text-[12px] font-bold hover:underline"
+            >
+              {t("settings.totp.recoveryCodesAck")}
+            </button>
+          </div>
+        ) : null}
+
+        {!totpEnabled && !totpSetup ? (
+          <button
+            type="button"
+            disabled={isTotpBusy}
+            onClick={handleStartTotpSetup}
+            className="py-2 px-4 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
+          >
+            {isTotpBusy ? t("common.loading") : t("settings.totp.enableButton")}
+          </button>
+        ) : null}
+
+        {totpSetup && qrDataUrl ? (
+          <form onSubmit={handleVerifyTotp} className="flex flex-col sm:flex-row gap-lg items-start">
+            <img src={qrDataUrl} alt={t("settings.totp.qrAlt")} className="w-40 h-40 rounded-lg border border-outline-variant/30 bg-white p-2" />
+            <div className="flex-1 space-y-2 min-w-[220px]">
+              <p className="text-body-sm text-on-surface-variant">{t("settings.totp.scanHint")}</p>
+              <p className="text-body-sm font-mono break-all text-on-surface-variant">{totpSetup.secret}</p>
+              <input
+                autoComplete="one-time-code"
+                onChange={(e) => setTotpVerifyCode(e.target.value)}
+                placeholder="000000"
+                value={totpVerifyCode}
+                className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm tracking-widest"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={isTotpBusy || !totpVerifyCode.trim()}
+                  className="flex-1 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
+                >
+                  {isTotpBusy ? t("common.loading") : t("settings.totp.verifyButton")}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelTotpSetup}
+                  className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
+                >
+                  {t("common.cancel")}
+                </button>
+              </div>
+            </div>
+          </form>
+        ) : null}
+
+        {totpEnabled ? (
+          showDisableTotpForm ? (
+            <form onSubmit={handleDisableTotp} className="flex flex-wrap gap-2 items-center">
+              <input
+                autoComplete="one-time-code"
+                onChange={(e) => setTotpDisableCode(e.target.value)}
+                placeholder="000000"
+                value={totpDisableCode}
+                className="flex-1 min-w-[140px] bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm tracking-widest"
+              />
+              <button
+                type="submit"
+                disabled={isTotpBusy || !totpDisableCode.trim()}
+                className="py-2 px-4 bg-error text-on-error rounded-lg text-label-sm font-bold disabled:opacity-60"
+              >
+                {isTotpBusy ? t("common.loading") : t("settings.totp.disableConfirm")}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDisableTotpForm(false);
+                  setTotpDisableCode("");
+                }}
+                className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
+              >
+                {t("common.cancel")}
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowDisableTotpForm(true)}
+              className="text-error text-[12px] font-bold hover:underline"
+            >
+              {t("settings.totp.disableButton")}
+            </button>
+          )
+        ) : null}
+      </section>
+
+      <section className="glass-card p-lg rounded-xl mt-lg border border-error/30">
+        <h3 className="font-headline-md text-headline-md flex items-center gap-2 text-error">
+          <span className="material-symbols-outlined">warning</span>
+          {t("settings.dangerZone.title")}
+        </h3>
+        <div className="mt-md flex flex-col sm:flex-row sm:items-center sm:justify-between gap-md pb-md border-b border-outline-variant/20">
+          <div>
+            <p className="font-label-md text-on-surface">{t("settings.dangerZone.exportTitle")}</p>
+            <p className="text-body-sm text-on-surface-variant">{t("settings.dangerZone.exportSubtitle")}</p>
+          </div>
+          <button
+            type="button"
+            disabled={isExportingData}
+            onClick={handleExportData}
+            className="py-2 px-4 border border-outline-variant rounded-lg text-label-sm font-bold hover:bg-surface-container-high disabled:opacity-60 shrink-0"
+          >
+            {isExportingData ? t("common.loading") : t("settings.dangerZone.exportButton")}
+          </button>
+        </div>
+
+        <div className="mt-md flex flex-col sm:flex-row sm:items-start sm:justify-between gap-md">
+          <div>
+            <p className="font-label-md text-on-surface">{t("settings.dangerZone.deleteTitle")}</p>
+            <p className="text-body-sm text-on-surface-variant">{t("settings.dangerZone.deleteSubtitle")}</p>
+          </div>
+          {showDeleteAccountForm ? (
+            <form onSubmit={handleDeleteAccount} className="flex flex-col gap-2 w-full sm:w-auto sm:min-w-[260px]">
+              <input
+                autoComplete="current-password"
+                onChange={(e) => setDeleteAccountPassword(e.target.value)}
+                placeholder={t("auth.password")}
+                type="password"
+                value={deleteAccountPassword}
+                className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+              />
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={isDeletingAccount || !deleteAccountPassword.trim()}
+                  className="flex-1 py-2 bg-error text-on-error rounded-lg text-label-sm font-bold disabled:opacity-60"
+                >
+                  {isDeletingAccount ? t("common.loading") : t("settings.dangerZone.deleteConfirmButton")}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDeleteAccountForm(false);
+                    setDeleteAccountPassword("");
+                  }}
+                  className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
+                >
+                  {t("common.cancel")}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowDeleteAccountForm(true)}
+              className="py-2 px-4 border border-error text-error rounded-lg text-label-sm font-bold hover:bg-error/10 shrink-0"
+            >
+              {t("settings.dangerZone.deleteButton")}
+            </button>
+          )}
+        </div>
+      </section>
 
       <section className="glass-card p-lg rounded-xl mt-lg">
         <h3 className="font-headline-md text-headline-md flex items-center gap-2">

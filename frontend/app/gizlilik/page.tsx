@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Gizlilik Politikası | NeuroDesk AI",
+  title: "Gizlilik Politikası",
   description: "NeuroDesk AI gizlilik politikası ve Google kullanıcı verisi kullanım açıklaması.",
 };
 

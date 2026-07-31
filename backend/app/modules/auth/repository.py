@@ -61,11 +61,32 @@ class AuthRepository:
         refresh_token.revoked_at = datetime.now(timezone.utc)
         await self._db.flush()
 
+    async def list_active_sessions(self, *, user_id: uuid.UUID) -> list[UserSession]:
+        now = datetime.now(timezone.utc)
+        result = await self._db.execute(
+            select(UserSession)
+            .where(
+                UserSession.user_id == user_id,
+                UserSession.revoked_at.is_(None),
+                UserSession.expires_at > now,
+            )
+            .order_by(UserSession.created_at.desc())
+        )
+        return list(result.scalars().all())
+
+    async def get_session_by_id(self, *, session_id: uuid.UUID) -> UserSession | None:
+        result = await self._db.execute(select(UserSession).where(UserSession.id == session_id))
+        return result.scalar_one_or_none()
+
     async def revoke_session(self, session_id: uuid.UUID) -> None:
+        now = datetime.now(timezone.utc)
         await self._db.execute(
-            update(UserSession)
-            .where(UserSession.id == session_id)
-            .values(revoked_at=datetime.now(timezone.utc))
+            update(UserSession).where(UserSession.id == session_id).values(revoked_at=now)
+        )
+        await self._db.execute(
+            update(RefreshToken)
+            .where(RefreshToken.session_id == session_id, RefreshToken.revoked_at.is_(None))
+            .values(revoked_at=now)
         )
 
     async def revoke_all_for_user(self, user_id: uuid.UUID) -> None:
