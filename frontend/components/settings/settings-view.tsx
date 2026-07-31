@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import QRCode from "qrcode";
 import {
@@ -9,6 +9,7 @@ import {
   CalendarAccount,
   connectGoogleCalendar,
   ConsentSettings,
+  deleteAvatar,
   deleteMyAccount,
   disableTotp,
   EmailAccount,
@@ -39,6 +40,7 @@ import {
   updateConsentSettings,
   updateMemberRole,
   updateProfile,
+  uploadAvatar,
   UsageSummary,
   UserSession,
   verifyTotp,
@@ -46,7 +48,8 @@ import {
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast";
-import { formatDateTime, formatMoney, getInitials } from "@/lib/format";
+import { formatDateTime, formatMoney } from "@/lib/format";
+import { Avatar } from "@/components/shell/avatar";
 
 const INTEGRATION_META: Record<string, { label: string; icon: string; tint: string }> = {
   gmail: { label: "Gmail", icon: "mail", tint: "bg-red-50 text-red-600" },
@@ -83,6 +86,8 @@ export function SettingsView() {
   const [isEditingProfile, setEditingProfile] = useState(false);
   const [profileForm, setProfileForm] = useState({ fullName: "", title: "" });
   const [isSavingProfile, setSavingProfile] = useState(false);
+  const [isUploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [inviteForm, setInviteForm] = useState({ email: "", role: "member" });
   const [isInviting, setInviting] = useState(false);
@@ -182,6 +187,46 @@ export function SettingsView() {
       setError(profileError instanceof Error ? profileError.message : t("settings.account.profileUpdateError"));
     } finally {
       setSavingProfile(false);
+    }
+  }
+
+  async function handleAvatarFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !tokens?.accessToken) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setError(t("settings.account.avatarTypeError"));
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      setError(t("settings.account.avatarTooLarge"));
+      return;
+    }
+    setUploadingAvatar(true);
+    setError(null);
+    try {
+      await uploadAvatar(tokens.accessToken, file);
+      await refreshUser();
+      showToast(t("settings.account.avatarUpdated"), "success");
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : t("settings.account.avatarUploadError"));
+    } finally {
+      setUploadingAvatar(false);
+    }
+  }
+
+  async function handleRemoveAvatar() {
+    if (!tokens?.accessToken) return;
+    setUploadingAvatar(true);
+    setError(null);
+    try {
+      await deleteAvatar(tokens.accessToken);
+      await refreshUser();
+      showToast(t("settings.account.avatarRemoved"), "success");
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : t("settings.account.avatarRemoveError"));
+    } finally {
+      setUploadingAvatar(false);
     }
   }
 
@@ -650,9 +695,11 @@ export function SettingsView() {
                     <tr key={member.id} className="hover:bg-primary-container/5 transition-colors">
                       <td className="px-lg py-md">
                         <div className="flex items-center gap-md">
-                          <div className="w-9 h-9 rounded-full bg-primary-container/20 flex items-center justify-center text-primary text-[11px] font-bold">
-                            {getInitials(member.full_name ?? member.email)}
-                          </div>
+                          <Avatar
+                            avatarUrl={member.avatar_url}
+                            name={member.full_name ?? member.email ?? member.user_id}
+                            className="w-9 h-9 text-[11px]"
+                          />
                           <span className="font-label-md text-on-surface truncate">
                             {member.full_name ?? member.email ?? member.user_id}
                           </span>
@@ -708,6 +755,44 @@ export function SettingsView() {
                 {t("common.edit")}
               </button>
             ) : null}
+          </div>
+
+          <div className="flex items-center gap-md mb-md">
+            <Avatar
+              avatarUrl={user?.profile?.avatar_url}
+              name={user?.profile?.full_name ?? user?.email ?? "?"}
+              className="w-16 h-16 text-lg"
+            />
+            <div className="flex flex-col gap-1">
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  disabled={isUploadingAvatar}
+                  onClick={() => avatarInputRef.current?.click()}
+                  className="text-primary text-[12px] font-bold hover:underline disabled:opacity-60"
+                >
+                  {isUploadingAvatar ? t("common.loading") : t("settings.account.changeAvatar")}
+                </button>
+                {user?.profile?.avatar_url ? (
+                  <button
+                    type="button"
+                    disabled={isUploadingAvatar}
+                    onClick={handleRemoveAvatar}
+                    className="text-error text-[12px] font-bold hover:underline disabled:opacity-60"
+                  >
+                    {t("settings.account.removeAvatar")}
+                  </button>
+                ) : null}
+              </div>
+              <p className="text-[11px] text-on-surface-variant">{t("settings.account.avatarHint")}</p>
+            </div>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleAvatarFileChange}
+            />
           </div>
 
           {isEditingProfile ? (

@@ -646,6 +646,7 @@ export type OrganizationMember = {
   created_at: string;
   email: string | null;
   full_name: string | null;
+  avatar_url: string | null;
 };
 
 export type AuditLog = {
@@ -834,6 +835,44 @@ export async function updateProfile(
       Authorization: `Bearer ${accessToken}`,
     },
   });
+}
+
+export async function uploadAvatar(accessToken: string, file: File): Promise<CurrentUser> {
+  const formData = new FormData();
+  formData.set("file", file);
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/v1/users/me/avatar`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: formData,
+    });
+  } catch {
+    throw new Error(
+      "Profil fotoğrafı backend'e gönderilemedi. Backend'in çalıştığını, API adresini ve ağ bağlantınızı kontrol edin.",
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+
+  return (await response.json()) as CurrentUser;
+}
+
+export async function deleteAvatar(accessToken: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/users/me/avatar`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
 }
 
 export async function getConsentSettings(accessToken: string): Promise<ConsentSettings> {

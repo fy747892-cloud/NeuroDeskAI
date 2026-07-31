@@ -14,7 +14,7 @@ import { ThemeToggle } from "@/components/shell/theme-toggle";
 import { useSession } from "@/lib/session";
 import { getDashboard } from "@/lib/api";
 import { useLanguage } from "@/lib/i18n/context";
-import { getInitials } from "@/lib/format";
+import { Avatar } from "@/components/shell/avatar";
 
 const navItems = [
   { icon: "dashboard", labelKey: "dashboard", href: "/" },
@@ -41,6 +41,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const wasMobileMenuOpenRef = useRef(false);
 
   const displayName = user?.profile?.full_name ?? user?.email ?? "NeuroDesk";
+  const avatarUrl = user?.profile?.avatar_url ?? null;
   const planLabel = t("shell.planLabel");
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
@@ -84,7 +85,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         className="fixed h-full w-[260px] left-0 top-0 bg-surface-container-low shadow-sm hidden lg:flex flex-col py-md z-50"
         aria-label={t("shell.ariaMainNav")}
       >
-        <SideNavContent displayName={displayName} navBadges={navBadges} pathname={pathname} planLabel={planLabel} t={t} />
+        <SideNavContent
+          avatarUrl={avatarUrl}
+          displayName={displayName}
+          navBadges={navBadges}
+          pathname={pathname}
+          planLabel={planLabel}
+          t={t}
+        />
       </aside>
 
       {isMobileMenuOpen ? (
@@ -115,6 +123,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </button>
             </div>
             <SideNavContent
+              avatarUrl={avatarUrl}
               displayName={displayName}
               navBadges={navBadges}
               onNavigate={closeMobileMenu}
@@ -198,6 +207,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 }
 
 function SideNavContent({
+  avatarUrl,
   displayName,
   navBadges,
   onNavigate,
@@ -205,6 +215,7 @@ function SideNavContent({
   planLabel,
   t,
 }: {
+  avatarUrl: string | null;
   displayName: string;
   navBadges: Record<string, number>;
   onNavigate?: () => void;
@@ -273,9 +284,7 @@ function SideNavContent({
         </Link>
 
         <div className="flex items-center gap-3 mt-md p-2 rounded-lg hover:bg-surface-container-high transition-colors">
-          <div className="w-10 h-10 rounded-full bg-primary-container/20 flex items-center justify-center text-primary font-bold text-sm shrink-0">
-            {getInitials(displayName)}
-          </div>
+          <Avatar avatarUrl={avatarUrl} name={displayName} className="w-10 h-10 text-sm" />
           <div className="flex-1 min-w-0">
             <p className="font-label-md text-label-md truncate">{displayName}</p>
             <p className="text-[10px] text-outline uppercase tracking-wider">{planLabel}</p>

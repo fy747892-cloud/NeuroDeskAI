@@ -46,5 +46,6 @@ class UserProfile(UUIDPKMixin, TimestampMixin, SoftDeleteMixin, Base):
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    avatar_storage_key: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     user: Mapped[User] = relationship(back_populates="profile")

@@ -15,8 +15,9 @@ import {
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast";
-import { formatDateTime, getInitials } from "@/lib/format";
+import { formatDateTime } from "@/lib/format";
 import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
+import { Avatar } from "@/components/shell/avatar";
 
 type LocalMessage = {
   id: string;
@@ -278,9 +279,11 @@ export function AIChatView() {
                       {formatDateTime(message.created_at, language)}
                     </span>
                   </div>
-                  <div className="w-8 h-8 rounded-full bg-primary-container/20 flex items-center justify-center text-primary text-[11px] font-bold shrink-0 mt-1">
-                    {getInitials(displayName)}
-                  </div>
+                  <Avatar
+                    avatarUrl={user?.profile?.avatar_url}
+                    name={displayName}
+                    className="w-8 h-8 text-[11px] mt-1"
+                  />
                 </div>
               ) : (
                 <div key={message.id} className="flex justify-start items-start gap-md">
