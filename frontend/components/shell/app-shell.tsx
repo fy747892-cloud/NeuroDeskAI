@@ -112,7 +112,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             aria-label={t("shell.ariaMainNav")}
           >
             <div className="flex items-center justify-between px-lg mb-md">
-              <p className="font-headline-md text-headline-md font-bold text-primary">NeuroDesk AI</p>
+              <div className="flex items-center gap-2 min-w-0">
+                <img src="/brand/neurodesk-mark.png" alt="" className="w-7 h-7 rounded-md shrink-0" />
+                <p className="font-headline-md text-headline-md font-bold text-primary truncate">NeuroDesk AI</p>
+              </div>
               <button
                 type="button"
                 onClick={closeMobileMenu}
@@ -225,11 +228,14 @@ function SideNavContent({
 }) {
   return (
     <>
-      <div className="px-lg mb-xl hidden lg:block">
-        <h1 className="font-headline-md text-headline-md font-bold text-primary">NeuroDesk AI</h1>
-        <p className="font-label-sm text-label-sm text-on-surface-variant opacity-70">
-          {t("shell.subtitle")}
-        </p>
+      <div className="px-lg mb-xl hidden lg:flex items-center gap-3">
+        <img src="/brand/neurodesk-mark.png" alt="" className="w-9 h-9 rounded-lg shrink-0" />
+        <div className="min-w-0">
+          <h1 className="font-headline-md text-headline-md font-bold text-primary truncate">NeuroDesk AI</h1>
+          <p className="font-label-sm text-label-sm text-on-surface-variant opacity-70">
+            {t("shell.subtitle")}
+          </p>
+        </div>
       </div>
 
       <nav className="flex-1 space-y-1 overflow-y-auto custom-scrollbar">

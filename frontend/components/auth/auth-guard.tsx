@@ -21,6 +21,7 @@ export function AuthGuard({ children }: { children: ReactNode }) {
     return (
       <main className="min-h-screen flex items-center justify-center bg-background">
         <section className="glass-card p-xl rounded-2xl text-center max-w-sm">
+          <img src="/brand/neurodesk-mark.png" alt="" className="w-12 h-12 rounded-xl mx-auto mb-3" />
           <p className="font-label-sm text-label-sm text-primary uppercase tracking-widest mb-2">
             NeuroDeskAI
           </p>
