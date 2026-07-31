@@ -159,7 +159,7 @@ export function SearchPalette() {
                     return (
                       <button
                         className={
-                          "group w-full flex items-center gap-4 p-md rounded-lg cursor-pointer transition-colors border text-left " +
+                          "group w-full flex items-center gap-4 p-md rounded-lg cursor-pointer transition-colors active:scale-[0.98] border text-left " +
                           (isActive
                             ? "bg-primary-container/10 border-primary/20"
                             : "border-transparent hover:bg-primary-container/5 hover:border-primary/10")

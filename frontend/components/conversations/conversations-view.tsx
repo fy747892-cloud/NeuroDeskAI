@@ -521,7 +521,7 @@ export function ConversationsView() {
                           type="button"
                           onClick={() => toggleSelectedContact(contact.id)}
                           className={
-                            "w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-body-sm border " +
+                            "w-full flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-body-sm border transition-colors active:scale-[0.98] " +
                             (selected
                               ? "border-primary bg-primary-container/10 text-primary"
                               : "border-transparent bg-surface-container-low text-on-surface hover:bg-surface-container-high")
@@ -624,7 +624,7 @@ export function ConversationsView() {
                 type="button"
                 onClick={() => setSelectedId(conversation.id)}
                 className={
-                  "w-full text-left px-lg py-4 border-b border-surface-container-highest/50 transition-colors " +
+                  "w-full text-left px-lg py-4 border-b border-surface-container-highest/50 transition-colors active:bg-surface-container-high " +
                   (active
                     ? "bg-primary-container/5 border-l-4 border-l-primary"
                     : "hover:bg-surface-container-low")

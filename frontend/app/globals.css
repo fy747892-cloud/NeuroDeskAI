@@ -262,6 +262,10 @@ textarea:focus-visible,
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
 }
 
+.bento-card:active {
+  transform: translateY(0) scale(0.98);
+}
+
 .transcript-container {
   mask-image: linear-gradient(to bottom, black 90%, transparent 100%);
 }
@@ -281,11 +285,15 @@ textarea:focus-visible,
   aspect-ratio: 1 / 1;
   padding: 8px;
   position: relative;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, transform 0.15s;
 }
 
 .calendar-day:hover {
   background-color: rgb(var(--calendar-day-hover-bg));
+}
+
+.calendar-day:active {
+  transform: scale(0.95);
 }
 
 .conflict-glow {

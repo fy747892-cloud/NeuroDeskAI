@@ -124,7 +124,7 @@ export function DashboardView() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-md">
             <Link
               href="/gorusmeler"
-              className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest hover:border-primary/40 hover:shadow-md transition-all"
+              className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest hover:border-primary/40 hover:shadow-md active:scale-[0.98] transition-all"
             >
               <span className="material-symbols-outlined text-primary shrink-0">mic</span>
               <span>
@@ -136,7 +136,7 @@ export function DashboardView() {
             </Link>
             <Link
               href="/gorevler"
-              className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest hover:border-primary/40 hover:shadow-md transition-all"
+              className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest hover:border-primary/40 hover:shadow-md active:scale-[0.98] transition-all"
             >
               <span className="material-symbols-outlined text-primary shrink-0">task_alt</span>
               <span>
@@ -148,7 +148,7 @@ export function DashboardView() {
             </Link>
             <Link
               href="/kisiler"
-              className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest hover:border-primary/40 hover:shadow-md transition-all"
+              className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest hover:border-primary/40 hover:shadow-md active:scale-[0.98] transition-all"
             >
               <span className="material-symbols-outlined text-primary shrink-0">person_add</span>
               <span>
@@ -230,9 +230,10 @@ export function DashboardView() {
               <EmptyState icon="event_available" title={t("dashboard.noUpcomingAppointments")} />
             ) : (
               appointments.map((appt) => (
-                <article
+                <Link
                   key={appt.id}
-                  className="p-md rounded-xl bg-surface-container-lowest border border-outline-variant/30 hover:shadow-md transition-shadow cursor-pointer group"
+                  href="/gorevler"
+                  className="block p-md rounded-xl bg-surface-container-lowest border border-outline-variant/30 hover:shadow-md hover:border-primary/30 active:scale-[0.98] transition-all group"
                 >
                   <div className="flex gap-md">
                     <div className="flex flex-col items-center justify-center w-14 py-2 bg-primary-container/10 rounded-lg shrink-0">
@@ -249,7 +250,7 @@ export function DashboardView() {
                       </p>
                     </div>
                   </div>
-                </article>
+                </Link>
               ))
             )}
           </div>

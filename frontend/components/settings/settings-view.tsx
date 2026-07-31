@@ -131,26 +131,37 @@ export function SettingsView() {
     setLoading(true);
     setError(null);
     try {
-      const [nextPlans, nextSubscription, nextUsage, nextEmailAccounts, nextCalendarAccounts] = await Promise.all([
+      // All ten calls are independent of each other — one round-trip instead
+      // of two sequential batches. Only the audit-log fetch below genuinely
+      // has to wait, since it needs to know the caller's role first.
+      const [
+        nextPlans,
+        nextSubscription,
+        nextUsage,
+        nextEmailAccounts,
+        nextCalendarAccounts,
+        nextOrganization,
+        nextMembers,
+        nextConsent,
+        nextSessions,
+        nextTotpStatus,
+      ] = await Promise.all([
         listBillingPlans(tokens.accessToken),
         getSubscription(tokens.accessToken),
         getUsageSummary(tokens.accessToken),
         listEmailAccounts(tokens.accessToken),
         listCalendarAccounts(tokens.accessToken),
+        getCurrentOrganization(tokens.accessToken),
+        listOrganizationMembers(tokens.accessToken),
+        getConsentSettings(tokens.accessToken),
+        listSessions(tokens.accessToken),
+        getTotpStatus(tokens.accessToken),
       ]);
       setPlans(nextPlans);
       setSubscription(nextSubscription);
       setUsage(nextUsage);
       setEmailAccounts(nextEmailAccounts);
       setCalendarAccounts(nextCalendarAccounts);
-      const [nextOrganization, nextMembers, nextConsent, nextSessions, nextTotpStatus] =
-        await Promise.all([
-          getCurrentOrganization(tokens.accessToken),
-          listOrganizationMembers(tokens.accessToken),
-          getConsentSettings(tokens.accessToken),
-          listSessions(tokens.accessToken),
-          getTotpStatus(tokens.accessToken),
-        ]);
       setOrganization(nextOrganization);
       setMembers(nextMembers);
       setConsent(nextConsent);

@@ -123,7 +123,7 @@ export function NotificationBell() {
                     type="button"
                     onClick={() => handleRead(item.id)}
                     className={
-                      "w-full text-left px-lg py-md hover:bg-primary-container/5 transition-colors " +
+                      "w-full text-left px-lg py-md hover:bg-primary-container/5 active:bg-primary-container/10 transition-colors " +
                       (item.read_at ? "opacity-60" : "")
                     }
                   >
