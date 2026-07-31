@@ -1,6 +1,14 @@
 "use client";
 
-import { DragEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  PointerEvent as ReactPointerEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Contact, createDeal, Deal, DEAL_STAGES, deleteDeal, listContacts, listDeals, updateDeal } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
@@ -41,6 +49,16 @@ export function DealsView() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draggedDealId, setDraggedDealId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const columnRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const dragGesture = useRef<{
+    dealId: string;
+    originStage: string;
+    pointerId: number;
+    startX: number;
+    startY: number;
+    dragging: boolean;
+  } | null>(null);
   const [newDeal, setNewDeal] = useState({
     title: "",
     value: "",
@@ -118,34 +136,96 @@ export function DealsView() {
     }
   }
 
-  function handleDealDragStart(event: DragEvent<HTMLDivElement>, deal: Deal) {
-    setDraggedDealId(deal.id);
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", deal.id);
+  function registerCardRef(dealId: string, node: HTMLDivElement | null) {
+    if (node) cardRefs.current.set(dealId, node);
+    else cardRefs.current.delete(dealId);
   }
 
-  function handleDealDragEnd() {
+  function registerColumnRef(stage: string, node: HTMLDivElement | null) {
+    if (node) columnRefs.current.set(stage, node);
+    else columnRefs.current.delete(stage);
+  }
+
+  function stageAtPoint(clientX: number, clientY: number): string | null {
+    for (const [stage, node] of columnRefs.current) {
+      const rect = node.getBoundingClientRect();
+      if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+        return stage;
+      }
+    }
+    return null;
+  }
+
+  // Pointer Events (not the HTML5 Drag-and-Drop API) so dragging works the
+  // same way for mouse, touch, and pen — native HTML5 drag has no touch
+  // support at all, which made the board effectively desktop-only.
+  function handleHandlePointerDown(event: ReactPointerEvent<HTMLSpanElement>, deal: Deal) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    dragGesture.current = {
+      dealId: deal.id,
+      originStage: deal.stage,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      dragging: false,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function handleHandlePointerMove(event: ReactPointerEvent<HTMLSpanElement>) {
+    const gesture = dragGesture.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+
+    const dx = event.clientX - gesture.startX;
+    const dy = event.clientY - gesture.startY;
+
+    if (!gesture.dragging) {
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      gesture.dragging = true;
+      setDraggedDealId(gesture.dealId);
+    }
+
+    const card = cardRefs.current.get(gesture.dealId);
+    if (card) {
+      card.style.transform = `translate(${dx}px, ${dy}px) scale(1.02)`;
+    }
+
+    const stage = stageAtPoint(event.clientX, event.clientY);
+    setDragOverStage((current) => (current === stage ? current : stage));
+  }
+
+  async function handleHandlePointerUp(event: ReactPointerEvent<HTMLSpanElement>) {
+    const gesture = dragGesture.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    dragGesture.current = null;
+
+    const card = cardRefs.current.get(gesture.dealId);
+    if (card) card.style.transform = "";
+
+    if (!gesture.dragging) {
+      setDraggedDealId(null);
+      setDragOverStage(null);
+      return;
+    }
+
+    const targetStage = stageAtPoint(event.clientX, event.clientY);
     setDraggedDealId(null);
     setDragOverStage(null);
+
+    if (targetStage && targetStage !== gesture.originStage) {
+      const deal = deals.find((item) => item.id === gesture.dealId);
+      if (deal) await handleStageChange(deal, targetStage);
+    }
   }
 
-  function handleColumnDragOver(event: DragEvent<HTMLDivElement>, stage: string) {
-    event.preventDefault();
-    setDragOverStage(stage);
-  }
-
-  function handleColumnDragLeave(stage: string) {
-    setDragOverStage((current) => (current === stage ? null : current));
-  }
-
-  async function handleColumnDrop(event: DragEvent<HTMLDivElement>, stage: string) {
-    event.preventDefault();
-    setDragOverStage(null);
-    const dealId = event.dataTransfer.getData("text/plain") || draggedDealId;
+  function handleHandlePointerCancel(event: ReactPointerEvent<HTMLSpanElement>) {
+    const gesture = dragGesture.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    dragGesture.current = null;
+    const card = cardRefs.current.get(gesture.dealId);
+    if (card) card.style.transform = "";
     setDraggedDealId(null);
-    const deal = deals.find((item) => item.id === dealId);
-    if (!deal) return;
-    await handleStageChange(deal, stage);
+    setDragOverStage(null);
   }
 
   async function handleCreateDeal(event: FormEvent<HTMLFormElement>) {
@@ -269,9 +349,7 @@ export function DealsView() {
             : columns.map(({ stage, deals: stageDeals }) => (
             <div
               key={stage}
-              onDragOver={(event) => handleColumnDragOver(event, stage)}
-              onDragLeave={() => handleColumnDragLeave(stage)}
-              onDrop={(event) => handleColumnDrop(event, stage)}
+              ref={(node) => registerColumnRef(stage, node)}
               className={
                 "kanban-column flex flex-col bg-surface-container-low/50 rounded-xl p-sm shrink-0 transition-colors " +
                 (dragOverStage === stage ? "ring-2 ring-primary bg-primary-container/5" : "")
@@ -298,13 +376,11 @@ export function DealsView() {
                   return (
                     <div
                       key={deal.id}
-                      draggable
-                      onDragStart={(event) => handleDealDragStart(event, deal)}
-                      onDragEnd={handleDealDragEnd}
+                      ref={(node) => registerCardRef(deal.id, node)}
                       className={
-                        "bg-surface-container-lowest rounded-lg border border-outline-variant/30 p-md shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing group/card " +
+                        "bg-surface-container-lowest rounded-lg border border-outline-variant/30 p-md shadow-sm hover:shadow-md transition-shadow group/card " +
                         (isAiSourced ? "ai-glow " : "") +
-                        (draggedDealId === deal.id ? "opacity-40" : "")
+                        (draggedDealId === deal.id ? "shadow-xl relative z-20 transition-none" : "")
                       }
                     >
                       <div className="flex justify-between items-start mb-base">
@@ -330,7 +406,16 @@ export function DealsView() {
                           >
                             <span className="material-symbols-outlined text-[15px]">delete</span>
                           </button>
-                          <span className="material-symbols-outlined text-outline-variant text-[16px]">drag_indicator</span>
+                          <span
+                            className="material-symbols-outlined text-outline-variant text-[16px] cursor-grab active:cursor-grabbing touch-none select-none p-1.5 -m-1.5"
+                            onPointerDown={(event) => handleHandlePointerDown(event, deal)}
+                            onPointerMove={handleHandlePointerMove}
+                            onPointerUp={handleHandlePointerUp}
+                            onPointerCancel={handleHandlePointerCancel}
+                            aria-hidden="true"
+                          >
+                            drag_indicator
+                          </span>
                         </div>
                       </div>
                       <h4 className="font-headline-md text-body-lg text-on-surface leading-tight mb-1 truncate">
