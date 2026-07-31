@@ -12,9 +12,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <AuthHeroNetwork />
 
         <div className="relative z-10 flex items-center gap-2">
-          <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center font-bold text-white">
-            N
-          </div>
+          <img src="/brand/neurodesk-mark.png" alt="" className="w-9 h-9 rounded-lg" />
           <span className="font-headline-md text-headline-md font-bold text-white">NeuroDesk AI</span>
         </div>
 

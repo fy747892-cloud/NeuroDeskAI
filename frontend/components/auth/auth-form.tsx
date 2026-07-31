@@ -143,6 +143,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
       <div>
+        <img src="/brand/neurodesk-mark.png" alt="" className="w-11 h-11 rounded-xl mb-4 lg:hidden" />
         <h1 className="font-headline-lg text-headline-lg text-on-surface">
           {isRegister ? t("auth.registerTitle") : t("auth.loginTitle")}
         </h1>
