@@ -27,6 +27,8 @@ class User(UUIDPKMixin, TimestampMixin, SoftDeleteMixin, Base):
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="active")
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     user_metadata: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    totp_secret: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    totp_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     profile: Mapped["UserProfile | None"] = relationship(back_populates="user", uselist=False)
 

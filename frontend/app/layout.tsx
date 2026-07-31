@@ -1,16 +1,45 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { SessionProvider } from "@/lib/session";
 import { LanguageProvider } from "@/lib/i18n/context";
+import { ServiceWorkerRegister } from "@/components/shell/service-worker-register";
+import { CookieConsentBanner } from "@/components/shell/cookie-consent-banner";
+import { GlobalErrorListener } from "@/components/shell/global-error-listener";
+import { RouteProgressBar } from "@/components/shell/route-progress-bar";
+import { ToastProvider } from "@/lib/toast";
+import { Toaster } from "@/components/shell/toaster";
 import "./globals.css";
 
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+const siteDescription =
+  "Görüşmeleri, görevleri, randevuları ve CRM'i tek panelde birleştiren AI destekli çalışma alanı.";
+
 export const metadata: Metadata = {
-  title: "NeuroDeskAI",
-  description: "AI workspace dashboard for NeuroDeskAI operations.",
-  icons: {
-    icon: "/brand/neurodesk-mark.svg",
-    shortcut: "/brand/neurodesk-mark.svg",
-    apple: "/brand/neurodesk-mark.svg",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "NeuroDesk AI",
+    template: "%s · NeuroDesk AI",
   },
+  description: siteDescription,
+  openGraph: {
+    type: "website",
+    locale: "tr_TR",
+    siteName: "NeuroDesk AI",
+    title: "NeuroDesk AI",
+    description: siteDescription,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "NeuroDesk AI",
+    description: siteDescription,
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#faf8ff" },
+    { media: "(prefers-color-scheme: dark)", color: "#121022" },
+  ],
 };
 
 export default function RootLayout({
@@ -38,8 +67,17 @@ export default function RootLayout({
         />
       </head>
       <body>
+        <ServiceWorkerRegister />
+        <GlobalErrorListener />
+        <Suspense fallback={null}>
+          <RouteProgressBar />
+        </Suspense>
         <LanguageProvider>
-          <SessionProvider>{children}</SessionProvider>
+          <ToastProvider>
+            <SessionProvider>{children}</SessionProvider>
+            <CookieConsentBanner />
+            <Toaster />
+          </ToastProvider>
         </LanguageProvider>
       </body>
     </html>

@@ -675,6 +675,12 @@ export type AuthPayload = {
   email: string;
   password: string;
   displayName?: string;
+  totpCode?: string;
+  recoveryCode?: string;
+};
+
+export type MfaRequiredResponse = {
+  mfa_required: true;
 };
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
@@ -722,20 +728,56 @@ export async function getHealthStatus(): Promise<HealthStatus> {
   }
 }
 
-export async function authenticate(mode: AuthMode, payload: AuthPayload): Promise<TokenResponse> {
+export async function authenticate(
+  mode: AuthMode,
+  payload: AuthPayload,
+): Promise<TokenResponse | MfaRequiredResponse> {
   const path = mode === "login" ? "/api/v1/auth/login" : "/api/v1/auth/register";
   const body =
     mode === "login"
-      ? { email: payload.email, password: payload.password }
+      ? {
+          email: payload.email,
+          password: payload.password,
+          totp_code: payload.totpCode || undefined,
+          recovery_code: payload.recoveryCode || undefined,
+        }
       : {
           email: payload.email,
           password: payload.password,
           display_name: payload.displayName,
         };
 
-  return request<TokenResponse>(path, {
+  const response = await request<{
+    mfa_required: boolean;
+    access_token: string | null;
+    refresh_token: string | null;
+    token_type: string;
+  }>(path, {
     method: "POST",
     body: JSON.stringify(body),
+  });
+
+  if (response.mfa_required || !response.access_token || !response.refresh_token) {
+    return { mfa_required: true };
+  }
+
+  return {
+    access_token: response.access_token,
+    refresh_token: response.refresh_token,
+    token_type: response.token_type,
+  };
+}
+
+export async function getGoogleLoginUrl(): Promise<{ authorize_url: string }> {
+  return request<{ authorize_url: string }>("/api/v1/auth/google/login", {
+    cache: "no-store",
+  });
+}
+
+export async function exchangeGoogleLoginCode(loginCode: string): Promise<TokenResponse> {
+  return request<TokenResponse>("/api/v1/auth/google/exchange", {
+    method: "POST",
+    body: JSON.stringify({ login_code: loginCode }),
   });
 }
 
@@ -1932,6 +1974,145 @@ export async function logout(refreshToken: string): Promise<void> {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ refresh_token: refreshToken }),
+  });
+}
+
+export async function logoutAllSessions(accessToken: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/logout-all`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+}
+
+export type UserSession = {
+  id: string;
+  device_id: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+  expires_at: string;
+};
+
+export async function listSessions(accessToken: string): Promise<UserSession[]> {
+  return request<UserSession[]>("/api/v1/auth/sessions", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function revokeSession(accessToken: string, sessionId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/sessions/${sessionId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+}
+
+export async function exportMyData(accessToken: string): Promise<Record<string, unknown>> {
+  return request<Record<string, unknown>>("/api/v1/users/me/export", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function deleteMyAccount(accessToken: string, password: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/users/me`, {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ password }),
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+}
+
+export type TotpStatus = {
+  enabled: boolean;
+};
+
+export async function getTotpStatus(accessToken: string): Promise<TotpStatus> {
+  return request<TotpStatus>("/api/v1/auth/2fa/status", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export type TotpSetup = {
+  secret: string;
+  otpauth_url: string;
+};
+
+export async function setupTotp(accessToken: string): Promise<TotpSetup> {
+  return request<TotpSetup>("/api/v1/auth/2fa/setup", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function verifyTotp(accessToken: string, code: string): Promise<{ recovery_codes: string[] }> {
+  return request<{ recovery_codes: string[] }>("/api/v1/auth/2fa/verify", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ code }),
+  });
+}
+
+export async function disableTotp(accessToken: string, code: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/auth/2fa/disable`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({ code }),
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+}
+
+export type FeedbackCategory = "bug" | "idea" | "other";
+
+export type Feedback = {
+  id: string;
+  category: FeedbackCategory;
+  message: string;
+  page_url: string | null;
+  created_at: string;
+};
+
+export async function submitFeedback(
+  accessToken: string,
+  payload: { category: FeedbackCategory; message: string; page_url?: string },
+): Promise<Feedback> {
+  return request<Feedback>("/api/v1/feedback", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(payload),
   });
 }
 

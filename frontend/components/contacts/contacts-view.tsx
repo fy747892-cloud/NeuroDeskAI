@@ -5,15 +5,17 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { Contact, createContact, listContacts } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
+import { useToast } from "@/lib/toast";
+import { Skeleton } from "@/components/shell/skeleton";
 import { getInitials } from "@/lib/format";
 
 export function ContactsView() {
   const { tokens } = useSession();
   const { t } = useLanguage();
+  const { showToast } = useToast();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [isCreating, setCreating] = useState(false);
@@ -65,7 +67,7 @@ export function ContactsView() {
       });
       setContacts((current) => [created, ...current]);
       setNewContact({ fullName: "", email: "", phone: "", company: "", title: "" });
-      setNotice(t("contacts.contactCreated"));
+      showToast(t("contacts.contactCreated"), "success");
       setShowForm(false);
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : t("contacts.contactCreateError"));
@@ -105,7 +107,6 @@ export function ContactsView() {
       </div>
 
       {error ? <p className="text-error text-body-sm mb-md">{error}</p> : null}
-      {notice ? <p className="text-primary text-body-sm mb-md">{notice}</p> : null}
 
       {showForm ? (
         <form onSubmit={handleCreateContact} className="glass-card p-lg rounded-xl mb-lg grid grid-cols-2 gap-3">
@@ -160,7 +161,17 @@ export function ContactsView() {
       ) : null}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-md">
-        {isLoading ? <p className="text-body-sm text-on-surface-variant">{t("common.loading")}</p> : null}
+        {isLoading
+          ? Array.from({ length: 6 }).map((_, index) => (
+              <div key={index} className="glass-card p-lg rounded-xl bento-card flex items-start gap-md">
+                <Skeleton className="w-11 h-11 rounded-full shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <Skeleton className="h-3 w-2/3 mb-2" />
+                  <Skeleton className="h-2.5 w-1/2" />
+                </div>
+              </div>
+            ))
+          : null}
         {!isLoading && contacts.length === 0 ? (
           <p className="text-body-sm text-on-surface-variant">{t("contacts.noContacts")}</p>
         ) : null}

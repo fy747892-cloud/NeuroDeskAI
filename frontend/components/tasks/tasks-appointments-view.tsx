@@ -20,11 +20,14 @@ import {
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { Language, useLanguage } from "@/lib/i18n/context";
+import { useToast } from "@/lib/toast";
+import { Skeleton, SkeletonList } from "@/components/shell/skeleton";
 import { formatDateTime, formatTime } from "@/lib/format";
 
 export function TasksAppointmentsView() {
   const { tokens } = useSession();
   const { t, language } = useLanguage();
+  const { showToast } = useToast();
   const dayLabels = [
     t("tasks.day.sun"),
     t("tasks.day.mon"),
@@ -77,7 +80,6 @@ export function TasksAppointmentsView() {
   const [isSavingApptEdit, setSavingApptEdit] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const grid = useMemo(() => getCalendarGrid(visibleMonth), [visibleMonth]);
 
@@ -189,7 +191,7 @@ export function TasksAppointmentsView() {
       });
       setNewTask({ title: "", description: "", priority: "medium", dueAt: "", repeat: "none", repeatCount: "4" });
       setShowTaskForm(false);
-      setNotice(t("tasks.taskCreated"));
+      showToast(t("tasks.taskCreated"), "success");
       await loadQueue();
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : t("tasks.taskCreateError"));
@@ -220,7 +222,7 @@ export function TasksAppointmentsView() {
         due_at: taskEditForm.dueAt ? new Date(taskEditForm.dueAt).toISOString() : null,
       });
       setEditingTaskId(null);
-      setNotice(t("tasks.taskUpdated"));
+      showToast(t("tasks.taskUpdated"), "success");
       await loadQueue();
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : t("tasks.taskUpdateError"));
@@ -295,7 +297,7 @@ export function TasksAppointmentsView() {
       });
       setAppointments((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setEditingApptId(null);
-      setNotice(t("tasks.appointmentUpdated"));
+      showToast(t("tasks.appointmentUpdated"), "success");
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : t("tasks.appointmentUpdateError"));
     } finally {
@@ -337,7 +339,7 @@ export function TasksAppointmentsView() {
       setAppointments((current) => [appointment, ...current]);
       setNewAppointment({ title: "", startAt: "", endAt: "", location: "", description: "", repeat: "none", repeatCount: "4" });
       setShowApptForm(false);
-      setNotice(t("tasks.appointmentCreated"));
+      showToast(t("tasks.appointmentCreated"), "success");
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : t("tasks.appointmentCreateError"));
     } finally {
@@ -374,7 +376,6 @@ export function TasksAppointmentsView() {
       </div>
 
       {error ? <p className="text-error text-body-sm mb-md">{error}</p> : null}
-      {notice ? <p className="text-primary text-body-sm mb-md">{notice}</p> : null}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-xl">
         <section className={"lg:col-span-5 flex flex-col gap-lg " + (activeView === "calendar" ? "hidden lg:flex" : "")}>
@@ -468,7 +469,7 @@ export function TasksAppointmentsView() {
           ) : null}
 
           <div className="flex-1 overflow-y-auto space-y-md pr-2 max-h-[calc(100vh-320px)]">
-            {isQueueLoading ? <p className="text-body-sm text-on-surface-variant">{t("common.loading")}</p> : null}
+            {isQueueLoading ? <SkeletonList count={3} /> : null}
             {!isQueueLoading && !queue?.items.length ? (
               <p className="text-body-sm text-on-surface-variant">{t("tasks.noPrioritizedWork")}</p>
             ) : null}
@@ -774,7 +775,12 @@ export function TasksAppointmentsView() {
           <div className="mt-lg">
             <h4 className="font-headline-md text-headline-md mb-md">{formatDayLabel(selectedDate, language)}</h4>
             <div className="space-y-md">
-              {isCalendarLoading ? <p className="text-body-sm text-on-surface-variant">{t("common.loading")}</p> : null}
+              {isCalendarLoading ? (
+                <>
+                  <Skeleton className="h-16 w-full rounded-xl" />
+                  <Skeleton className="h-16 w-full rounded-xl" />
+                </>
+              ) : null}
               {!isCalendarLoading && selectedDayAppointments.length === 0 ? (
                 <p className="text-body-sm text-on-surface-variant">{t("tasks.noAppointmentsToday")}</p>
               ) : null}

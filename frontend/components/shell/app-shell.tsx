@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 import { ReactNode, useCallback, useEffect, useState } from "react";
 import { openSearchPalette, SearchPalette } from "@/components/shell/search-palette";
 import { NotificationBell } from "@/components/shell/notification-bell";
+import { ChangelogButton } from "@/components/shell/changelog-button";
+import { FeedbackButton } from "@/components/shell/feedback-button";
 import { UserMenu } from "@/components/shell/user-menu";
 import { LanguageSwitcher } from "@/components/shell/language-switcher";
 import { ThemeToggle } from "@/components/shell/theme-toggle";
@@ -138,6 +140,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               <LanguageSwitcher />
             </div>
             <ThemeToggle />
+            <FeedbackButton />
+            <ChangelogButton />
             <NotificationBell />
             <Link
               href="/ayarlar"

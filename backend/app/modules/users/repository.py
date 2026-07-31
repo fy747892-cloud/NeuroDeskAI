@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -90,3 +91,9 @@ class UserRepository:
         user.user_metadata = metadata
         await self._db.flush()
         return user
+
+    async def soft_delete(self, user: User) -> None:
+        user.is_deleted = True
+        user.deleted_at = datetime.now(timezone.utc)
+        user.status = "deleted"
+        await self._db.flush()

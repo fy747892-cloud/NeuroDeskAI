@@ -44,6 +44,21 @@ async def get_current_user(
     return user
 
 
+async def get_optional_user(
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    db: AsyncSession = Depends(get_db),
+) -> User | None:
+    """Like get_current_user, but returns None instead of raising when the
+    caller isn't authenticated. For endpoints that accept both logged-out
+    and logged-in callers (e.g. client-side error reporting)."""
+    if credentials is None:
+        return None
+    try:
+        return await get_current_user(credentials=credentials, db=db)
+    except AuthError:
+        return None
+
+
 async def get_current_tenant_context(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

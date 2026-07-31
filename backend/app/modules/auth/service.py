@@ -15,8 +15,9 @@ from app.core.security import (
     refresh_token_expiry,
     verify_password,
 )
+from app.modules.auth import totp
 from app.modules.auth.repository import AuthRepository
-from app.modules.auth.schemas import TokenResponse
+from app.modules.auth.schemas import TokenResponse, TotpSetupOut, TotpVerifyOut
 from app.modules.billing.service import BillingService
 from app.modules.notifications.provider import get_email_provider
 from app.modules.organizations.repository import OrganizationRepository
@@ -84,7 +85,15 @@ class AuthService:
         await self._db.commit()
         return tokens
 
-    async def authenticate(self, *, email: str, password: str, device: DeviceContext) -> TokenResponse:
+    async def authenticate(
+        self,
+        *,
+        email: str,
+        password: str,
+        device: DeviceContext,
+        totp_code: str | None = None,
+        recovery_code: str | None = None,
+    ) -> TokenResponse:
         normalized_email = email.strip().lower()
         user = await self._users.get_by_email_any_tenant(email=normalized_email)
 
@@ -95,6 +104,107 @@ class AuthService:
 
         if user.status != "active":
             raise AuthError("This account is not active.")
+
+        if user.totp_enabled:
+            if recovery_code:
+                if not await self._consume_recovery_code(user, recovery_code):
+                    raise AuthError("Invalid recovery code.")
+            elif totp_code:
+                if not user.totp_secret or not totp.verify_code(secret=user.totp_secret, code=totp_code):
+                    raise AuthError("Invalid authentication code.")
+            else:
+                return TokenResponse(mfa_required=True)
+
+        tokens = await self._issue_tokens(user, device)
+        await self._db.commit()
+        return tokens
+
+    async def setup_totp(self, *, user: User) -> TotpSetupOut:
+        secret = totp.generate_secret()
+        user.totp_secret = secret
+        user.totp_enabled = False
+        await self._db.commit()
+
+        otpauth_url = totp.build_otpauth_url(secret=secret, account_email=user.email)
+        return TotpSetupOut(secret=secret, otpauth_url=otpauth_url)
+
+    async def verify_totp(self, *, user: User, code: str) -> TotpVerifyOut:
+        if not user.totp_secret or not totp.verify_code(secret=user.totp_secret, code=code):
+            raise AuthError("Invalid authentication code.")
+
+        recovery_codes = totp.generate_recovery_codes()
+        metadata = dict(user.user_metadata or {})
+        metadata["totp_recovery_codes"] = [hash_token(rc) for rc in recovery_codes]
+        user.user_metadata = metadata
+        user.totp_enabled = True
+        await self._db.commit()
+
+        return TotpVerifyOut(recovery_codes=recovery_codes)
+
+    async def disable_totp(self, *, user: User, code: str) -> None:
+        if not user.totp_secret or not totp.verify_code(secret=user.totp_secret, code=code):
+            raise AuthError("Invalid authentication code.")
+
+        user.totp_enabled = False
+        user.totp_secret = None
+        metadata = dict(user.user_metadata or {})
+        metadata.pop("totp_recovery_codes", None)
+        user.user_metadata = metadata
+        await self._db.commit()
+
+    async def _consume_recovery_code(self, user: User, recovery_code: str) -> bool:
+        metadata = user.user_metadata or {}
+        hashed_codes: list[str] = metadata.get("totp_recovery_codes", [])
+        code_hash = hash_token(recovery_code.strip())
+
+        if code_hash not in hashed_codes:
+            return False
+
+        remaining = [h for h in hashed_codes if h != code_hash]
+        metadata = dict(metadata)
+        metadata["totp_recovery_codes"] = remaining
+        user.user_metadata = metadata
+        return True
+
+    async def login_with_google(
+        self, *, email: str, display_name: str, device: DeviceContext
+    ) -> TokenResponse:
+        normalized_email = email.strip().lower()
+        user = await self._users.get_by_email_any_tenant(email=normalized_email)
+
+        if user is None:
+            tenant, organization = await self._orgs.create_personal_tenant_and_org(
+                display_name=display_name
+            )
+            await BillingService(self._db).create_default_subscription(tenant_id=tenant.id)
+
+            user = User(
+                tenant_id=tenant.id,
+                organization_id=organization.id,
+                email=normalized_email,
+                password_hash=None,
+                auth_provider="google",
+                is_email_verified=True,
+                status="active",
+            )
+            await self._users.create(user)
+            await self._users.create_profile(
+                tenant_id=tenant.id, user_id=user.id, full_name=display_name
+            )
+            await self._orgs.create_member(
+                tenant_id=tenant.id,
+                organization_id=organization.id,
+                user_id=user.id,
+                role="owner",
+            )
+        else:
+            if user.status != "active":
+                raise AuthError("This account is not active.")
+            if user.totp_enabled:
+                raise AuthError(
+                    "This account has two-factor authentication enabled. "
+                    "Sign in with your password instead."
+                )
 
         tokens = await self._issue_tokens(user, device)
         await self._db.commit()

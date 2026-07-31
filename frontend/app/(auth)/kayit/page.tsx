@@ -1,5 +1,13 @@
+import type { Metadata } from "next";
+import { Suspense } from "react";
 import { AuthForm } from "@/components/auth/auth-form";
 
+export const metadata: Metadata = { title: "Hesap Oluştur" };
+
 export default function RegisterPage() {
-  return <AuthForm mode="register" />;
+  return (
+    <Suspense>
+      <AuthForm mode="register" />
+    </Suspense>
+  );
 }

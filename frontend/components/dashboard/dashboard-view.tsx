@@ -13,6 +13,7 @@ import {
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
 import { formatTime } from "@/lib/format";
+import { Skeleton, SkeletonRow } from "@/components/shell/skeleton";
 
 export function DashboardView() {
   const { tokens, user } = useSession();
@@ -219,7 +220,12 @@ export function DashboardView() {
             </Link>
           </div>
           <div className="space-y-md">
-            {appointments.length === 0 ? (
+            {isLoading && !dashboard ? (
+              <>
+                <Skeleton className="h-16 w-full rounded-xl" />
+                <Skeleton className="h-16 w-full rounded-xl" />
+              </>
+            ) : appointments.length === 0 ? (
               <p className="text-body-sm text-on-surface-variant">{t("dashboard.noUpcomingAppointments")}</p>
             ) : (
               appointments.map((appt) => (
@@ -261,7 +267,12 @@ export function DashboardView() {
             ) : null}
           </div>
           <div className="bg-surface-container-lowest rounded-2xl border border-outline-variant/30 overflow-hidden">
-            {criticalTasks.length === 0 ? (
+            {isLoading && !dashboard ? (
+              <div className="divide-y divide-outline-variant/20">
+                <SkeletonRow />
+                <SkeletonRow />
+              </div>
+            ) : criticalTasks.length === 0 ? (
               <p className="p-md text-body-sm text-on-surface-variant">{t("dashboard.noCriticalTasks")}</p>
             ) : (
               <div className="divide-y divide-outline-variant/20">
@@ -297,7 +308,12 @@ export function DashboardView() {
             </h3>
           </div>
           <div className="space-y-md">
-            {approvals.length === 0 ? (
+            {isLoading && !dashboard ? (
+              <>
+                <Skeleton className="h-24 w-full rounded-2xl" />
+                <Skeleton className="h-24 w-full rounded-2xl" />
+              </>
+            ) : approvals.length === 0 ? (
               <p className="text-body-sm text-on-surface-variant">{t("dashboard.noApprovals")}</p>
             ) : (
               approvals.map((approval) => (

@@ -23,6 +23,8 @@ import {
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
+import { useToast } from "@/lib/toast";
+import { Skeleton, SkeletonRow, SkeletonText } from "@/components/shell/skeleton";
 import { formatDateTime, formatTime } from "@/lib/format";
 
 const EXTRACT_ICON: Record<string, string> = {
@@ -34,6 +36,7 @@ const EXTRACT_ICON: Record<string, string> = {
 export function ConversationsView() {
   const { tokens } = useSession();
   const { t, language } = useLanguage();
+  const { showToast } = useToast();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [analysisJobs, setAnalysisJobs] = useState<AIAnalysisJob[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -41,7 +44,6 @@ export function ConversationsView() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<ConversationDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
   const [isDetailLoading, setDetailLoading] = useState(false);
   const [isCreating, setCreating] = useState(false);
@@ -126,7 +128,6 @@ export function ConversationsView() {
 
     setCreating(true);
     setError(null);
-    setNotice(null);
     try {
       const result = await createCallFromText(tokens.accessToken, {
         title: newCall.title.trim(),
@@ -137,7 +138,7 @@ export function ConversationsView() {
       setConversations((current) => [result.conversation, ...current]);
       setSelectedId(result.conversation.id);
       setNewCall({ participants: "", phone: "", title: "", transcript: "" });
-      setNotice(t("conversations.notices.callCreated"));
+      showToast(t("conversations.notices.callCreated"), "success");
       setShowCreateForm(false);
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : t("conversations.errors.createFailed"));
@@ -154,7 +155,6 @@ export function ConversationsView() {
     }
 
     setError(null);
-    setNotice(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const recorder = new MediaRecorder(stream);
@@ -203,7 +203,6 @@ export function ConversationsView() {
 
     setRecordingState("uploading");
     setError(null);
-    setNotice(null);
     try {
       const result = await createCallFromAudio(tokens.accessToken, {
         title: "Webden kaydedilen görüşme",
@@ -219,7 +218,7 @@ export function ConversationsView() {
       setSelectedContactIds([]);
       setContactMemories({});
       setPendingRecordedConversationId(result.conversation.id);
-      setNotice(t("conversations.audio.success"));
+      showToast(t("conversations.audio.success"), "success");
     } catch (recordingError) {
       setError(recordingError instanceof Error ? recordingError.message : t("conversations.audio.processFailed"));
     } finally {
@@ -234,7 +233,7 @@ export function ConversationsView() {
     chunksRef.current = [];
     setRecordingState("idle");
     setRecordingStartedAt(null);
-    setNotice(t("conversations.audio.cancelled"));
+    showToast(t("conversations.audio.cancelled"), "info");
   }
 
   async function handleSaveRecordingMeta(event: FormEvent<HTMLFormElement>) {
@@ -243,7 +242,6 @@ export function ConversationsView() {
 
     setCreating(true);
     setError(null);
-    setNotice(null);
     try {
       const title = recordingMeta.title.trim();
       if (title) {
@@ -284,7 +282,7 @@ export function ConversationsView() {
       setPendingRecordedConversationId(null);
       setRecordingMeta({ participants: "", title: "" });
       setSelectedContactIds([]);
-      setNotice(t("conversations.audio.metadataSavedAnalyzing"));
+      showToast(t("conversations.audio.metadataSavedAnalyzing"), "success");
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : t("conversations.audio.metadataSaveFailed"));
     } finally {
@@ -326,7 +324,7 @@ export function ConversationsView() {
           setConversations((current) => current.filter((conversation) => conversation.id !== conversationId));
           setDetail(null);
           setSelectedId(null);
-          setNotice(t("conversations.notices.emptyConversationDeleted"));
+          showToast(t("conversations.notices.emptyConversationDeleted"), "success");
         } catch (deleteConversationError) {
           setDetail((current) => (current ? { ...current, calls: remainingCalls } : current));
           setError(
@@ -364,7 +362,6 @@ export function ConversationsView() {
     setEditingTitleValue(detail.title);
     setEditingTitle(true);
     setError(null);
-    setNotice(null);
   }
 
   async function handleRenameConversation(event: FormEvent<HTMLFormElement>) {
@@ -374,7 +371,6 @@ export function ConversationsView() {
 
     setRenaming(true);
     setError(null);
-    setNotice(null);
     try {
       const updated = await updateConversation(tokens.accessToken, detail.id, { title });
       setDetail(updated);
@@ -383,7 +379,7 @@ export function ConversationsView() {
       );
       setEditingTitle(false);
       setEditingTitleValue("");
-      setNotice(t("conversations.notices.renamed"));
+      showToast(t("conversations.notices.renamed"), "success");
     } catch (renameError) {
       setError(renameError instanceof Error ? renameError.message : t("conversations.errors.renameFailed"));
     } finally {
@@ -578,7 +574,13 @@ export function ConversationsView() {
         ) : null}
 
         <div className="flex-1 overflow-y-auto custom-scrollbar">
-          {isLoading ? <p className="p-lg text-body-sm text-on-surface-variant">{t("common.loading")}</p> : null}
+          {isLoading ? (
+            <div className="p-lg space-y-md">
+              <SkeletonRow />
+              <SkeletonRow />
+              <SkeletonRow />
+            </div>
+          ) : null}
           {!isLoading && conversations.length === 0 ? (
             <p className="p-lg text-body-sm text-on-surface-variant">{t("conversations.emptyList")}</p>
           ) : null}
@@ -624,7 +626,13 @@ export function ConversationsView() {
       </section>
 
       <section className="flex-1 flex flex-col bg-surface-container-lowest overflow-hidden">
-        {isDetailLoading ? <p className="p-xl text-body-md text-on-surface-variant">{t("common.loading")}</p> : null}
+        {isDetailLoading ? (
+          <div className="p-xl space-y-lg max-w-4xl mx-auto w-full">
+            <Skeleton className="h-8 w-1/2" />
+            <SkeletonText lines={3} />
+            <Skeleton className="h-32 w-full rounded-xl" />
+          </div>
+        ) : null}
         {!isDetailLoading && !detail ? (
           <p className="p-xl text-body-md text-on-surface-variant">{t("conversations.selectPrompt")}</p>
         ) : null}
@@ -704,7 +712,6 @@ export function ConversationsView() {
               </div>
 
               {error ? <p className="text-error text-body-sm mb-4">{error}</p> : null}
-              {notice ? <p className="text-primary text-body-sm mb-4">{notice}</p> : null}
 
               {summaryText ? (
                 <div className="bg-primary-container/5 rounded-xl p-lg border border-primary/10 relative overflow-hidden">

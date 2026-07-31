@@ -14,6 +14,8 @@ import {
 } from "@/lib/api";
 import { Language, useLanguage } from "@/lib/i18n/context";
 import { useSession } from "@/lib/session";
+import { useToast } from "@/lib/toast";
+import { SkeletonList } from "@/components/shell/skeleton";
 import { formatDateTime } from "@/lib/format";
 
 type DialogState = {
@@ -28,12 +30,12 @@ const acceptedExtensions = ".pdf,.docx,.xlsx,.txt,.mp3,.wav,.m4a,.eml";
 export function FilesView() {
   const { tokens } = useSession();
   const { t, language } = useLanguage();
+  const { showToast } = useToast();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [files, setFiles] = useState<FileRecord[]>([]);
   const [isLoading, setLoading] = useState(true);
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [isUploading, setUploading] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
@@ -100,17 +102,16 @@ export function FilesView() {
     if (!tokens?.accessToken) return;
 
     if (selected.size > maxUploadSizeBytes) {
-      setNotice(t("files.tooLarge", { size: formatBytes(maxUploadSizeBytes) }));
+      showToast(t("files.tooLarge", { size: formatBytes(maxUploadSizeBytes) }), "error");
       return;
     }
 
     setUploading(true);
     setError(null);
-    setNotice(null);
     try {
       const uploaded = await uploadFile(tokens.accessToken, selected);
       setFiles((current) => [uploaded, ...current.filter((file) => file.id !== uploaded.id)]);
-      setNotice(t("files.uploaded", { filename: uploaded.filename }));
+      showToast(t("files.uploaded", { filename: uploaded.filename }), "success");
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : t("files.uploadError"));
     } finally {
@@ -157,7 +158,6 @@ export function FilesView() {
     if (!tokens?.accessToken) return;
     setActiveFileId(file.id);
     setError(null);
-    setNotice(null);
     try {
       const analysis = await analyzeFile(tokens.accessToken, file.id);
       setDialog({
@@ -165,7 +165,7 @@ export function FilesView() {
         status: analysis.status,
         content: analysis.summary ?? t("files.noSummary"),
       });
-      setNotice(t("files.analysisCompleted", { status: statusLabel(analysis.status, t) }));
+      showToast(t("files.analysisCompleted", { status: statusLabel(analysis.status, t) }), "success");
       await loadFiles();
     } catch (analyzeError) {
       setError(analyzeError instanceof Error ? analyzeError.message : t("files.analysisError"));
@@ -233,7 +233,7 @@ export function FilesView() {
     try {
       await deleteFile(tokens.accessToken, file.id);
       setFiles((current) => current.filter((item) => item.id !== file.id));
-      setNotice(t("files.deleted", { filename: file.filename }));
+      showToast(t("files.deleted", { filename: file.filename }), "success");
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : t("files.deleteError"));
     } finally {
@@ -245,7 +245,6 @@ export function FilesView() {
     setEditingFileId(file.id);
     setEditingFilename(file.filename);
     setError(null);
-    setNotice(null);
   }
 
   async function handleRenameFile(event: FormEvent<HTMLFormElement>, file: FileRecord) {
@@ -255,13 +254,12 @@ export function FilesView() {
 
     setActiveFileId(file.id);
     setError(null);
-    setNotice(null);
     try {
       const updated = await updateFile(tokens.accessToken, file.id, { filename });
       setFiles((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setEditingFileId(null);
       setEditingFilename("");
-      setNotice(t("files.renamed"));
+      showToast(t("files.renamed"), "success");
     } catch (renameError) {
       setError(renameError instanceof Error ? renameError.message : t("files.renameError"));
     } finally {
@@ -295,7 +293,6 @@ export function FilesView() {
       </header>
 
       {error ? <p className="text-error text-body-sm">{error}</p> : null}
-      {notice ? <p className="text-primary text-body-sm">{notice}</p> : null}
 
       <section className="grid grid-cols-1 md:grid-cols-3 gap-lg">
         <Metric icon="folder" label={t("files.metrics.files")} value={files.length.toString()} />
@@ -356,7 +353,7 @@ export function FilesView() {
             {t("files.dropHint")}
           </div>
         ) : null}
-        {isLoading ? <p className="text-body-sm text-on-surface-variant">{t("common.loading")}</p> : null}
+        {isLoading ? <SkeletonList count={3} /> : null}
         {!isLoading && files.length === 0 ? (
           <div className="glass-card p-xl rounded-xl text-body-md text-on-surface-variant text-center">
             <span className="material-symbols-outlined text-[32px] text-outline mb-2 block">upload_file</span>
