@@ -22,6 +22,7 @@ import { useLanguage } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast";
 import { formatDate, formatDateTime, formatMoney, getInitials } from "@/lib/format";
 import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
+import { EmptyState } from "@/components/shell/empty-state";
 
 const EVENT_ICON: Record<string, string> = {
   call: "call",
@@ -351,7 +352,7 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
             </h4>
             <div className="space-y-2 mb-md max-h-48 overflow-y-auto custom-scrollbar">
               {notes.length === 0 ? (
-                <p className="text-body-sm text-on-surface-variant">{t("contactDetail.noNotesYet")}</p>
+                <EmptyState icon="edit_note" title={t("contactDetail.noNotesYet")} />
               ) : null}
               {notes.map((note) => (
                 <div key={note.id} className="bg-surface-container-low p-3 rounded-xl text-body-sm text-on-surface-variant border-l-4 border-secondary">
@@ -424,7 +425,7 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
             </div>
 
             {filteredTimeline.length === 0 ? (
-              <p className="text-body-sm text-on-surface-variant">{t("contactDetail.noTimelineRecords")}</p>
+              <EmptyState icon="history" title={t("contactDetail.noTimelineRecords")} />
             ) : (
               <div className="space-y-8 relative before:content-[''] before:absolute before:left-[19px] before:top-2 before:bottom-2 before:w-px before:bg-outline-variant">
                 {filteredTimeline.map((event) => (
@@ -456,7 +457,7 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
           <div className="bg-surface-container-lowest border border-outline-variant p-xl rounded-2xl">
             <h3 className="font-headline-md text-label-md mb-lg">{t("contactDetail.activeDeals")}</h3>
             {openDeals.length === 0 ? (
-              <p className="text-body-sm text-on-surface-variant">{t("contactDetail.noOpenDeals")}</p>
+              <EmptyState icon="handshake" title={t("contactDetail.noOpenDeals")} />
             ) : (
               <div className="space-y-6">
                 {openDeals.map((deal) => {

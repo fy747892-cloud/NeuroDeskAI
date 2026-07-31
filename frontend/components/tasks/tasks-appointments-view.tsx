@@ -22,6 +22,7 @@ import { useSession } from "@/lib/session";
 import { Language, useLanguage } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast";
 import { Skeleton, SkeletonList } from "@/components/shell/skeleton";
+import { EmptyState } from "@/components/shell/empty-state";
 import { formatDateTime, formatTime } from "@/lib/format";
 import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
 
@@ -704,10 +705,10 @@ export function TasksAppointmentsView() {
           <div className="flex-1 overflow-y-auto space-y-md pr-2 max-h-[calc(100vh-320px)]">
             {isQueueLoading ? <SkeletonList count={3} /> : null}
             {!isQueueLoading && !queue?.items.length ? (
-              <p className="text-body-sm text-on-surface-variant">{t("tasks.noPrioritizedWork")}</p>
+              <EmptyState icon="task_alt" size="lg" title={t("tasks.noPrioritizedWork")} />
             ) : null}
             {!isQueueLoading && (queue?.items.length ?? 0) > 0 && filteredQueueItems.length === 0 ? (
-              <p className="text-body-sm text-on-surface-variant">{t("tasks.noSearchResults")}</p>
+              <EmptyState icon="search_off" title={t("tasks.noSearchResults")} />
             ) : null}
             {filteredQueueItems.map((item) => {
               const borderClass = item.score >= 80 ? "border-l-error" : item.priority === "high" ? "border-l-secondary" : "border-l-primary/30";
@@ -1027,7 +1028,7 @@ export function TasksAppointmentsView() {
                 </>
               ) : null}
               {!isCalendarLoading && selectedDayAppointments.length === 0 ? (
-                <p className="text-body-sm text-on-surface-variant">{t("tasks.noAppointmentsToday")}</p>
+                <EmptyState icon="event_available" title={t("tasks.noAppointmentsToday")} />
               ) : null}
               {selectedDayAppointments.map((appointment) =>
                 editingApptId === appointment.id ? (

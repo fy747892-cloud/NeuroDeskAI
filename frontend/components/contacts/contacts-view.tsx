@@ -7,6 +7,7 @@ import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast";
 import { Skeleton } from "@/components/shell/skeleton";
+import { EmptyState } from "@/components/shell/empty-state";
 import { getInitials } from "@/lib/format";
 import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
 
@@ -258,7 +259,13 @@ export function ContactsView() {
             ))
           : null}
         {!isLoading && contacts.length === 0 ? (
-          <p className="text-body-sm text-on-surface-variant">{t("contacts.noContacts")}</p>
+          <div className="col-span-full">
+            <EmptyState
+              icon={search.trim() ? "search_off" : "contacts"}
+              size="lg"
+              title={t("contacts.noContacts")}
+            />
+          </div>
         ) : null}
         {contacts.map((contact) => (
           <Link

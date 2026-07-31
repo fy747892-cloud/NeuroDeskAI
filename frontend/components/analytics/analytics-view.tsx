@@ -19,6 +19,7 @@ import {
 import { useSession } from "@/lib/session";
 import { Language, useLanguage } from "@/lib/i18n/context";
 import { formatDateTime, formatMoney } from "@/lib/format";
+import { EmptyState } from "@/components/shell/empty-state";
 
 const RANGE_DAYS = 7;
 
@@ -261,7 +262,7 @@ export function AnalyticsView() {
         </div>
         {isLoading ? <p className="p-xl text-body-sm text-on-surface-variant">{t("common.loading")}</p> : null}
         {!isLoading && auditLogs.length === 0 ? (
-          <p className="p-xl text-body-sm text-on-surface-variant">{t("analytics.noAuditLogs")}</p>
+          <EmptyState icon="history" title={t("analytics.noAuditLogs")} />
         ) : null}
         {auditLogs.length > 0 ? (
           <div className="overflow-x-auto">

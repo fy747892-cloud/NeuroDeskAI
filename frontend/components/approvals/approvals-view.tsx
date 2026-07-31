@@ -10,6 +10,7 @@ import {
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
 import { formatDateTime } from "@/lib/format";
+import { EmptyState } from "@/components/shell/empty-state";
 
 const ACTION_META: Record<string, { icon: string; labelKey: string; confirmLabelKey: string; confirmIcon: string }> = {
   appointment: {
@@ -131,15 +132,12 @@ export function ApprovalsView() {
         <div className="max-w-4xl space-y-md">
           {isLoading ? <p className="text-body-md text-on-surface-variant">{t("common.loading")}</p> : null}
           {!isLoading && pendingApprovals.length === 0 ? (
-            <div className="max-w-4xl flex flex-col items-center justify-center py-xl border-2 border-dashed border-outline-variant/30 rounded-2xl opacity-50">
-              <span className="material-symbols-outlined text-[48px] text-outline-variant mb-md">
-                auto_awesome
-              </span>
-              <p className="font-headline-md text-on-surface-variant">{t("approvals.emptyTitle")}</p>
-              <p className="font-body-md text-on-surface-variant mt-2 text-center max-w-sm">
-                {t("approvals.emptySubtitle")}
-              </p>
-            </div>
+            <EmptyState
+              icon="auto_awesome"
+              size="lg"
+              title={t("approvals.emptyTitle")}
+              subtitle={t("approvals.emptySubtitle")}
+            />
           ) : null}
           {pendingApprovals.map((approval) => (
             <ActionCard

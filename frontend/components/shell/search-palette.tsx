@@ -6,6 +6,7 @@ import { SearchResult, semanticSearch } from "@/lib/api";
 import { groupResults, highlightMatch, resultHref, SOURCE_TYPE_META } from "@/lib/search-utils";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
+import { EmptyState } from "@/components/shell/empty-state";
 
 const OPEN_EVENT = "neurodesk:open-search";
 
@@ -137,9 +138,7 @@ export function SearchPalette() {
             </p>
           ) : null}
           {query.trim() && !isSearching && results.length === 0 ? (
-            <p className="px-lg py-xl text-body-md text-on-surface-variant text-center">
-              {t("shell.search.noResults")}
-            </p>
+            <EmptyState icon="search_off" title={t("shell.search.noResults")} />
           ) : null}
           {grouped.map(([sourceType, items]) => {
             const meta = SOURCE_TYPE_META[sourceType] ?? { label: sourceType, icon: "search" };

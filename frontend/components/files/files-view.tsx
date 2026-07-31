@@ -18,6 +18,7 @@ import { useToast } from "@/lib/toast";
 import { SkeletonList } from "@/components/shell/skeleton";
 import { formatDateTime } from "@/lib/format";
 import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
+import { EmptyState } from "@/components/shell/empty-state";
 
 type DialogState = {
   title: string;
@@ -368,13 +369,14 @@ export function FilesView() {
         ) : null}
         {isLoading ? <SkeletonList count={3} /> : null}
         {!isLoading && files.length === 0 ? (
-          <div className="glass-card p-xl rounded-xl text-body-md text-on-surface-variant text-center">
-            <span className="material-symbols-outlined text-[32px] text-outline mb-2 block">upload_file</span>
-            {t("files.emptyWithDropHint")}
+          <div className="glass-card rounded-xl">
+            <EmptyState icon="upload_file" size="lg" title={t("files.emptyWithDropHint")} />
           </div>
         ) : null}
         {!isLoading && files.length > 0 && visibleFiles.length === 0 ? (
-          <div className="glass-card p-xl rounded-xl text-body-md text-on-surface-variant">{t("files.noMatches")}</div>
+          <div className="glass-card rounded-xl">
+            <EmptyState icon="search_off" title={t("files.noMatches")} />
+          </div>
         ) : null}
         {visibleFiles.map((file) => (
           <FileCard

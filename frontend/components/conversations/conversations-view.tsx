@@ -25,6 +25,7 @@ import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast";
 import { Skeleton, SkeletonRow, SkeletonText } from "@/components/shell/skeleton";
+import { EmptyState } from "@/components/shell/empty-state";
 import { formatDateTime, formatTime } from "@/lib/format";
 import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
 
@@ -613,7 +614,7 @@ export function ConversationsView() {
             </div>
           ) : null}
           {!isLoading && conversations.length === 0 ? (
-            <p className="p-lg text-body-sm text-on-surface-variant">{t("conversations.emptyList")}</p>
+            <EmptyState icon="forum" title={t("conversations.emptyList")} />
           ) : null}
           {conversations.map((conversation) => {
             const active = conversation.id === selectedId;
@@ -759,7 +760,7 @@ export function ConversationsView() {
                   </p>
                 </div>
               ) : (
-                <p className="text-body-sm text-on-surface-variant">{t("conversations.noAnalysisYet")}</p>
+                <EmptyState icon="auto_awesome" title={t("conversations.noAnalysisYet")} />
               )}
 
               {extractedItems.length > 0 ? (
@@ -789,7 +790,7 @@ export function ConversationsView() {
             <div className="flex-1 overflow-y-auto custom-scrollbar p-xl transcript-container">
               <div className="max-w-4xl mx-auto space-y-8 pb-16">
                 {detail.calls.length === 0 ? (
-                  <p className="text-body-sm text-on-surface-variant">{t("conversations.noCallsInConversation")}</p>
+                  <EmptyState icon="call" title={t("conversations.noCallsInConversation")} />
                 ) : null}
                 {detail.calls.map((call) => (
                   <CallBlock key={call.id} call={call} onDelete={() => handleDeleteCall(call.id)} />
@@ -839,7 +840,7 @@ function CallBlock({ call, onDelete }: { call: Call; onDelete: () => void }) {
           ))}
         </div>
       ) : (
-        <p className="text-body-sm text-on-surface-variant">{t("conversations.noTranscript")}</p>
+        <EmptyState icon="description" title={t("conversations.noTranscript")} />
       )}
     </div>
   );

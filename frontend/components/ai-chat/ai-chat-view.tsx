@@ -18,6 +18,7 @@ import { useToast } from "@/lib/toast";
 import { formatDateTime } from "@/lib/format";
 import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
 import { Avatar } from "@/components/shell/avatar";
+import { EmptyState } from "@/components/shell/empty-state";
 
 type LocalMessage = {
   id: string;
@@ -201,7 +202,7 @@ export function AIChatView() {
               {showSessions ? (
                 <div className="absolute right-0 mt-2 w-64 bg-surface-container-lowest border border-outline-variant/30 rounded-xl shadow-xl z-30 max-h-80 overflow-y-auto custom-scrollbar">
                   {sessions.length === 0 ? (
-                    <p className="p-md text-body-sm text-on-surface-variant">{t("aiChat.noSavedSessions")}</p>
+                    <EmptyState icon="history" title={t("aiChat.noSavedSessions")} />
                   ) : (
                     sessions.map((s) =>
                       renamingSessionId === s.id ? (
@@ -266,7 +267,7 @@ export function AIChatView() {
 
           <div ref={scrollRef} className="space-y-lg overflow-y-auto">
             {messages.length === 0 ? (
-              <p className="text-body-md text-on-surface-variant">{t("aiChat.emptyState")}</p>
+              <EmptyState icon="smart_toy" size="lg" title={t("aiChat.emptyState")} />
             ) : null}
             {messages.map((message) =>
               message.role === "user" ? (

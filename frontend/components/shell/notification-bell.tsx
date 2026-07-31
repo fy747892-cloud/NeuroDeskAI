@@ -5,6 +5,7 @@ import { listNotifications, markAllNotificationsRead, markNotificationRead, type
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
 import { formatRelative } from "@/lib/format";
+import { EmptyState } from "@/components/shell/empty-state";
 
 export function NotificationBell() {
   const { tokens } = useSession();
@@ -113,7 +114,7 @@ export function NotificationBell() {
             </div>
           </div>
           {notifications.length === 0 ? (
-            <p className="px-lg py-lg text-body-sm text-on-surface-variant">{t("shell.notifications.empty")}</p>
+            <EmptyState icon="notifications_off" title={t("shell.notifications.empty")} />
           ) : (
             <ul className="divide-y divide-outline-variant/10">
               {notifications.slice(0, 12).map((item) => (

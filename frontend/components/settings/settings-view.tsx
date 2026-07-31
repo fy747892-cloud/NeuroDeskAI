@@ -50,6 +50,7 @@ import { useLanguage } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast";
 import { formatDateTime, formatMoney } from "@/lib/format";
 import { Avatar } from "@/components/shell/avatar";
+import { EmptyState } from "@/components/shell/empty-state";
 
 const INTEGRATION_META: Record<string, { label: string; icon: string; tint: string }> = {
   gmail: { label: "Gmail", icon: "mail", tint: "bg-red-50 text-red-600" },
@@ -671,7 +672,7 @@ export function SettingsView() {
 
           <div className="glass-card rounded-xl overflow-hidden">
             {members.length === 0 ? (
-              <p className="p-lg text-body-sm text-on-surface-variant">{t("settings.team.noMembers")}</p>
+              <EmptyState icon="groups" title={t("settings.team.noMembers")} />
             ) : (
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -885,7 +886,7 @@ export function SettingsView() {
           ) : null}
         </div>
         {sessions.length === 0 ? (
-          <p className="p-lg text-body-sm text-on-surface-variant">{t("settings.sessions.empty")}</p>
+          <EmptyState icon="devices" title={t("settings.sessions.empty")} />
         ) : (
           <ul className="divide-y divide-outline-variant/10">
             {sessions.map((session) => (
@@ -1144,7 +1145,7 @@ export function SettingsView() {
           </div>
           {isLoading ? <p className="p-lg text-body-sm text-on-surface-variant">{t("common.loading")}</p> : null}
           {!isLoading && auditLogs.length === 0 ? (
-            <p className="p-lg text-body-sm text-on-surface-variant">{t("settings.audit.empty")}</p>
+            <EmptyState icon="history" title={t("settings.audit.empty")} />
           ) : null}
           {auditLogs.length > 0 ? (
             <table className="w-full text-left border-collapse">

@@ -14,6 +14,7 @@ import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
 import { formatTime } from "@/lib/format";
 import { Skeleton, SkeletonRow } from "@/components/shell/skeleton";
+import { EmptyState } from "@/components/shell/empty-state";
 
 export function DashboardView() {
   const { tokens, user } = useSession();
@@ -226,7 +227,7 @@ export function DashboardView() {
                 <Skeleton className="h-16 w-full rounded-xl" />
               </>
             ) : appointments.length === 0 ? (
-              <p className="text-body-sm text-on-surface-variant">{t("dashboard.noUpcomingAppointments")}</p>
+              <EmptyState icon="event_available" title={t("dashboard.noUpcomingAppointments")} />
             ) : (
               appointments.map((appt) => (
                 <article
@@ -273,7 +274,7 @@ export function DashboardView() {
                 <SkeletonRow />
               </div>
             ) : criticalTasks.length === 0 ? (
-              <p className="p-md text-body-sm text-on-surface-variant">{t("dashboard.noCriticalTasks")}</p>
+              <EmptyState icon="check_circle" title={t("dashboard.noCriticalTasks")} />
             ) : (
               <div className="divide-y divide-outline-variant/20">
                 {criticalTasks.map((task) => (
@@ -314,7 +315,7 @@ export function DashboardView() {
                 <Skeleton className="h-24 w-full rounded-2xl" />
               </>
             ) : approvals.length === 0 ? (
-              <p className="text-body-sm text-on-surface-variant">{t("dashboard.noApprovals")}</p>
+              <EmptyState icon="auto_awesome" title={t("dashboard.noApprovals")} />
             ) : (
               approvals.map((approval) => (
                 <div

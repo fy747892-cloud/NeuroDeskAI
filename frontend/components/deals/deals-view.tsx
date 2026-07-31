@@ -14,6 +14,7 @@ import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast";
 import { Skeleton } from "@/components/shell/skeleton";
+import { EmptyState } from "@/components/shell/empty-state";
 import { formatMoney } from "@/lib/format";
 import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
 
@@ -401,7 +402,7 @@ export function DealsView() {
       {error ? <p className="text-error text-body-sm mb-md">{error}</p> : null}
 
       {!isLoading && search.trim() && filteredDeals.length === 0 ? (
-        <p className="text-body-sm text-on-surface-variant mb-md">{t("deals.noSearchResults")}</p>
+        <EmptyState icon="search_off" title={t("deals.noSearchResults")} />
       ) : null}
 
       {!isLoading && filteredDeals.length > 0 ? (
@@ -526,7 +527,7 @@ export function DealsView() {
               </div>
               <div className="flex-1 flex flex-col gap-sm overflow-y-auto pb-4 px-1 min-h-[120px]">
                 {stageDeals.length === 0 ? (
-                  <p className="text-body-sm text-on-surface-variant px-2">{t("deals.noDealsInStage")}</p>
+                  <EmptyState icon="inbox" title={t("deals.noDealsInStage")} />
                 ) : null}
                 {stageDeals.map((deal) => {
                   const isAiSourced = deal.source_type !== "manual";
