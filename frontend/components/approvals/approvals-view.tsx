@@ -283,7 +283,7 @@ function ActionCard({
         <div className="flex flex-col items-end shrink-0">
           <div
             className={
-              "flex items-center gap-1 " + (confidenceTier === "high" ? "text-[#059669]" : "text-primary")
+              "flex items-center gap-1 " + (confidenceTier === "high" ? "text-success" : "text-primary")
             }
           >
             <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>

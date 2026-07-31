@@ -41,6 +41,13 @@
   --color-error: 186 26 26;
   --color-tertiary-container: 95 95 105;
   --color-error-container: 255 218 214;
+  /* Not part of the base M3 scheme — an "extended color" role (same pattern
+     M3 uses for custom semantic colors) for positive/success signals, since
+     none of primary/secondary/tertiary read as green in this palette. */
+  --color-success: 27 120 55;
+  --color-on-success: 255 255 255;
+  --color-success-container: 209 244 213;
+  --color-on-success-container: 12 71 28;
   --color-on-primary-fixed-variant: 51 35 204;
   --color-tertiary-fixed: 227 225 237;
   --color-surface-dim: 210 217 244;
@@ -99,6 +106,10 @@
   --color-error: 255 180 171;
   --color-tertiary-container: 70 69 79;
   --color-error-container: 147 0 10;
+  --color-success: 148 217 160;
+  --color-on-success: 12 71 28;
+  --color-success-container: 21 71 33;
+  --color-on-success-container: 199 244 205;
   --color-on-primary-fixed-variant: 51 35 204;
   --color-tertiary-fixed: 227 225 237;
   --color-surface-dim: 14 12 28;

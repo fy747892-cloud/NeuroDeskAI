@@ -52,10 +52,26 @@ import { formatDateTime, formatMoney } from "@/lib/format";
 import { Avatar } from "@/components/shell/avatar";
 import { EmptyState } from "@/components/shell/empty-state";
 
+// These stay real brand hues (Gmail red, Outlook/Google blue) rather than
+// app tokens — recognizable per-provider color is the point — but need
+// explicit dark: variants since raw Tailwind palette colors don't swap
+// with the app's `.dark` class the way --color-* tokens do.
 const INTEGRATION_META: Record<string, { label: string; icon: string; tint: string }> = {
-  gmail: { label: "Gmail", icon: "mail", tint: "bg-red-50 text-red-600" },
-  outlook: { label: "Outlook", icon: "alternate_email", tint: "bg-blue-50 text-blue-600" },
-  google: { label: "Google Calendar", icon: "calendar_today", tint: "bg-blue-50 text-blue-500" },
+  gmail: {
+    label: "Gmail",
+    icon: "mail",
+    tint: "bg-red-50 text-red-600 dark:bg-red-500/15 dark:text-red-400",
+  },
+  outlook: {
+    label: "Outlook",
+    icon: "alternate_email",
+    tint: "bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-400",
+  },
+  google: {
+    label: "Google Calendar",
+    icon: "calendar_today",
+    tint: "bg-blue-50 text-blue-500 dark:bg-blue-500/15 dark:text-blue-400",
+  },
 };
 
 const DEFAULT_CONSENT: ConsentSettings = {
@@ -929,7 +945,7 @@ export function SettingsView() {
           <span
             className={
               "px-2 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider shrink-0 " +
-              (totpEnabled ? "bg-green-100 text-green-700" : "bg-surface-container-high text-on-surface-variant")
+              (totpEnabled ? "bg-success-container text-on-success-container" : "bg-surface-container-high text-on-surface-variant")
             }
           >
             {totpEnabled ? t("settings.totp.statusEnabled") : t("settings.totp.statusDisabled")}
@@ -1203,7 +1219,7 @@ function IntegrationCard({
             <span
               className={
                 "px-2 py-0.5 text-[10px] font-bold rounded-full uppercase tracking-wider " +
-                (isConnected ? "bg-green-100 text-green-700" : "bg-surface-container-high text-on-surface-variant")
+                (isConnected ? "bg-success-container text-on-success-container" : "bg-surface-container-high text-on-surface-variant")
               }
             >
               {isConnected ? t("common.connected") : t("common.notConnected")}

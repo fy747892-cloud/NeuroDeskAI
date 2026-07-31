@@ -314,7 +314,7 @@ export function AIChatView() {
                     <div className="bg-surface-container p-5 rounded-2xl rounded-tl-none ai-glow">
                       {message.confidence !== null ? (
                         <div className="flex items-center gap-2 mb-3 flex-wrap">
-                          <span className="flex h-2 w-2 rounded-full bg-green-500" />
+                          <span className="flex h-2 w-2 rounded-full bg-success" />
                           <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">
                             {t("aiChat.confidenceLabel")}
                           </span>
