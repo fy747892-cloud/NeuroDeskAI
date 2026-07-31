@@ -134,6 +134,17 @@ class EmailIntegrationService:
         token_row = await self._tokens.get_by_account(email_account_id=account.id)
         if token_row is None:
             raise ValidationAppError("This account has no stored access token.")
+        if account.provider == "gmail" and "gmail." not in (account.consent_scope or token_row.scope or ""):
+            raise ValidationAppError(
+                "Gmail mesaj senkronu için GOOGLE_OAUTH_SCOPES değeri Gmail API izni içermeli. "
+                "Hızlı bağlantı için sadece openid email kullanıldıysa hesap bağlanır, "
+                "ancak mesaj okuma için Google OAuth consent ekranında test kullanıcısı "
+                "ekleyin veya uygulamayı yayına/doğrulamaya alın."
+            )
+        if account.provider == "outlook" and "mail.read" not in (account.consent_scope or token_row.scope or "").lower():
+            raise ValidationAppError(
+                "Outlook mesaj senkronu için MICROSOFT_OAUTH_SCOPES değeri Mail.Read izni içermeli."
+            )
 
         if token_row.expires_at is not None and token_row.expires_at <= datetime.now(timezone.utc):
             account = await self.refresh_access_token(account=account)

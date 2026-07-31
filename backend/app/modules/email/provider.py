@@ -8,12 +8,13 @@ import httpx
 from app.core.config import settings
 
 GMAIL_METADATA_SCOPE = "https://www.googleapis.com/auth/gmail.metadata"
+GOOGLE_BASIC_PROFILE_SCOPE = "openid email"
 GOOGLE_AUTHORIZE_ENDPOINT = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_ENDPOINT = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_ENDPOINT = "https://www.googleapis.com/oauth2/v2/userinfo"
 GMAIL_API_BASE = "https://gmail.googleapis.com/gmail/v1/users/me"
 
-MICROSOFT_MAIL_SCOPE = "https://graph.microsoft.com/Mail.Read offline_access"
+MICROSOFT_MAIL_SCOPE = "offline_access User.Read Mail.Read"
 MICROSOFT_AUTHORIZE_ENDPOINT = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize"
 MICROSOFT_TOKEN_ENDPOINT = "https://login.microsoftonline.com/common/oauth2/v2.0/token"
 GRAPH_API_BASE = "https://graph.microsoft.com/v1.0"
@@ -29,6 +30,14 @@ def _microsoft_redirect_uri() -> str:
     return f"{settings.oauth_redirect_base_url}/api/v1/email/outlook/callback"
 
 
+def _google_oauth_scope() -> str:
+    return (settings.google_oauth_scopes or f"{GMAIL_METADATA_SCOPE} {GOOGLE_BASIC_PROFILE_SCOPE}").strip()
+
+
+def _microsoft_oauth_scope() -> str:
+    return (settings.microsoft_oauth_scopes or MICROSOFT_MAIL_SCOPE).strip()
+
+
 class MockGoogleOAuthProvider:
     """Stands in for real Google OAuth (no client_id/secret configured yet)."""
 
@@ -38,7 +47,7 @@ class MockGoogleOAuthProvider:
         params = {
             "client_id": settings.google_client_id or "not-configured",
             "response_type": "code",
-            "scope": GMAIL_METADATA_SCOPE,
+            "scope": _google_oauth_scope(),
             "access_type": "offline",
             "prompt": "consent",
             "state": state,
@@ -53,7 +62,7 @@ class MockGoogleOAuthProvider:
             "email_address": "connected-user@gmail.com",
             "access_token": f"mock-access-{secrets.token_urlsafe(16)}",
             "refresh_token": f"mock-refresh-{secrets.token_urlsafe(16)}",
-            "scope": GMAIL_METADATA_SCOPE,
+            "scope": _google_oauth_scope(),
             "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
         }
 
@@ -64,7 +73,7 @@ class MockGoogleOAuthProvider:
         return {
             "access_token": f"mock-access-refreshed-{secrets.token_urlsafe(16)}",
             "refresh_token": f"mock-refresh-refreshed-{secrets.token_urlsafe(16)}",
-            "scope": GMAIL_METADATA_SCOPE,
+            "scope": _google_oauth_scope(),
             "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
         }
 
@@ -79,7 +88,7 @@ class GoogleOAuthProvider:
             "client_id": settings.google_client_id,
             "redirect_uri": _google_redirect_uri(),
             "response_type": "code",
-            "scope": f"{GMAIL_METADATA_SCOPE} openid email",
+            "scope": _google_oauth_scope(),
             "access_type": "offline",
             "prompt": "consent",
             "state": state,
@@ -113,7 +122,7 @@ class GoogleOAuthProvider:
             "email_address": email_address,
             "access_token": payload["access_token"],
             "refresh_token": payload.get("refresh_token", ""),
-            "scope": payload.get("scope", GMAIL_METADATA_SCOPE),
+            "scope": payload.get("scope", _google_oauth_scope()),
             "expires_at": datetime.now(timezone.utc)
             + timedelta(seconds=payload.get("expires_in", 3600)),
         }
@@ -137,7 +146,7 @@ class GoogleOAuthProvider:
             "access_token": payload["access_token"],
             # Google does not always return a new refresh_token on refresh; keep the old one.
             "refresh_token": payload.get("refresh_token", refresh_token),
-            "scope": payload.get("scope", GMAIL_METADATA_SCOPE),
+            "scope": payload.get("scope", _google_oauth_scope()),
             "expires_at": datetime.now(timezone.utc)
             + timedelta(seconds=payload.get("expires_in", 3600)),
         }
@@ -226,7 +235,7 @@ class MockMicrosoftOAuthProvider:
         params = {
             "client_id": settings.microsoft_client_id or "not-configured",
             "response_type": "code",
-            "scope": MICROSOFT_MAIL_SCOPE,
+            "scope": _microsoft_oauth_scope(),
             "response_mode": "query",
             "state": state,
         }
@@ -240,7 +249,7 @@ class MockMicrosoftOAuthProvider:
             "email_address": "connected-user@outlook.com",
             "access_token": f"mock-graph-access-{secrets.token_urlsafe(16)}",
             "refresh_token": f"mock-graph-refresh-{secrets.token_urlsafe(16)}",
-            "scope": MICROSOFT_MAIL_SCOPE,
+            "scope": _microsoft_oauth_scope(),
             "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
         }
 
@@ -251,7 +260,7 @@ class MockMicrosoftOAuthProvider:
         return {
             "access_token": f"mock-graph-access-refreshed-{secrets.token_urlsafe(16)}",
             "refresh_token": f"mock-graph-refresh-refreshed-{secrets.token_urlsafe(16)}",
-            "scope": MICROSOFT_MAIL_SCOPE,
+            "scope": _microsoft_oauth_scope(),
             "expires_at": datetime.now(timezone.utc) + timedelta(hours=1),
         }
 
@@ -266,7 +275,7 @@ class MicrosoftOAuthProvider:
             "client_id": settings.microsoft_client_id,
             "redirect_uri": _microsoft_redirect_uri(),
             "response_type": "code",
-            "scope": MICROSOFT_MAIL_SCOPE,
+            "scope": _microsoft_oauth_scope(),
             "response_mode": "query",
             "state": state,
         }
@@ -282,7 +291,7 @@ class MicrosoftOAuthProvider:
                     "client_secret": settings.microsoft_client_secret,
                     "redirect_uri": _microsoft_redirect_uri(),
                     "grant_type": "authorization_code",
-                    "scope": MICROSOFT_MAIL_SCOPE,
+                    "scope": _microsoft_oauth_scope(),
                 },
             )
             if response.status_code >= 400:
@@ -301,7 +310,7 @@ class MicrosoftOAuthProvider:
             "email_address": email_address,
             "access_token": payload["access_token"],
             "refresh_token": payload.get("refresh_token", ""),
-            "scope": payload.get("scope", MICROSOFT_MAIL_SCOPE),
+            "scope": payload.get("scope", _microsoft_oauth_scope()),
             "expires_at": datetime.now(timezone.utc)
             + timedelta(seconds=payload.get("expires_in", 3600)),
         }
@@ -315,7 +324,7 @@ class MicrosoftOAuthProvider:
                     "client_id": settings.microsoft_client_id,
                     "client_secret": settings.microsoft_client_secret,
                     "grant_type": "refresh_token",
-                    "scope": MICROSOFT_MAIL_SCOPE,
+                    "scope": _microsoft_oauth_scope(),
                 },
             )
             if response.status_code >= 400:
@@ -325,7 +334,7 @@ class MicrosoftOAuthProvider:
         return {
             "access_token": payload["access_token"],
             "refresh_token": payload.get("refresh_token", refresh_token),
-            "scope": payload.get("scope", MICROSOFT_MAIL_SCOPE),
+            "scope": payload.get("scope", _microsoft_oauth_scope()),
             "expires_at": datetime.now(timezone.utc)
             + timedelta(seconds=payload.get("expires_in", 3600)),
         }
