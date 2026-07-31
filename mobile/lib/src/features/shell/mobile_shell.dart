@@ -1,8 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/api/api_status.dart';
+import '../../core/l10n/app_language.dart';
 import '../dashboard/data/dashboard_repository.dart';
 
 class MobileShell extends ConsumerWidget {
@@ -15,6 +16,7 @@ class MobileShell extends ConsumerWidget {
     final location = GoRouterState.of(context).uri.path;
     final apiStatus = ref.watch(apiStatusProvider);
     final dashboard = ref.watch(dashboardProvider).valueOrNull;
+    final strings = appStrings(ref);
     return Scaffold(
       body: Column(
         children: [
@@ -22,11 +24,13 @@ class MobileShell extends ConsumerWidget {
             data: (status) => status.isOk
                 ? const SizedBox.shrink()
                 : _ApiStatusBanner(
+                    strings: strings,
                     statusLabel: status.displayLabel,
                     onRetry: () => ref.invalidate(apiStatusProvider),
                   ),
             error: (error, stackTrace) => _ApiStatusBanner(
-              statusLabel: 'BaÄŸlantÄ± hatasÄ±',
+              strings: strings,
+              statusLabel: strings.connectionError,
               onRetry: () => ref.invalidate(apiStatusProvider),
             ),
             loading: () => const SizedBox.shrink(),
@@ -38,30 +42,34 @@ class MobileShell extends ConsumerWidget {
         selectedIndex: _selectedIndex(location),
         onDestinationSelected: (index) => context.go(_pathForIndex(index)),
         destinations: [
-          const NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home_filled),
-            label: 'Ã–zet',
-          ),
-          const NavigationDestination(
-            icon: Icon(Icons.folder_open_outlined),
-            selectedIcon: Icon(Icons.folder_open_rounded),
-            label: 'Icerik',
+          NavigationDestination(
+            icon: const Icon(Icons.home_outlined),
+            selectedIcon: const Icon(Icons.home_filled),
+            label: strings.summary,
           ),
           NavigationDestination(
-            icon: _BadgeIcon(icon: Icons.check_circle_outline, count: dashboard?.summary.openTasksCount ?? 0),
-            selectedIcon: _BadgeIcon(icon: Icons.check_circle_rounded, count: dashboard?.summary.openTasksCount ?? 0),
-            label: 'GÃ¶revler',
+            icon: const Icon(Icons.folder_open_outlined),
+            selectedIcon: const Icon(Icons.folder_open_rounded),
+            label: strings.content,
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.people_outline),
-            selectedIcon: Icon(Icons.people_rounded),
-            label: 'KiÅŸiler',
+          NavigationDestination(
+            icon: _BadgeIcon(
+                icon: Icons.check_circle_outline,
+                count: dashboard?.summary.openTasksCount ?? 0),
+            selectedIcon: _BadgeIcon(
+                icon: Icons.check_circle_rounded,
+                count: dashboard?.summary.openTasksCount ?? 0),
+            label: strings.tasks,
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.apps_outlined),
-            selectedIcon: Icon(Icons.apps_rounded),
-            label: 'Daha Fazla',
+          NavigationDestination(
+            icon: const Icon(Icons.people_outline),
+            selectedIcon: const Icon(Icons.people_rounded),
+            label: strings.contacts,
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.apps_outlined),
+            selectedIcon: const Icon(Icons.apps_rounded),
+            label: strings.more,
           ),
         ],
       ),
@@ -113,8 +121,10 @@ class _BadgeIcon extends StatelessWidget {
 }
 
 class _ApiStatusBanner extends StatelessWidget {
-  const _ApiStatusBanner({this.statusLabel, this.onRetry});
+  const _ApiStatusBanner(
+      {required this.strings, this.statusLabel, this.onRetry});
 
+  final AppStrings strings;
   final String? statusLabel;
   final VoidCallback? onRetry;
 
@@ -128,13 +138,14 @@ class _ApiStatusBanner extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: [
-              const Icon(Icons.wifi_off_outlined, color: Color(0xFFC2410C), size: 18),
+              const Icon(Icons.wifi_off_outlined,
+                  color: Color(0xFFC2410C), size: 18),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   statusLabel == null
-                      ? 'API baÄŸlantÄ±sÄ± zayÄ±f. Backend ve aÄŸ durumunu kontrol edin.'
-                      : 'API baÄŸlantÄ±sÄ± zayÄ±f: $statusLabel. Backend ve aÄŸ durumunu kontrol edin.',
+                      ? strings.apiWeak()
+                      : strings.apiWeak(statusLabel),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
@@ -143,7 +154,7 @@ class _ApiStatusBanner extends StatelessWidget {
                       ),
                 ),
               ),
-              TextButton(onPressed: onRetry, child: const Text('Dene')),
+              TextButton(onPressed: onRetry, child: Text(strings.retry)),
             ],
           ),
         ),
@@ -151,4 +162,3 @@ class _ApiStatusBanner extends StatelessWidget {
     );
   }
 }
-

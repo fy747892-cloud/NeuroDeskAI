@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/api/api_error.dart';
+import '../../../core/l10n/app_language.dart';
 import '../../../core/widgets/app_components.dart';
 import '../../../core/widgets/screen_header.dart';
 import '../../auth/presentation/auth_controller.dart';
@@ -19,6 +20,7 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final userState = ref.watch(currentUserProvider);
     final theme = Theme.of(context);
+    final strings = appStrings(ref);
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -29,29 +31,31 @@ class SettingsPage extends ConsumerWidget {
       child: ListView(
         padding: kScreenPadding,
         children: [
-          const StitchScreenHeader(title: 'Ayarlar'),
+          StitchScreenHeader(title: strings.settings),
           userState.when(
             data: (user) => Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _UserBriefCard(user: user),
                 const SizedBox(height: 20),
-                const _SectionLabel('Genel'),
+                _SectionLabel(strings.general),
+                const _LanguageCard(),
+                const SizedBox(height: 10),
                 _ProfileCard(user: user),
                 const SizedBox(height: 10),
                 _NavRow(
                   icon: Icons.notifications_active_outlined,
-                  label: 'Bildirimler',
+                  label: strings.notifications,
                   onTap: () => context.go('/app/notifications'),
                 ),
                 const SizedBox(height: 20),
-                const _SectionLabel('Bağlı Hesaplar'),
+                _SectionLabel(strings.connectedAccounts),
                 const _ConnectedAccountsCard(),
                 const SizedBox(height: 20),
-                const _SectionLabel('Hesap'),
+                _SectionLabel(strings.account),
                 _AccountCard(user: user),
                 const SizedBox(height: 20),
-                const _SectionLabel('Destek'),
+                _SectionLabel(strings.support),
                 const _SupportCard(),
                 const SizedBox(height: 24),
                 OutlinedButton.icon(
@@ -66,14 +70,51 @@ class SettingsPage extends ConsumerWidget {
                     ref.read(authControllerProvider.notifier).logout();
                   },
                   icon: const Icon(Icons.logout),
-                  label: const Text('Çıkış yap'),
+                  label: Text(strings.signOut),
                 ),
               ],
             ),
             error: (error, stackTrace) => _PageMessage(
-              message: readableApiError(error, 'Ayarlar alınamadı.'),
+              message: readableApiError(error, strings.settingsLoadFailed),
             ),
             loading: () => const Center(child: CircularProgressIndicator()),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LanguageCard extends ConsumerWidget {
+  const _LanguageCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final language = ref.watch(appLanguageProvider);
+    final strings = appStrings(ref);
+    final theme = Theme.of(context);
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(strings.languageSetting, style: theme.textTheme.titleMedium),
+          const SizedBox(height: 4),
+          Text(strings.languageSubtitle, style: theme.textTheme.bodySmall),
+          const SizedBox(height: 12),
+          SegmentedButton<AppLanguage>(
+            segments: AppLanguage.values
+                .map(
+                  (item) => ButtonSegment<AppLanguage>(
+                    value: item,
+                    label: Text(item.label),
+                  ),
+                )
+                .toList(),
+            selected: {language},
+            onSelectionChanged: (selection) {
+              ref.read(appLanguageProvider.notifier).state = selection.first;
+            },
           ),
         ],
       ),
@@ -112,6 +153,10 @@ class _UserBriefCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final name = user.profile?.fullName.trim();
+    final strings = AppStrings(
+        Localizations.localeOf(context).languageCode == 'en'
+            ? AppLanguage.en
+            : AppLanguage.tr);
 
     return AppCard(
       child: Row(
@@ -135,7 +180,7 @@ class _UserBriefCard extends StatelessWidget {
             ),
           ),
           StatusPill(
-            label: _accountStatusLabel(user.status),
+            label: strings.accountStatus(user.status),
             color: theme.colorScheme.primary,
             dense: true,
           ),
@@ -205,25 +250,26 @@ class _ProfileCardState extends ConsumerState<_ProfileCard> {
 
   @override
   Widget build(BuildContext context) {
+    final strings = appStrings(ref);
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Profil', style: Theme.of(context).textTheme.titleMedium),
+          Text(strings.profile, style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 12),
           TextField(
             controller: _fullNameController,
-            decoration: const InputDecoration(
-              labelText: 'Ad soyad',
-              prefixIcon: Icon(Icons.person_outline),
+            decoration: InputDecoration(
+              labelText: strings.fullName,
+              prefixIcon: const Icon(Icons.person_outline),
             ),
           ),
           const SizedBox(height: 10),
           TextField(
             controller: _titleController,
-            decoration: const InputDecoration(
-              labelText: 'Unvan',
-              prefixIcon: Icon(Icons.badge_outlined),
+            decoration: InputDecoration(
+              labelText: strings.title,
+              prefixIcon: const Icon(Icons.badge_outlined),
             ),
           ),
           if (_message != null) ...[
@@ -239,7 +285,7 @@ class _ProfileCardState extends ConsumerState<_ProfileCard> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.save_outlined),
-            label: const Text('Profili kaydet'),
+            label: Text(strings.saveProfile),
           ),
         ],
       ),
@@ -248,8 +294,9 @@ class _ProfileCardState extends ConsumerState<_ProfileCard> {
 
   Future<void> _save() async {
     final fullName = _fullNameController.text.trim();
+    final strings = appStrings(ref);
     if (fullName.isEmpty) {
-      setState(() => _message = 'Ad soyad zorunlu.');
+      setState(() => _message = strings.fullNameRequired);
       return;
     }
 
@@ -263,10 +310,10 @@ class _ProfileCardState extends ConsumerState<_ProfileCard> {
             title: _titleController.text,
           );
       ref.invalidate(currentUserProvider);
-      setState(() => _message = 'Profil güncellendi.');
+      setState(() => _message = strings.profileUpdated);
     } catch (error) {
       setState(() {
-        _message = readableApiError(error, 'Profil güncellenemedi.');
+        _message = readableApiError(error, strings.profileUpdateFailed);
       });
     } finally {
       if (mounted) {
@@ -283,6 +330,7 @@ class _ConnectedAccountsCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final accounts = ref.watch(emailAccountsProvider).valueOrNull ?? const [];
     final theme = Theme.of(context);
+    final strings = appStrings(ref);
 
     EmailAccount? forProvider(String provider) {
       final matches = accounts.where(
@@ -301,7 +349,7 @@ class _ConnectedAccountsCard extends ConsumerWidget {
           _ConnectedAccountRow(
             icon: Icons.mail_outline,
             title: 'Gmail',
-            subtitle: 'Kişiler ve Takvim',
+            subtitle: strings.peopleAndCalendar,
             account: gmail,
             onTap: () => context.go('/app/email'),
           ),
@@ -309,7 +357,7 @@ class _ConnectedAccountsCard extends ConsumerWidget {
           _ConnectedAccountRow(
             icon: Icons.cloud_outlined,
             title: 'Outlook',
-            subtitle: 'E-postalar',
+            subtitle: strings.emails,
             account: outlook,
             onTap: () => context.go('/app/email'),
           ),
@@ -317,8 +365,8 @@ class _ConnectedAccountsCard extends ConsumerWidget {
           ListTile(
             leading: Icon(Icons.calendar_month_outlined,
                 color: theme.colorScheme.primary),
-            title: const Text('Takvim'),
-            subtitle: const Text('Randevuları görüntüle'),
+            title: Text(strings.calendar),
+            subtitle: Text(strings.viewAppointments),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.go('/app/appointments'),
           ),
@@ -346,6 +394,10 @@ class _ConnectedAccountRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final strings = AppStrings(
+        Localizations.localeOf(context).languageCode == 'en'
+            ? AppLanguage.en
+            : AppLanguage.tr);
     final isConnected = account != null &&
         account!.status.toLowerCase() != 'revoked' &&
         account!.status.toLowerCase() != 'disconnected';
@@ -357,14 +409,18 @@ class _ConnectedAccountRow extends StatelessWidget {
       trailing: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: (isConnected ? const Color(0xFF15803D) : theme.colorScheme.outline)
+          color: (isConnected
+                  ? const Color(0xFF15803D)
+                  : theme.colorScheme.outline)
               .withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(999),
         ),
         child: Text(
-          isConnected ? 'Bağlı' : 'Bağlı değil',
+          isConnected ? strings.connected : strings.notConnected,
           style: TextStyle(
-            color: isConnected ? const Color(0xFF15803D) : theme.colorScheme.outline,
+            color: isConnected
+                ? const Color(0xFF15803D)
+                : theme.colorScheme.outline,
             fontWeight: FontWeight.w700,
             fontSize: 12,
           ),
@@ -382,31 +438,25 @@ class _AccountCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppStrings(
+        Localizations.localeOf(context).languageCode == 'en'
+            ? AppLanguage.en
+            : AppLanguage.tr);
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _MetricLine(label: 'E-posta', value: user.email),
+          _MetricLine(label: strings.email, value: user.email),
           _MetricLine(
-              label: 'Durum', value: _accountStatusLabel(user.status)),
+              label: strings.status, value: strings.accountStatus(user.status)),
           _MetricLine(
-            label: 'E-posta doğrulandı',
-            value: user.isEmailVerified ? 'Evet' : 'Hayır',
+            label: strings.emailVerified,
+            value: user.isEmailVerified ? strings.yes : strings.no,
           ),
         ],
       ),
     );
   }
-}
-
-String _accountStatusLabel(String status) {
-  return switch (status.toLowerCase()) {
-    'active' => 'Aktif',
-    'inactive' => 'Pasif',
-    'pending' => 'Beklemede',
-    'suspended' => 'Askıya alındı',
-    _ => status,
-  };
 }
 
 class _SupportCard extends StatelessWidget {
@@ -418,21 +468,24 @@ class _SupportCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final strings = AppStrings(
+        Localizations.localeOf(context).languageCode == 'en'
+            ? AppLanguage.en
+            : AppLanguage.tr);
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _ContactTile(
             icon: Icons.mail_outline,
-            label: 'E-posta',
+            label: strings.email,
             value: _supportEmail,
-            onTap: () =>
-                launchUrl(Uri(scheme: 'mailto', path: _supportEmail)),
+            onTap: () => launchUrl(Uri(scheme: 'mailto', path: _supportEmail)),
           ),
           const SizedBox(height: 8),
           _ContactTile(
             icon: Icons.call_outlined,
-            label: 'Telefon',
+            label: strings.phone,
             value: _supportPhoneDisplay,
             onTap: () => launchUrl(Uri(scheme: 'tel', path: _supportPhone)),
           ),
