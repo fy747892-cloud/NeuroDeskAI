@@ -51,6 +51,8 @@ export function DealsView() {
   const [draggedDealId, setDraggedDealId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"recent" | "value_desc" | "value_asc" | "close_date">("recent");
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const columnRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const dragGesture = useRef<{
@@ -97,9 +99,44 @@ export function DealsView() {
     return map;
   }, [contacts]);
 
+  const filteredDeals = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    let result = deals;
+    if (query) {
+      result = result.filter((deal) => {
+        const contact = deal.contact_id ? contactsById.get(deal.contact_id) : null;
+        return (
+          deal.title.toLowerCase().includes(query) ||
+          contact?.full_name.toLowerCase().includes(query) ||
+          contact?.company?.toLowerCase().includes(query)
+        );
+      });
+    }
+
+    const sorted = [...result];
+    switch (sortBy) {
+      case "value_desc":
+        sorted.sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
+        break;
+      case "value_asc":
+        sorted.sort((a, b) => (a.value ?? 0) - (b.value ?? 0));
+        break;
+      case "close_date":
+        sorted.sort((a, b) => {
+          if (!a.expected_close_date) return 1;
+          if (!b.expected_close_date) return -1;
+          return new Date(a.expected_close_date).getTime() - new Date(b.expected_close_date).getTime();
+        });
+        break;
+      default:
+        sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+    return sorted;
+  }, [deals, search, sortBy, contactsById]);
+
   const columns = useMemo(
-    () => DEAL_STAGES.map((stage) => ({ stage, deals: deals.filter((deal) => deal.stage === stage) })),
-    [deals],
+    () => DEAL_STAGES.map((stage) => ({ stage, deals: filteredDeals.filter((deal) => deal.stage === stage) })),
+    [filteredDeals],
   );
 
   const summary = useMemo(() => {
@@ -162,7 +199,7 @@ export function DealsView() {
 
   function toggleSelectAll() {
     setSelectedIds((current) =>
-      current.size === deals.length ? new Set() : new Set(deals.map((deal) => deal.id)),
+      current.size === filteredDeals.length ? new Set() : new Set(filteredDeals.map((deal) => deal.id)),
     );
   }
 
@@ -328,6 +365,28 @@ export function DealsView() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <div className="relative">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">
+              search
+            </span>
+            <input
+              className="bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 text-body-sm w-52"
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t("deals.searchPlaceholder")}
+              value={search}
+            />
+          </div>
+          <select
+            className="bg-surface-container-low border-none rounded-lg px-3 py-2 text-body-sm text-on-surface-variant"
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            value={sortBy}
+            aria-label={t("deals.sortAria")}
+          >
+            <option value="recent">{t("deals.sort.recent")}</option>
+            <option value="value_desc">{t("deals.sort.valueDesc")}</option>
+            <option value="value_asc">{t("deals.sort.valueAsc")}</option>
+            <option value="close_date">{t("deals.sort.closeDate")}</option>
+          </select>
           <button
             type="button"
             onClick={() => setShowForm((v) => !v)}
@@ -341,12 +400,16 @@ export function DealsView() {
 
       {error ? <p className="text-error text-body-sm mb-md">{error}</p> : null}
 
-      {!isLoading && deals.length > 0 ? (
+      {!isLoading && search.trim() && filteredDeals.length === 0 ? (
+        <p className="text-body-sm text-on-surface-variant mb-md">{t("deals.noSearchResults")}</p>
+      ) : null}
+
+      {!isLoading && filteredDeals.length > 0 ? (
         <div className="flex items-center gap-md mb-md">
           <label className="flex items-center gap-2 text-body-sm text-on-surface-variant cursor-pointer select-none">
             <input
               type="checkbox"
-              checked={selectedIds.size === deals.length}
+              checked={selectedIds.size === filteredDeals.length}
               onChange={toggleSelectAll}
               aria-label={t("deals.bulk.selectAll")}
             />

@@ -58,6 +58,8 @@ export function TasksAppointmentsView() {
   const [taskEditForm, setTaskEditForm] = useState({ title: "", priority: "medium", dueAt: "" });
   const [isSavingTaskEdit, setSavingTaskEdit] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  const [taskSearch, setTaskSearch] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState<"all" | "low" | "medium" | "high">("all");
 
   // Calendar state
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -281,9 +283,19 @@ export function TasksAppointmentsView() {
     });
   }
 
+  const filteredQueueItems = useMemo(() => {
+    if (!queue) return [];
+    const query = taskSearch.trim().toLowerCase();
+    return queue.items.filter((item) => {
+      if (query && !item.title.toLowerCase().includes(query)) return false;
+      if (priorityFilter !== "all" && item.item_type === "task" && item.priority !== priorityFilter) return false;
+      return true;
+    });
+  }, [queue, taskSearch, priorityFilter]);
+
   const taskIds = useMemo(
-    () => (queue?.items.filter((item) => item.item_type === "task").map((item) => item.item_id) ?? []),
-    [queue],
+    () => filteredQueueItems.filter((item) => item.item_type === "task").map((item) => item.item_id),
+    [filteredQueueItems],
   );
 
   function toggleTaskSelected(itemId: string) {
@@ -545,6 +557,31 @@ export function TasksAppointmentsView() {
             </button>
           </div>
 
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[160px]">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[16px]">
+                search
+              </span>
+              <input
+                className="w-full bg-surface-container-low border-none rounded-full pl-9 pr-4 py-1.5 text-body-sm"
+                onChange={(e) => setTaskSearch(e.target.value)}
+                placeholder={t("tasks.searchPlaceholder")}
+                value={taskSearch}
+              />
+            </div>
+            <select
+              className="bg-surface-container-low border-none rounded-lg px-3 py-1.5 text-body-sm text-on-surface-variant"
+              onChange={(e) => setPriorityFilter(e.target.value as typeof priorityFilter)}
+              value={priorityFilter}
+              aria-label={t("tasks.priorityFilterAria")}
+            >
+              <option value="all">{t("tasks.priorityFilterAll")}</option>
+              <option value="low">{t("tasks.priorityLow")}</option>
+              <option value="medium">{t("tasks.priorityMedium")}</option>
+              <option value="high">{t("tasks.priorityHigh")}</option>
+            </select>
+          </div>
+
           {!isQueueLoading && taskIds.length > 0 ? (
             <div className="flex items-center gap-md flex-wrap">
               <label className="flex items-center gap-2 text-body-sm text-on-surface-variant cursor-pointer select-none">
@@ -669,7 +706,10 @@ export function TasksAppointmentsView() {
             {!isQueueLoading && !queue?.items.length ? (
               <p className="text-body-sm text-on-surface-variant">{t("tasks.noPrioritizedWork")}</p>
             ) : null}
-            {queue?.items.map((item) => {
+            {!isQueueLoading && (queue?.items.length ?? 0) > 0 && filteredQueueItems.length === 0 ? (
+              <p className="text-body-sm text-on-surface-variant">{t("tasks.noSearchResults")}</p>
+            ) : null}
+            {filteredQueueItems.map((item) => {
               const borderClass = item.score >= 80 ? "border-l-error" : item.priority === "high" ? "border-l-secondary" : "border-l-primary/30";
               const badgeClass = item.score >= 80 ? "bg-error-container text-on-error-container" : "bg-surface-container-highest text-on-surface-variant";
 
