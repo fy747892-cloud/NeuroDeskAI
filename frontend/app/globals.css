@@ -311,3 +311,68 @@ body {
     box-shadow: 0 0 0 0 rgba(53, 37, 205, 0);
   }
 }
+
+/* ---------------------------------------------------------------------
+   Auth hero panel (login/register marketing side) — deliberately always
+   dark regardless of the app's light/dark toggle, as a consistent
+   "arrival" moment (same pattern Linear/Stripe/Vercel use). Colors below
+   are the app's own :root.dark tokens (see above), just pinned instead
+   of following the theme class.
+   ------------------------------------------------------------------- */
+.auth-hero {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 18% 8%, rgb(67 56 168) 0%, transparent 55%),
+    linear-gradient(155deg, rgb(67 56 168) 0%, rgb(18 16 34) 48%, rgb(11 10 24) 100%);
+}
+
+.auth-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgb(11 10 24 / 0.05) 0%,
+    rgb(11 10 24 / 0.12) 38%,
+    rgb(11 10 24 / 0.62) 78%,
+    rgb(11 10 24 / 0.86) 100%
+  );
+  pointer-events: none;
+}
+
+.auth-hero-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.auth-hero-accent {
+  background: linear-gradient(90deg, rgb(229 225 249) 0%, rgb(224 220 255) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.auth-hero-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 9999px;
+  background: rgb(229 225 249);
+  box-shadow: 0 0 8px 1px rgb(229 225 249 / 0.8);
+  animation: auth-hero-dot-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes auth-hero-dot-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: scale(0.85);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}

@@ -192,6 +192,7 @@ export const tr: TranslationDictionary = {
       feature2: "Otomatik görev, randevu ve fırsat çıkarımı",
       feature3: "Her AI aksiyonu insan onayından geçer",
       copyright: "© 2026 NeuroDesk AI",
+      livePill: "Canlı analiz aktif",
     },
   },
   dashboard: {
@@ -683,9 +684,11 @@ export const tr: TranslationDictionary = {
     aiAssistant: "AI Asistan",
     resolvedSummary: "{{count}} öneri şu ana kadar karara bağlandı.",
     sourceLabel: "Kaynak: {{type}}",
+    sourceLabelNamed: "Görüşme: {{title}}",
     confidenceLabel: "{{value}} GÜVEN",
     processing: "İşleniyor...",
     defaultTitle: "AI tarafından üretilen aksiyon onay bekliyor.",
+    reasonLabel: "Neden önerildi",
   },
   aiChat: {
     errors: {

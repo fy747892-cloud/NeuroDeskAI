@@ -11,7 +11,7 @@ from app.modules.ai.repository import AIRepository
 from app.modules.analytics.repository import AICostLogRepository
 from app.modules.appointments.service import AppointmentService
 from app.modules.billing.service import AI_ANALYSIS_REQUESTS_QUOTA_TYPE, BillingService
-from app.modules.conversations.models import Call
+from app.modules.conversations.models import Call, DEFAULT_WEB_RECORDING_TITLE
 from app.modules.conversations.repository import ConversationRepository
 from app.modules.deals.service import DealService
 from app.modules.tasks.service import TaskService
@@ -34,6 +34,18 @@ ACTION_PAYLOAD_DEFAULTS = {
         "reason": "Bu fırsat görüşmede geçen satış, teklif veya iş ihtimalinden çıkarıldı.",
     },
 }
+
+
+def _derive_title_from_summary(summary_text: str, *, max_length: int = 70) -> str:
+    text = summary_text.strip()
+    if not text:
+        return ""
+    # Prefer the first sentence when it reads as a standalone title.
+    first_sentence = re.split(r"(?<=[.!?])\s", text, maxsplit=1)[0].strip()
+    candidate = first_sentence or text
+    if len(candidate) > max_length:
+        candidate = candidate[: max_length - 1].rstrip() + "…"
+    return candidate
 
 
 class AIAnalysisService:
@@ -134,6 +146,14 @@ class AIAnalysisService:
                 title=conversation.title,
                 transcript_text=transcript_text,
             )
+            if conversation.title.strip() == DEFAULT_WEB_RECORDING_TITLE:
+                derived_title = _derive_title_from_summary(
+                    str(output.summary.get("summary_text") or "")
+                )
+                if derived_title:
+                    await self._conversations.update_conversation(
+                        conversation=conversation, title=derived_title
+                    )
             latency_ms = int((time.monotonic() - start_time) * 1000)
             await self._cost_logs.record(
                 tenant_id=job.tenant_id,

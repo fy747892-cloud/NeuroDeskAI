@@ -217,7 +217,12 @@ function ActionCard({
   const metaLabel = meta.labelKey ? t(meta.labelKey) : approval.action_type.toUpperCase();
   const confirmLabel = t(meta.confirmLabelKey);
   const title = summarizePayload(approval.suggested_payload, t);
+  const description = payloadText(approval.suggested_payload, "description");
+  const reason = payloadText(approval.suggested_payload, "reason");
   const fields = payloadFields(approval.suggested_payload);
+  const sourceLabel = approval.source_title
+    ? t("approvals.sourceLabelNamed", { title: approval.source_title })
+    : t("approvals.sourceLabel", { type: approval.source_type });
   const confidence = approval.confidence_score;
   const confidenceTier = confidence === null ? "low" : confidence >= 0.9 ? "high" : confidence >= 0.7 ? "mid" : "low";
   const confidenceIcon = confidenceTier === "high" ? "verified" : confidenceTier === "mid" ? "insights" : "help";
@@ -235,10 +240,13 @@ function ActionCard({
                 {metaLabel}
               </span>
               <span className="text-on-surface-variant text-[11px] font-medium opacity-60">
-                {t("approvals.sourceLabel", { type: approval.source_type })}
+                {sourceLabel}
               </span>
             </div>
             <h3 className="font-headline-md text-on-surface">{title}</h3>
+            {description && description !== title ? (
+              <p className="text-body-sm text-on-surface-variant mt-1">{description}</p>
+            ) : null}
           </div>
         </div>
         <div className="flex flex-col items-end shrink-0">
@@ -259,6 +267,16 @@ function ActionCard({
           </span>
         </div>
       </div>
+
+      {reason ? (
+        <div className="flex items-start gap-2 mb-md bg-primary-container/5 border border-primary/10 rounded-lg px-3 py-2.5">
+          <span className="material-symbols-outlined text-primary text-[16px] mt-0.5 shrink-0">lightbulb</span>
+          <p className="text-[13px] text-on-surface-variant leading-snug">
+            <span className="font-bold text-on-surface">{t("approvals.reasonLabel")}: </span>
+            {reason}
+          </p>
+        </div>
+      ) : null}
 
       {fields.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-md mb-xl">
@@ -304,8 +322,13 @@ function summarizePayload(payload: Record<string, unknown>, t: (path: string) =>
   return t("approvals.defaultTitle");
 }
 
+function payloadText(payload: Record<string, unknown>, key: string): string | null {
+  const value = payload[key];
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
 function payloadFields(payload: Record<string, unknown>): [string, string][] {
-  const skipKeys = new Set(["title", "summary", "description", "body"]);
+  const skipKeys = new Set(["title", "summary", "description", "body", "reason"]);
   return Object.entries(payload)
     .filter(([key, value]) => !skipKeys.has(key) && value !== null && value !== undefined && value !== "")
     .slice(0, 4)

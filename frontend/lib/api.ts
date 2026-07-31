@@ -255,6 +255,7 @@ export type AIActionApproval = DashboardApproval & {
   decided_by: string | null;
   analysis_result_id: string;
   source_id: string;
+  source_title: string | null;
   suggested_payload: Record<string, unknown>;
   approved_payload: Record<string, unknown> | null;
   expires_at: string | null;

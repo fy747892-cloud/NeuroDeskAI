@@ -350,6 +350,16 @@ export function ConversationsView() {
     try {
       const job = await requestConversationAnalysis(tokens.accessToken, selectedId);
       setAnalysisJobs((current) => [job, ...current.filter((item) => item.id !== job.id)]);
+
+      // Analysis can derive a better title from the summary (e.g. for the
+      // generic "recorded from web" placeholder) — pick that up immediately.
+      const updated = await getConversation(tokens.accessToken, selectedId);
+      setDetail(updated);
+      setConversations((current) =>
+        current.map((conversation) =>
+          conversation.id === updated.id ? { ...conversation, title: updated.title } : conversation,
+        ),
+      );
     } catch (analyzeError) {
       setError(analyzeError instanceof Error ? analyzeError.message : t("conversations.errors.analyzeFailed"));
     } finally {

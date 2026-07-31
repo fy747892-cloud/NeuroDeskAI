@@ -7,6 +7,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPKMixin
 
+# Placeholder title the frontend sends when a call is recorded from the web
+# mic flow (see conversations-view.tsx). AI analysis replaces it with a
+# summary-derived title once analysis completes, as long as the user hasn't
+# already renamed the conversation to something else.
+DEFAULT_WEB_RECORDING_TITLE = "Webden kaydedilen görüşme"
+
 
 class Conversation(UUIDPKMixin, TimestampMixin, SoftDeleteMixin, Base):
     __tablename__ = "conversations"

@@ -192,6 +192,7 @@ export const en: TranslationDictionary = {
       feature2: "Automatic task, appointment, and deal extraction",
       feature3: "Every AI action goes through human approval",
       copyright: "© 2026 NeuroDesk AI",
+      livePill: "Live analysis active",
     },
   },
   dashboard: {
@@ -683,9 +684,11 @@ export const en: TranslationDictionary = {
     aiAssistant: "AI Assistant",
     resolvedSummary: "{{count}} suggestions resolved so far.",
     sourceLabel: "Source: {{type}}",
+    sourceLabelNamed: "Conversation: {{title}}",
     confidenceLabel: "{{value}} CONFIDENCE",
     processing: "Processing...",
     defaultTitle: "AI-generated action awaiting approval.",
+    reasonLabel: "Why this was suggested",
   },
   aiChat: {
     errors: {
