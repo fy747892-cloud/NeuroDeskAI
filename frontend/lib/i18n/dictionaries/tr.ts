@@ -192,6 +192,7 @@ export const tr: TranslationDictionary = {
       feature2: "Otomatik görev, randevu ve fırsat çıkarımı",
       feature3: "Her AI aksiyonu insan onayından geçer",
       copyright: "© 2026 NeuroDesk AI",
+      livePill: "Canlı analiz aktif",
     },
   },
   dashboard: {

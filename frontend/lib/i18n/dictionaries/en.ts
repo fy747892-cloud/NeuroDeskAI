@@ -192,6 +192,7 @@ export const en: TranslationDictionary = {
       feature2: "Automatic task, appointment, and deal extraction",
       feature3: "Every AI action goes through human approval",
       copyright: "© 2026 NeuroDesk AI",
+      livePill: "Live analysis active",
     },
   },
   dashboard: {
