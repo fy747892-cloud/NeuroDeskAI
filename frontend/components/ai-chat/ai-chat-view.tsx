@@ -29,6 +29,8 @@ type LocalMessage = {
   created_at: string;
 };
 
+const EXAMPLE_PROMPT_KEYS = ["tasksToday", "appointmentsThisWeek", "pendingApprovals", "recentConversations"] as const;
+
 export function AIChatView() {
   const { tokens, user } = useSession();
   const { t, language } = useLanguage();
@@ -267,7 +269,22 @@ export function AIChatView() {
 
           <div ref={scrollRef} className="space-y-lg overflow-y-auto">
             {messages.length === 0 ? (
-              <EmptyState icon="smart_toy" size="lg" title={t("aiChat.emptyState")} />
+              <>
+                <EmptyState icon="smart_toy" size="lg" title={t("aiChat.emptyState")} />
+                <div className="flex flex-wrap justify-center gap-2 max-w-2xl mx-auto">
+                  {EXAMPLE_PROMPT_KEYS.map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      disabled={isSending}
+                      onClick={() => sendMessage(t(`aiChat.examplePrompts.${key}`))}
+                      className="px-3 py-2 bg-surface-container-high hover:bg-surface-container-highest rounded-full text-body-sm text-on-surface-variant transition-colors disabled:opacity-60"
+                    >
+                      {t(`aiChat.examplePrompts.${key}`)}
+                    </button>
+                  ))}
+                </div>
+              </>
             ) : null}
             {messages.map((message) =>
               message.role === "user" ? (

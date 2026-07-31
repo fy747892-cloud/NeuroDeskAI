@@ -132,12 +132,45 @@ export function ApprovalsView() {
         <div className="max-w-4xl space-y-md">
           {isLoading ? <p className="text-body-md text-on-surface-variant">{t("common.loading")}</p> : null}
           {!isLoading && pendingApprovals.length === 0 ? (
-            <EmptyState
-              icon="auto_awesome"
-              size="lg"
-              title={t("approvals.emptyTitle")}
-              subtitle={t("approvals.emptySubtitle")}
-            />
+            <div className="space-y-md">
+              <EmptyState
+                icon="auto_awesome"
+                size="lg"
+                title={t("approvals.emptyTitle")}
+                subtitle={t("approvals.emptySubtitle")}
+              />
+              {summary.resolved === 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-md">
+                  <div className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest">
+                    <span className="material-symbols-outlined text-primary shrink-0">mic</span>
+                    <span>
+                      <span className="block font-label-md text-on-surface">{t("approvals.onboarding.step1Title")}</span>
+                      <span className="block text-body-sm text-on-surface-variant mt-0.5">
+                        {t("approvals.onboarding.step1Body")}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest">
+                    <span className="material-symbols-outlined text-primary shrink-0">auto_awesome</span>
+                    <span>
+                      <span className="block font-label-md text-on-surface">{t("approvals.onboarding.step2Title")}</span>
+                      <span className="block text-body-sm text-on-surface-variant mt-0.5">
+                        {t("approvals.onboarding.step2Body")}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest">
+                    <span className="material-symbols-outlined text-primary shrink-0">check_circle</span>
+                    <span>
+                      <span className="block font-label-md text-on-surface">{t("approvals.onboarding.step3Title")}</span>
+                      <span className="block text-body-sm text-on-surface-variant mt-0.5">
+                        {t("approvals.onboarding.step3Body")}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           ) : null}
           {pendingApprovals.map((approval) => (
             <ActionCard

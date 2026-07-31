@@ -495,6 +495,41 @@ export function DealsView() {
         </form>
       ) : null}
 
+      {!isLoading && deals.length === 0 ? (
+        <section className="rounded-2xl p-lg glass-card border border-primary/10 mb-lg">
+          <div className="flex items-center gap-2 mb-sm">
+            <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>
+              handshake
+            </span>
+            <span className="font-label-sm text-label-sm text-primary uppercase tracking-widest">
+              {t("deals.onboarding.eyebrow")}
+            </span>
+          </div>
+          <h3 className="font-headline-md text-headline-md text-on-surface mb-1">{t("deals.onboarding.title")}</h3>
+          <p className="text-body-sm text-on-surface-variant max-w-2xl mb-md">{t("deals.onboarding.subtitle")}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
+            <div className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest">
+              <span className="material-symbols-outlined text-primary shrink-0">add_circle</span>
+              <span>
+                <span className="block font-label-md text-on-surface">{t("deals.onboarding.step1Title")}</span>
+                <span className="block text-body-sm text-on-surface-variant mt-0.5">
+                  {t("deals.onboarding.step1Body")}
+                </span>
+              </span>
+            </div>
+            <div className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest">
+              <span className="material-symbols-outlined text-primary shrink-0">drag_indicator</span>
+              <span>
+                <span className="block font-label-md text-on-surface">{t("deals.onboarding.step2Title")}</span>
+                <span className="block text-body-sm text-on-surface-variant mt-0.5">
+                  {t("deals.onboarding.step2Body")}
+                </span>
+              </span>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       <div className="flex-1 overflow-x-auto pb-4">
         <div className="flex gap-gutter">
           {isLoading
