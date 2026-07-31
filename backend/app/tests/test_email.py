@@ -122,7 +122,7 @@ async def test_connect_records_consent(client: AsyncClient):
 
     assert account["status"] == "connected"
     assert account["consent_granted_at"] is not None
-    assert account["consent_scope"] == "https://www.googleapis.com/auth/gmail.metadata"
+    assert account["consent_scope"] == "https://www.googleapis.com/auth/gmail.metadata openid email"
 
 
 async def test_revoke_stops_further_sync_and_deletes_tokens(
@@ -238,8 +238,9 @@ async def test_outlook_connect_returns_minimal_graph_scope_authorize_url(client:
     headers = await _auth_headers(client, "email-outlook-connect@example.com")
     start = await _start_connect(client, headers, provider="outlook")
 
-    assert "graph.microsoft.com" in start["authorize_url"]
+    assert "login.microsoftonline.com" in start["authorize_url"]
     assert "Mail.Read" in start["authorize_url"]
+    assert "User.Read" in start["authorize_url"]
     assert "offline_access" in start["authorize_url"]
     assert "Mail.Send" not in start["authorize_url"]
 
@@ -250,7 +251,7 @@ async def test_outlook_full_connect_sync_and_messages_flow(client: AsyncClient):
 
     assert account["provider"] == "outlook"
     assert account["status"] == "connected"
-    assert account["consent_scope"] == "https://graph.microsoft.com/Mail.Read offline_access"
+    assert account["consent_scope"] == "offline_access User.Read Mail.Read"
 
     sync_response = await client.post(
         f"/api/v1/email/accounts/{account['id']}/sync", headers=headers

@@ -23,8 +23,10 @@ class Settings(BaseSettings):
     token_encryption_key: str
     google_client_id: str = ""
     google_client_secret: str = ""
+    google_oauth_scopes: str = "https://www.googleapis.com/auth/gmail.metadata openid email"
     microsoft_client_id: str = ""
     microsoft_client_secret: str = ""
+    microsoft_oauth_scopes: str = "offline_access User.Read Mail.Read"
     oauth_redirect_base_url: str = "http://localhost:8000"
     frontend_base_url: str = "http://localhost:3000"
 
