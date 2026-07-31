@@ -437,6 +437,7 @@ export function DealsView() {
                           disabled={activeId === deal.id}
                           onChange={(e) => handleStageChange(deal, e.target.value)}
                           value={deal.stage}
+                          aria-label={t("deals.stageSelectAria", { title: deal.title })}
                         >
                           {DEAL_STAGES.map((stageOption) => (
                             <option key={stageOption} value={stageOption}>

@@ -132,6 +132,22 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Consistent, on-brand keyboard-focus indication for every interactive
+   element site-wide. Only fires for keyboard/programmatic focus
+   (:focus-visible), not mouse clicks, and — because it targets element +
+   pseudo-class — outranks Tailwind's `outline-none`/`focus:ring-0`
+   utilities regardless of source order, so it applies even where a
+   component suppressed focus styling without providing its own. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid rgb(var(--color-primary));
+  outline-offset: 2px;
+}
+
 .material-symbols-outlined {
   font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
   display: inline-block;

@@ -104,6 +104,9 @@ export function SearchPalette() {
       onClick={() => setOpen(false)}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("shell.search.placeholder")}
         className="w-full max-w-2xl bg-surface-container-lowest rounded-xl shadow-2xl overflow-hidden flex flex-col border border-outline-variant/30"
         onClick={(event) => event.stopPropagation()}
       >

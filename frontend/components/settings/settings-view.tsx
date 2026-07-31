@@ -673,6 +673,9 @@ export function SettingsView() {
                           disabled={busyMemberId === member.id}
                           onChange={(e) => handleRoleChange(member.id, e.target.value)}
                           value={member.role}
+                          aria-label={t("settings.team.roleSelectAria", {
+                            name: member.full_name ?? member.email ?? member.user_id,
+                          })}
                         >
                           <option value="owner">{t("settings.team.roles.owner")}</option>
                           <option value="admin">{t("settings.team.roles.admin")}</option>

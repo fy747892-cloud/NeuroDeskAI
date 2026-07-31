@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { Route } from "next";
 import { usePathname } from "next/navigation";
-import { ReactNode, useCallback, useEffect, useState } from "react";
+import { ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { openSearchPalette, SearchPalette } from "@/components/shell/search-palette";
 import { NotificationBell } from "@/components/shell/notification-bell";
 import { ChangelogButton } from "@/components/shell/changelog-button";
@@ -36,10 +36,29 @@ export function AppShell({ children }: { children: ReactNode }) {
   const { t } = useLanguage();
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [navBadges, setNavBadges] = useState<Record<string, number>>({});
+  const hamburgerRef = useRef<HTMLButtonElement | null>(null);
+  const drawerRef = useRef<HTMLElement | null>(null);
+  const wasMobileMenuOpenRef = useRef(false);
 
   const displayName = user?.profile?.full_name ?? user?.email ?? "NeuroDesk";
   const planLabel = t("shell.planLabel");
   const closeMobileMenu = () => setMobileMenuOpen(false);
+
+  useEffect(() => {
+    if (isMobileMenuOpen) {
+      wasMobileMenuOpenRef.current = true;
+      drawerRef.current?.focus();
+      const handleEscape = (event: KeyboardEvent) => {
+        if (event.key === "Escape") closeMobileMenu();
+      };
+      document.addEventListener("keydown", handleEscape);
+      return () => document.removeEventListener("keydown", handleEscape);
+    }
+    if (wasMobileMenuOpenRef.current) {
+      wasMobileMenuOpenRef.current = false;
+      hamburgerRef.current?.focus();
+    }
+  }, [isMobileMenuOpen]);
   const loadNavBadges = useCallback(async () => {
     if (!tokens?.accessToken) return;
     try {
@@ -77,6 +96,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             onClick={closeMobileMenu}
           />
           <aside
+            ref={drawerRef}
+            role="dialog"
+            aria-modal="true"
+            tabIndex={-1}
             className="relative h-full w-[min(86vw,320px)] bg-surface-container-low shadow-2xl flex flex-col py-md"
             aria-label={t("shell.ariaMainNav")}
           >
@@ -107,10 +130,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         <header className="flex justify-between items-center w-full px-md sm:px-xl py-md bg-surface sticky top-0 z-40 border-b border-outline-variant/20 lg:border-b-0">
           <div className="flex items-center gap-md sm:gap-lg flex-1 min-w-0">
             <button
+              ref={hamburgerRef}
               type="button"
               onClick={() => setMobileMenuOpen(true)}
               className="lg:hidden w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high"
               aria-label={t("shell.mobileMenu.openAria")}
+              aria-haspopup="true"
+              aria-expanded={isMobileMenuOpen}
             >
               <span className="material-symbols-outlined">menu</span>
             </button>

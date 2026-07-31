@@ -36,8 +36,15 @@ export function NotificationBell() {
         setOpen(false);
       }
     }
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
   }, []);
 
   async function handleOpen() {
@@ -75,6 +82,8 @@ export function NotificationBell() {
         onClick={handleOpen}
         className="relative text-on-surface-variant hover:text-primary transition-colors"
         aria-label={t("shell.notifications.aria")}
+        aria-haspopup="true"
+        aria-expanded={isOpen}
       >
         <span className="material-symbols-outlined">notifications</span>
         {unreadCount > 0 ? (
