@@ -683,9 +683,11 @@ export const tr: TranslationDictionary = {
     aiAssistant: "AI Asistan",
     resolvedSummary: "{{count}} öneri şu ana kadar karara bağlandı.",
     sourceLabel: "Kaynak: {{type}}",
+    sourceLabelNamed: "Görüşme: {{title}}",
     confidenceLabel: "{{value}} GÜVEN",
     processing: "İşleniyor...",
     defaultTitle: "AI tarafından üretilen aksiyon onay bekliyor.",
+    reasonLabel: "Neden önerildi",
   },
   aiChat: {
     errors: {

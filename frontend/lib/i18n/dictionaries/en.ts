@@ -683,9 +683,11 @@ export const en: TranslationDictionary = {
     aiAssistant: "AI Assistant",
     resolvedSummary: "{{count}} suggestions resolved so far.",
     sourceLabel: "Source: {{type}}",
+    sourceLabelNamed: "Conversation: {{title}}",
     confidenceLabel: "{{value}} CONFIDENCE",
     processing: "Processing...",
     defaultTitle: "AI-generated action awaiting approval.",
+    reasonLabel: "Why this was suggested",
   },
   aiChat: {
     errors: {

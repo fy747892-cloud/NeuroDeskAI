@@ -124,6 +124,19 @@ class ConversationRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_titles_by_ids(
+        self, *, tenant_id: uuid.UUID, conversation_ids: list[uuid.UUID]
+    ) -> dict[uuid.UUID, str]:
+        if not conversation_ids:
+            return {}
+        result = await self._db.execute(
+            select(Conversation.id, Conversation.title).where(
+                Conversation.tenant_id == tenant_id,
+                Conversation.id.in_(conversation_ids),
+            )
+        )
+        return {row.id: row.title for row in result.all()}
+
     async def update_conversation(
         self,
         *,

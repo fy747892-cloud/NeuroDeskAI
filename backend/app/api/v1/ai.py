@@ -7,11 +7,12 @@ from app.api.v1.deps import require_permission
 from app.core.errors import NotFoundError, ValidationAppError
 from app.core.permissions import Permission
 from app.db.session import get_db
-from app.modules.ai.models import AIAnalysisJob
+from app.modules.ai.models import AIActionApproval, AIAnalysisJob
 from app.modules.ai.repository import AIRepository
 from app.modules.ai.schemas import AIActionApprovalOut, AIActionApproveIn, AIAnalysisJobOut
 from app.modules.ai.service import AIAnalysisService
 from app.modules.audit.repository import AuditRepository
+from app.modules.conversations.repository import ConversationRepository
 from app.modules.users.consent import get_consent
 from app.modules.users.models import User
 
@@ -122,6 +123,22 @@ async def retry_analysis_job(
     return job
 
 
+async def _attach_source_titles(
+    db: AsyncSession, *, tenant_id: uuid.UUID, approvals: list[AIActionApproval]
+) -> list[AIActionApproval]:
+    conversation_ids = [
+        approval.source_id for approval in approvals if approval.source_type == "conversation"
+    ]
+    titles = await ConversationRepository(db).get_titles_by_ids(
+        tenant_id=tenant_id, conversation_ids=conversation_ids
+    )
+    for approval in approvals:
+        approval.source_title = (
+            titles.get(approval.source_id) if approval.source_type == "conversation" else None
+        )
+    return approvals
+
+
 @approval_router.get("", response_model=list[AIActionApprovalOut])
 async def list_action_approvals(
     status_filter: str | None = None,
@@ -131,11 +148,12 @@ async def list_action_approvals(
     if current_user.organization_id is None:
         raise NotFoundError("Current organization not found.")
 
-    return await AIRepository(db).list_action_approvals(
+    approvals = await AIRepository(db).list_action_approvals(
         tenant_id=current_user.tenant_id,
         organization_id=current_user.organization_id,
         status=status_filter,
     )
+    return await _attach_source_titles(db, tenant_id=current_user.tenant_id, approvals=approvals)
 
 
 @approval_router.get("/{approval_id}", response_model=AIActionApprovalOut)

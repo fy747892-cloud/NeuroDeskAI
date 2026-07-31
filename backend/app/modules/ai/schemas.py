@@ -46,6 +46,7 @@ class AIActionApprovalOut(BaseModel):
     action_type: str
     source_type: str
     source_id: UUID
+    source_title: str | None = None
     status: str
     suggested_payload: dict
     approved_payload: dict | None

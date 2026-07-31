@@ -1,5 +1,7 @@
 from httpx import AsyncClient
 
+from app.modules.conversations.models import DEFAULT_WEB_RECORDING_TITLE
+
 
 async def _register(client: AsyncClient, email: str) -> dict:
     response = await client.post(
@@ -59,6 +61,69 @@ async def test_request_conversation_analysis_returns_mock_results(client: AsyncC
     list_response = await client.get("/api/v1/ai/analysis/jobs", headers=headers)
     assert list_response.status_code == 200
     assert list_response.json()[0]["id"] == body["id"]
+
+
+async def test_analysis_derives_title_for_default_web_recording_placeholder(client: AsyncClient):
+    headers = await _auth_headers(client, "ai-title-derive@example.com")
+    call_response = await client.post(
+        "/api/v1/calls/text",
+        headers=headers,
+        json={
+            "title": DEFAULT_WEB_RECORDING_TITLE,
+            "transcript_text": "Customer wants a callback tomorrow morning.",
+        },
+    )
+    assert call_response.status_code == 201
+    conversation_id = call_response.json()["conversation"]["id"]
+
+    analysis_response = await client.post(
+        f"/api/v1/ai/analysis/conversations/{conversation_id}", headers=headers
+    )
+    assert analysis_response.status_code == 201
+
+    conversation_response = await client.get(
+        f"/api/v1/conversations/{conversation_id}", headers=headers
+    )
+    assert conversation_response.status_code == 200
+    new_title = conversation_response.json()["title"]
+    assert new_title != DEFAULT_WEB_RECORDING_TITLE
+    assert "Customer wants a callback tomorrow morning" in new_title
+
+
+async def test_analysis_does_not_overwrite_a_custom_title(client: AsyncClient):
+    headers = await _auth_headers(client, "ai-title-keep@example.com")
+    conversation_id = await _create_call_conversation(
+        client, headers, "Customer wants a callback tomorrow morning."
+    )
+
+    analysis_response = await client.post(
+        f"/api/v1/ai/analysis/conversations/{conversation_id}", headers=headers
+    )
+    assert analysis_response.status_code == 201
+
+    conversation_response = await client.get(
+        f"/api/v1/conversations/{conversation_id}", headers=headers
+    )
+    assert conversation_response.json()["title"] == "AI Candidate Conversation"
+
+
+async def test_pending_approvals_include_source_conversation_title(client: AsyncClient):
+    headers = await _auth_headers(client, "ai-source-title@example.com")
+    conversation_id = await _create_call_conversation(
+        client, headers, "Customer wants a follow-up appointment and a clear next step."
+    )
+    analysis_response = await client.post(
+        f"/api/v1/ai/analysis/conversations/{conversation_id}", headers=headers
+    )
+    assert analysis_response.status_code == 201
+
+    approvals_response = await client.get("/api/v1/ai/approvals", headers=headers)
+    assert approvals_response.status_code == 200
+    approvals = approvals_response.json()
+    assert approvals
+    for approval in approvals:
+        assert approval["source_type"] == "conversation"
+        assert approval["source_title"] == "AI Candidate Conversation"
 
 
 async def test_ai_analysis_job_is_tenant_scoped(client: AsyncClient):
