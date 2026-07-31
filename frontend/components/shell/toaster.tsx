@@ -27,6 +27,18 @@ export function Toaster() {
               {style.icon}
             </span>
             <p className="flex-1 text-body-sm text-on-surface leading-snug">{toast.message}</p>
+            {toast.action ? (
+              <button
+                type="button"
+                onClick={() => {
+                  toast.action?.onClick();
+                  dismissToast(toast.id);
+                }}
+                className="text-primary text-[13px] font-bold hover:underline shrink-0"
+              >
+                {toast.action.label}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => dismissToast(toast.id)}

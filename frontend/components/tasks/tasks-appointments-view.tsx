@@ -23,6 +23,7 @@ import { Language, useLanguage } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast";
 import { Skeleton, SkeletonList } from "@/components/shell/skeleton";
 import { formatDateTime, formatTime } from "@/lib/format";
+import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
 
 export function TasksAppointmentsView() {
   const { tokens } = useSession();
@@ -57,7 +58,6 @@ export function TasksAppointmentsView() {
   const [taskEditForm, setTaskEditForm] = useState({ title: "", priority: "medium", dueAt: "" });
   const [isSavingTaskEdit, setSavingTaskEdit] = useState(false);
   const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
-  const [isBulkActingTasks, setBulkActingTasks] = useState(false);
 
   // Calendar state
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -163,17 +163,34 @@ export function TasksAppointmentsView() {
 
   const selectedDayAppointments = appointmentsByDay.get(selectedDate) ?? [];
 
-  async function handleCompletePriorityItem(itemId: string) {
-    if (!tokens?.accessToken) return;
-    setBusyItemId(itemId);
-    try {
-      await completeTask(tokens.accessToken, itemId);
-      await loadQueue();
-    } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : t("tasks.taskCompleteError"));
-    } finally {
-      setBusyItemId(null);
-    }
+  function handleCompletePriorityItem(itemId: string) {
+    if (!tokens?.accessToken || !queue) return;
+    const accessToken = tokens.accessToken;
+    const previousQueue = queue;
+
+    setQueue((current) =>
+      current ? { ...current, items: current.items.filter((item) => item.item_id !== itemId) } : current,
+    );
+
+    const pending = deferredExecute(async () => {
+      try {
+        await completeTask(accessToken, itemId);
+      } catch (actionError) {
+        setQueue(previousQueue);
+        setError(actionError instanceof Error ? actionError.message : t("tasks.taskCompleteError"));
+      }
+    });
+
+    showToast(t("tasks.taskCompletedToast"), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setQueue(previousQueue);
+        },
+      },
+    });
   }
 
   async function handleCreateTask(event: FormEvent<HTMLFormElement>) {
@@ -233,18 +250,35 @@ export function TasksAppointmentsView() {
     }
   }
 
-  async function handleDeleteTask(itemId: string) {
-    if (!tokens?.accessToken || !window.confirm(t("tasks.taskDeleteConfirm"))) return;
-    setBusyItemId(itemId);
+  function handleDeleteTask(itemId: string) {
+    if (!tokens?.accessToken || !queue) return;
+    const accessToken = tokens.accessToken;
+    const previousQueue = queue;
     setError(null);
-    try {
-      await deleteTask(tokens.accessToken, itemId);
-      await loadQueue();
-    } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : t("tasks.taskDeleteError"));
-    } finally {
-      setBusyItemId(null);
-    }
+
+    setQueue((current) =>
+      current ? { ...current, items: current.items.filter((item) => item.item_id !== itemId) } : current,
+    );
+
+    const pending = deferredExecute(async () => {
+      try {
+        await deleteTask(accessToken, itemId);
+      } catch (deleteError) {
+        setQueue(previousQueue);
+        setError(deleteError instanceof Error ? deleteError.message : t("tasks.taskDeleteError"));
+      }
+    });
+
+    showToast(t("tasks.taskDeletedToast"), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setQueue(previousQueue);
+        },
+      },
+    });
   }
 
   const taskIds = useMemo(
@@ -265,66 +299,131 @@ export function TasksAppointmentsView() {
     setSelectedTaskIds((current) => (current.size === taskIds.length ? new Set() : new Set(taskIds)));
   }
 
-  async function handleBulkCompleteTasks() {
-    if (!tokens?.accessToken || selectedTaskIds.size === 0) return;
-    setBulkActingTasks(true);
-    setError(null);
+  function handleBulkCompleteTasks() {
+    if (!tokens?.accessToken || selectedTaskIds.size === 0 || !queue) return;
+    const accessToken = tokens.accessToken;
     const ids = Array.from(selectedTaskIds);
-    const results = await Promise.allSettled(ids.map((id) => completeTask(tokens.accessToken as string, id)));
-    const failedCount = results.filter((result) => result.status === "rejected").length;
+    const previousQueue = queue;
+    setError(null);
+
+    setQueue((current) =>
+      current ? { ...current, items: current.items.filter((item) => !selectedTaskIds.has(item.item_id)) } : current,
+    );
     setSelectedTaskIds(new Set());
-    await loadQueue();
-    setBulkActingTasks(false);
-    if (failedCount > 0) {
-      setError(t("tasks.bulk.completePartialError", { count: failedCount }));
-    } else {
-      showToast(t("tasks.bulk.completed", { count: ids.length }), "success");
-    }
+
+    const pending = deferredExecute(async () => {
+      const results = await Promise.allSettled(ids.map((id) => completeTask(accessToken, id)));
+      const failedCount = results.filter((result) => result.status === "rejected").length;
+      if (failedCount > 0) {
+        await loadQueue();
+        showToast(t("tasks.bulk.completePartialError", { count: failedCount }), "error");
+      }
+    });
+
+    showToast(t("tasks.bulk.completed", { count: ids.length }), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setQueue(previousQueue);
+        },
+      },
+    });
   }
 
-  async function handleBulkDeleteTasks() {
-    if (!tokens?.accessToken || selectedTaskIds.size === 0) return;
-    if (!window.confirm(t("tasks.bulk.deleteConfirm", { count: selectedTaskIds.size }))) return;
-    setBulkActingTasks(true);
-    setError(null);
+  function handleBulkDeleteTasks() {
+    if (!tokens?.accessToken || selectedTaskIds.size === 0 || !queue) return;
+    const accessToken = tokens.accessToken;
     const ids = Array.from(selectedTaskIds);
-    const results = await Promise.allSettled(ids.map((id) => deleteTask(tokens.accessToken as string, id)));
-    const failedCount = results.filter((result) => result.status === "rejected").length;
-    setSelectedTaskIds(new Set());
-    await loadQueue();
-    setBulkActingTasks(false);
-    if (failedCount > 0) {
-      setError(t("tasks.bulk.deletePartialError", { count: failedCount }));
-    } else {
-      showToast(t("tasks.bulk.deleted", { count: ids.length }), "success");
-    }
-  }
-
-  async function handleCancelAppointment(appointmentId: string) {
-    if (!tokens?.accessToken || !window.confirm(t("tasks.appointmentCancelConfirm"))) return;
-    setActiveApptId(appointmentId);
-    try {
-      const updated = await cancelAppointment(tokens.accessToken, appointmentId);
-      setAppointments((current) => current.map((item) => (item.id === updated.id ? updated : item)));
-    } catch (cancelError) {
-      setError(cancelError instanceof Error ? cancelError.message : t("tasks.appointmentCancelError"));
-    } finally {
-      setActiveApptId(null);
-    }
-  }
-
-  async function handleDeleteAppointment(appointmentId: string) {
-    if (!tokens?.accessToken || !window.confirm(t("tasks.appointmentDeleteConfirm"))) return;
-    setActiveApptId(appointmentId);
+    const previousQueue = queue;
     setError(null);
-    try {
-      await deleteAppointment(tokens.accessToken, appointmentId);
-      setAppointments((current) => current.filter((item) => item.id !== appointmentId));
-    } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : t("tasks.appointmentDeleteError"));
-    } finally {
-      setActiveApptId(null);
-    }
+
+    setQueue((current) =>
+      current ? { ...current, items: current.items.filter((item) => !selectedTaskIds.has(item.item_id)) } : current,
+    );
+    setSelectedTaskIds(new Set());
+
+    const pending = deferredExecute(async () => {
+      const results = await Promise.allSettled(ids.map((id) => deleteTask(accessToken, id)));
+      const failedCount = results.filter((result) => result.status === "rejected").length;
+      if (failedCount > 0) {
+        await loadQueue();
+        showToast(t("tasks.bulk.deletePartialError", { count: failedCount }), "error");
+      }
+    });
+
+    showToast(t("tasks.bulk.deleted", { count: ids.length }), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setQueue(previousQueue);
+        },
+      },
+    });
+  }
+
+  function handleCancelAppointment(appointmentId: string) {
+    if (!tokens?.accessToken) return;
+    const accessToken = tokens.accessToken;
+    const original = appointments.find((item) => item.id === appointmentId);
+    if (!original) return;
+
+    setAppointments((current) =>
+      current.map((item) => (item.id === appointmentId ? { ...item, status: "cancelled" } : item)),
+    );
+
+    const pending = deferredExecute(async () => {
+      try {
+        const updated = await cancelAppointment(accessToken, appointmentId);
+        setAppointments((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      } catch (cancelError) {
+        setAppointments((current) => current.map((item) => (item.id === appointmentId ? original : item)));
+        setError(cancelError instanceof Error ? cancelError.message : t("tasks.appointmentCancelError"));
+      }
+    });
+
+    showToast(t("tasks.appointmentCancelledToast"), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setAppointments((current) => current.map((item) => (item.id === appointmentId ? original : item)));
+        },
+      },
+    });
+  }
+
+  function handleDeleteAppointment(appointmentId: string) {
+    if (!tokens?.accessToken) return;
+    const accessToken = tokens.accessToken;
+    const previousAppointments = appointments;
+    setError(null);
+
+    setAppointments((current) => current.filter((item) => item.id !== appointmentId));
+
+    const pending = deferredExecute(async () => {
+      try {
+        await deleteAppointment(accessToken, appointmentId);
+      } catch (deleteError) {
+        setAppointments(previousAppointments);
+        setError(deleteError instanceof Error ? deleteError.message : t("tasks.appointmentDeleteError"));
+      }
+    });
+
+    showToast(t("tasks.appointmentDeletedToast"), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setAppointments(previousAppointments);
+        },
+      },
+    });
   }
 
   function startEditingAppointment(appointment: Appointment) {
@@ -464,19 +563,17 @@ export function TasksAppointmentsView() {
                   </span>
                   <button
                     type="button"
-                    disabled={isBulkActingTasks}
                     onClick={handleBulkCompleteTasks}
-                    className="text-primary text-[12px] font-bold hover:underline disabled:opacity-60"
+                    className="text-primary text-[12px] font-bold hover:underline"
                   >
-                    {isBulkActingTasks ? t("common.loading") : t("tasks.bulk.completeSelected")}
+                    {t("tasks.bulk.completeSelected")}
                   </button>
                   <button
                     type="button"
-                    disabled={isBulkActingTasks}
                     onClick={handleBulkDeleteTasks}
-                    className="text-error text-[12px] font-bold hover:underline disabled:opacity-60"
+                    className="text-error text-[12px] font-bold hover:underline"
                   >
-                    {isBulkActingTasks ? t("common.loading") : t("tasks.bulk.deleteSelected")}
+                    {t("tasks.bulk.deleteSelected")}
                   </button>
                   <button
                     type="button"

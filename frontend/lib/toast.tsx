@@ -12,15 +12,26 @@ import {
 
 export type ToastVariant = "success" | "error" | "info";
 
+export type ToastAction = {
+  label: string;
+  onClick: () => void;
+};
+
 export type Toast = {
   id: string;
   message: string;
   variant: ToastVariant;
+  action?: ToastAction;
+};
+
+type ShowToastOptions = {
+  action?: ToastAction;
+  duration?: number;
 };
 
 type ToastContextValue = {
   toasts: Toast[];
-  showToast: (message: string, variant?: ToastVariant) => void;
+  showToast: (message: string, variant?: ToastVariant, options?: ShowToastOptions) => void;
   dismissToast: (id: string) => void;
 };
 
@@ -42,10 +53,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const showToast = useCallback(
-    (message: string, variant: ToastVariant = "info") => {
+    (message: string, variant: ToastVariant = "info", options?: ShowToastOptions) => {
       const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      setToasts((current) => [...current, { id, message, variant }]);
-      const timer = setTimeout(() => dismissToast(id), AUTO_DISMISS_MS);
+      setToasts((current) => [...current, { id, message, variant, action: options?.action }]);
+      const timer = setTimeout(() => dismissToast(id), options?.duration ?? AUTO_DISMISS_MS);
       timers.current.set(id, timer);
     },
     [dismissToast],

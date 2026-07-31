@@ -26,6 +26,7 @@ import { useLanguage } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast";
 import { Skeleton, SkeletonRow, SkeletonText } from "@/components/shell/skeleton";
 import { formatDateTime, formatTime } from "@/lib/format";
+import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
 
 const EXTRACT_ICON: Record<string, string> = {
   task_extraction: "task_alt",
@@ -50,7 +51,6 @@ export function ConversationsView() {
   const [isAnalyzing, setAnalyzing] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [pendingRecordedConversationId, setPendingRecordedConversationId] = useState<string | null>(null);
-  const [activeCallId, setActiveCallId] = useState<string | null>(null);
   const [isRenaming, setRenaming] = useState(false);
   const [isEditingTitle, setEditingTitle] = useState(false);
   const [editingTitle, setEditingTitleValue] = useState("");
@@ -304,43 +304,64 @@ export function ConversationsView() {
     }
   }
 
-  async function handleDeleteCall(callId: string) {
+  function handleDeleteCall(callId: string) {
     if (!tokens?.accessToken || !detail) return;
-    const isLastCall = detail.calls.length <= 1;
-    const confirmMessage = isLastCall
-      ? t("conversations.deleteLastCallConfirm")
-      : t("conversations.deleteCallConfirm");
-    if (!window.confirm(confirmMessage)) return;
+    const accessToken = tokens.accessToken;
     const conversationId = detail.id;
-    setActiveCallId(callId);
+    const previousDetail = detail;
+    const previousConversations = conversations;
+    const previousSelectedId = selectedId;
+    const remainingCalls = detail.calls.filter((call) => call.id !== callId);
+    const isLastCall = remainingCalls.length === 0;
     setError(null);
-    try {
-      await deleteCall(tokens.accessToken, callId);
-      const remainingCalls = detail.calls.filter((call) => call.id !== callId);
 
-      if (remainingCalls.length === 0) {
-        try {
-          await deleteConversation(tokens.accessToken, conversationId);
-          setConversations((current) => current.filter((conversation) => conversation.id !== conversationId));
-          setDetail(null);
-          setSelectedId(null);
-          showToast(t("conversations.notices.emptyConversationDeleted"), "success");
-        } catch (deleteConversationError) {
-          setDetail((current) => (current ? { ...current, calls: remainingCalls } : current));
-          setError(
-            deleteConversationError instanceof Error
-              ? deleteConversationError.message
-              : t("conversations.errors.deleteFailed"),
-          );
-        }
-      } else {
-        setDetail((current) => (current ? { ...current, calls: remainingCalls } : current));
-      }
-    } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : t("conversations.errors.deleteFailed"));
-    } finally {
-      setActiveCallId(null);
+    if (isLastCall) {
+      setConversations((current) => current.filter((conversation) => conversation.id !== conversationId));
+      setDetail(null);
+      setSelectedId(null);
+    } else {
+      setDetail((current) => (current ? { ...current, calls: remainingCalls } : current));
     }
+
+    const pending = deferredExecute(async () => {
+      try {
+        await deleteCall(accessToken, callId);
+        if (isLastCall) {
+          try {
+            await deleteConversation(accessToken, conversationId);
+          } catch (deleteConversationError) {
+            showToast(
+              deleteConversationError instanceof Error
+                ? deleteConversationError.message
+                : t("conversations.errors.deleteFailed"),
+              "error",
+            );
+          }
+        }
+      } catch (deleteError) {
+        setConversations(previousConversations);
+        setDetail(previousDetail);
+        setSelectedId(previousSelectedId);
+        setError(deleteError instanceof Error ? deleteError.message : t("conversations.errors.deleteFailed"));
+      }
+    });
+
+    showToast(
+      isLastCall ? t("conversations.notices.emptyConversationDeleted") : t("conversations.notices.callDeletedToast"),
+      "success",
+      {
+        duration: UNDO_WINDOW_MS,
+        action: {
+          label: t("common.undo"),
+          onClick: () => {
+            pending.cancel();
+            setConversations(previousConversations);
+            setDetail(previousDetail);
+            setSelectedId(previousSelectedId);
+          },
+        },
+      },
+    );
   }
 
   async function handleAnalyze() {
@@ -771,12 +792,7 @@ export function ConversationsView() {
                   <p className="text-body-sm text-on-surface-variant">{t("conversations.noCallsInConversation")}</p>
                 ) : null}
                 {detail.calls.map((call) => (
-                  <CallBlock
-                    key={call.id}
-                    call={call}
-                    isBusy={activeCallId === call.id}
-                    onDelete={() => handleDeleteCall(call.id)}
-                  />
+                  <CallBlock key={call.id} call={call} onDelete={() => handleDeleteCall(call.id)} />
                 ))}
               </div>
             </div>
@@ -787,7 +803,7 @@ export function ConversationsView() {
   );
 }
 
-function CallBlock({ call, isBusy, onDelete }: { call: Call; isBusy: boolean; onDelete: () => void }) {
+function CallBlock({ call, onDelete }: { call: Call; onDelete: () => void }) {
   const { t } = useLanguage();
   const transcriptText = call.transcriptions[0]?.transcript_text ?? null;
   const turns = transcriptText ? parseTranscript(transcriptText) : [];
@@ -800,11 +816,10 @@ function CallBlock({ call, isBusy, onDelete }: { call: Call; isBusy: boolean; on
         </span>
         <button
           type="button"
-          disabled={isBusy}
           onClick={onDelete}
-          className="text-error text-[11px] font-bold hover:underline disabled:opacity-60"
+          className="text-error text-[11px] font-bold hover:underline"
         >
-          {isBusy ? t("conversations.deleting") : t("conversations.deleteCallButton")}
+          {t("conversations.deleteCallButton")}
         </button>
       </div>
       {turns.length > 0 ? (

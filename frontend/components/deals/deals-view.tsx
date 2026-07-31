@@ -15,6 +15,7 @@ import { useLanguage } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast";
 import { Skeleton } from "@/components/shell/skeleton";
 import { formatMoney } from "@/lib/format";
+import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
 
 const STAGE_LABEL_KEY: Record<string, string> = {
   lead: "deals.stage.lead",
@@ -50,7 +51,6 @@ export function DealsView() {
   const [draggedDealId, setDraggedDealId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [isBulkDeleting, setBulkDeleting] = useState(false);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const columnRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const dragGesture = useRef<{
@@ -123,19 +123,32 @@ export function DealsView() {
     }
   }
 
-  async function handleDeleteDeal(deal: Deal) {
-    if (!tokens?.accessToken || !window.confirm(t("deals.deleteConfirm", { title: deal.title }))) return;
-    setActiveId(deal.id);
-    setError(null);
-    try {
-      await deleteDeal(tokens.accessToken, deal.id);
-      setDeals((current) => current.filter((item) => item.id !== deal.id));
-      showToast(t("deals.dealDeleted"), "success");
-    } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : t("deals.dealDeleteError"));
-    } finally {
-      setActiveId(null);
-    }
+  function handleDeleteDeal(deal: Deal) {
+    if (!tokens?.accessToken) return;
+    const accessToken = tokens.accessToken;
+    const previousDeals = deals;
+
+    setDeals((current) => current.filter((item) => item.id !== deal.id));
+
+    const pending = deferredExecute(async () => {
+      try {
+        await deleteDeal(accessToken, deal.id);
+      } catch (deleteError) {
+        setDeals((current) => [deal, ...current]);
+        setError(deleteError instanceof Error ? deleteError.message : t("deals.dealDeleteError"));
+      }
+    });
+
+    showToast(t("deals.dealDeleted"), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setDeals(previousDeals);
+        },
+      },
+    });
   }
 
   function toggleSelected(dealId: string) {
@@ -153,23 +166,34 @@ export function DealsView() {
     );
   }
 
-  async function handleBulkDelete() {
+  function handleBulkDelete() {
     if (!tokens?.accessToken || selectedIds.size === 0) return;
-    if (!window.confirm(t("deals.bulk.deleteConfirm", { count: selectedIds.size }))) return;
-    setBulkDeleting(true);
-    setError(null);
-    const ids = Array.from(selectedIds);
-    const results = await Promise.allSettled(ids.map((id) => deleteDeal(tokens.accessToken as string, id)));
-    const succeededIds = new Set(ids.filter((_, index) => results[index].status === "fulfilled"));
-    const failedCount = ids.length - succeededIds.size;
-    setDeals((current) => current.filter((deal) => !succeededIds.has(deal.id)));
+    const accessToken = tokens.accessToken;
+    const idsToDelete = Array.from(selectedIds);
+    const previousDeals = deals;
+
+    setDeals((current) => current.filter((deal) => !selectedIds.has(deal.id)));
     setSelectedIds(new Set());
-    setBulkDeleting(false);
-    if (failedCount > 0) {
-      setError(t("deals.bulk.deletePartialError", { count: failedCount }));
-    } else {
-      showToast(t("deals.bulk.deleted", { count: succeededIds.size }), "success");
-    }
+
+    const pending = deferredExecute(async () => {
+      const results = await Promise.allSettled(idsToDelete.map((id) => deleteDeal(accessToken, id)));
+      const failedIds = new Set(idsToDelete.filter((_, index) => results[index].status === "rejected"));
+      if (failedIds.size > 0) {
+        setDeals((current) => [...current, ...previousDeals.filter((deal) => failedIds.has(deal.id))]);
+        showToast(t("deals.bulk.deletePartialError", { count: failedIds.size }), "error");
+      }
+    });
+
+    showToast(t("deals.bulk.deleted", { count: idsToDelete.length }), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setDeals(previousDeals);
+        },
+      },
+    });
   }
 
   function registerCardRef(dealId: string, node: HTMLDivElement | null) {
@@ -335,11 +359,10 @@ export function DealsView() {
               </span>
               <button
                 type="button"
-                disabled={isBulkDeleting}
                 onClick={handleBulkDelete}
-                className="text-error text-[12px] font-bold hover:underline disabled:opacity-60"
+                className="text-error text-[12px] font-bold hover:underline"
               >
-                {isBulkDeleting ? t("common.loading") : t("deals.bulk.deleteSelected")}
+                {t("deals.bulk.deleteSelected")}
               </button>
               <button
                 type="button"

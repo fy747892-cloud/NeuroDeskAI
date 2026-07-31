@@ -8,6 +8,7 @@ import { useLanguage } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast";
 import { Skeleton } from "@/components/shell/skeleton";
 import { getInitials } from "@/lib/format";
+import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
 
 export function ContactsView() {
   const { tokens } = useSession();
@@ -20,7 +21,6 @@ export function ContactsView() {
   const [showForm, setShowForm] = useState(false);
   const [isCreating, setCreating] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [isBulkDeleting, setBulkDeleting] = useState(false);
   const [newContact, setNewContact] = useState({
     fullName: "",
     email: "",
@@ -72,23 +72,34 @@ export function ContactsView() {
     );
   }
 
-  async function handleBulkDelete() {
+  function handleBulkDelete() {
     if (!tokens?.accessToken || selectedIds.size === 0) return;
-    if (!window.confirm(t("contacts.bulk.deleteConfirm", { count: selectedIds.size }))) return;
-    setBulkDeleting(true);
-    setError(null);
-    const ids = Array.from(selectedIds);
-    const results = await Promise.allSettled(ids.map((id) => deleteContact(tokens.accessToken as string, id)));
-    const succeededIds = new Set(ids.filter((_, index) => results[index].status === "fulfilled"));
-    const failedCount = ids.length - succeededIds.size;
-    setContacts((current) => current.filter((contact) => !succeededIds.has(contact.id)));
+    const accessToken = tokens.accessToken;
+    const idsToDelete = Array.from(selectedIds);
+    const previousContacts = contacts;
+
+    setContacts((current) => current.filter((contact) => !selectedIds.has(contact.id)));
     setSelectedIds(new Set());
-    setBulkDeleting(false);
-    if (failedCount > 0) {
-      setError(t("contacts.bulk.deletePartialError", { count: failedCount }));
-    } else {
-      showToast(t("contacts.bulk.deleted", { count: succeededIds.size }), "success");
-    }
+
+    const pending = deferredExecute(async () => {
+      const results = await Promise.allSettled(idsToDelete.map((id) => deleteContact(accessToken, id)));
+      const failedIds = new Set(idsToDelete.filter((_, index) => results[index].status === "rejected"));
+      if (failedIds.size > 0) {
+        setContacts((current) => [...current, ...previousContacts.filter((contact) => failedIds.has(contact.id))]);
+        showToast(t("contacts.bulk.deletePartialError", { count: failedIds.size }), "error");
+      }
+    });
+
+    showToast(t("contacts.bulk.deleted", { count: idsToDelete.length }), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setContacts(previousContacts);
+        },
+      },
+    });
   }
 
   async function handleCreateContact(event: FormEvent<HTMLFormElement>) {
@@ -165,11 +176,10 @@ export function ContactsView() {
               </span>
               <button
                 type="button"
-                disabled={isBulkDeleting}
                 onClick={handleBulkDelete}
-                className="text-error text-[12px] font-bold hover:underline disabled:opacity-60"
+                className="text-error text-[12px] font-bold hover:underline"
               >
-                {isBulkDeleting ? t("common.loading") : t("contacts.bulk.deleteSelected")}
+                {t("contacts.bulk.deleteSelected")}
               </button>
               <button
                 type="button"

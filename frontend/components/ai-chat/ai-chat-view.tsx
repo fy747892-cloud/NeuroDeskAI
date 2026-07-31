@@ -14,7 +14,9 @@ import {
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
+import { useToast } from "@/lib/toast";
 import { formatDateTime, getInitials } from "@/lib/format";
+import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
 
 type LocalMessage = {
   id: string;
@@ -28,6 +30,7 @@ type LocalMessage = {
 export function AIChatView() {
   const { tokens, user } = useSession();
   const { t, language } = useLanguage();
+  const { showToast } = useToast();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<LocalMessage[]>([]);
@@ -96,18 +99,47 @@ export function AIChatView() {
     }
   }
 
-  async function handleDeleteSession(sessionId: string) {
-    if (!tokens?.accessToken || !window.confirm(t("aiChat.deleteSessionConfirm"))) return;
-    try {
-      await deleteChatSession(tokens.accessToken, sessionId);
-      setSessions((current) => current.filter((s) => s.id !== sessionId));
-      if (activeSessionId === sessionId) {
-        setActiveSessionId(null);
-        setMessages([]);
-      }
-    } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : t("aiChat.errors.deleteSessionFailed"));
+  function handleDeleteSession(sessionId: string) {
+    if (!tokens?.accessToken) return;
+    const accessToken = tokens.accessToken;
+    const previousSessions = sessions;
+    const wasActive = activeSessionId === sessionId;
+    const previousMessages = messages;
+    const previousActiveSessionId = activeSessionId;
+
+    setSessions((current) => current.filter((s) => s.id !== sessionId));
+    if (wasActive) {
+      setActiveSessionId(null);
+      setMessages([]);
     }
+
+    const pending = deferredExecute(async () => {
+      try {
+        await deleteChatSession(accessToken, sessionId);
+      } catch (deleteError) {
+        setSessions(previousSessions);
+        if (wasActive) {
+          setActiveSessionId(previousActiveSessionId);
+          setMessages(previousMessages);
+        }
+        setError(deleteError instanceof Error ? deleteError.message : t("aiChat.errors.deleteSessionFailed"));
+      }
+    });
+
+    showToast(t("aiChat.sessionDeletedToast"), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setSessions(previousSessions);
+          if (wasActive) {
+            setActiveSessionId(previousActiveSessionId);
+            setMessages(previousMessages);
+          }
+        },
+      },
+    });
   }
 
   async function sendMessage(text: string) {

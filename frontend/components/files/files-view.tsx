@@ -17,6 +17,7 @@ import { useSession } from "@/lib/session";
 import { useToast } from "@/lib/toast";
 import { SkeletonList } from "@/components/shell/skeleton";
 import { formatDateTime } from "@/lib/format";
+import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
 
 type DialogState = {
   title: string;
@@ -224,21 +225,33 @@ export function FilesView() {
     }
   }
 
-  async function handleDelete(file: FileRecord) {
-    if (!tokens?.accessToken || !window.confirm(t("files.deleteConfirm", { filename: file.filename }))) {
-      return;
-    }
-    setActiveFileId(file.id);
+  function handleDelete(file: FileRecord) {
+    if (!tokens?.accessToken) return;
+    const accessToken = tokens.accessToken;
+    const previousFiles = files;
     setError(null);
-    try {
-      await deleteFile(tokens.accessToken, file.id);
-      setFiles((current) => current.filter((item) => item.id !== file.id));
-      showToast(t("files.deleted", { filename: file.filename }), "success");
-    } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : t("files.deleteError"));
-    } finally {
-      setActiveFileId(null);
-    }
+
+    setFiles((current) => current.filter((item) => item.id !== file.id));
+
+    const pending = deferredExecute(async () => {
+      try {
+        await deleteFile(accessToken, file.id);
+      } catch (deleteError) {
+        setFiles(previousFiles);
+        setError(deleteError instanceof Error ? deleteError.message : t("files.deleteError"));
+      }
+    });
+
+    showToast(t("files.deleted", { filename: file.filename }), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setFiles(previousFiles);
+        },
+      },
+    });
   }
 
   function startEditing(file: FileRecord) {
