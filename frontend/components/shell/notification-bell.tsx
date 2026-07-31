@@ -5,6 +5,7 @@ import { listNotifications, markAllNotificationsRead, markNotificationRead, type
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
 import { formatRelative } from "@/lib/format";
+import { EmptyState } from "@/components/shell/empty-state";
 
 export function NotificationBell() {
   const { tokens } = useSession();
@@ -36,8 +37,15 @@ export function NotificationBell() {
         setOpen(false);
       }
     }
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
   }, []);
 
   async function handleOpen() {
@@ -75,6 +83,8 @@ export function NotificationBell() {
         onClick={handleOpen}
         className="relative text-on-surface-variant hover:text-primary transition-colors"
         aria-label={t("shell.notifications.aria")}
+        aria-haspopup="true"
+        aria-expanded={isOpen}
       >
         <span className="material-symbols-outlined">notifications</span>
         {unreadCount > 0 ? (
@@ -104,7 +114,7 @@ export function NotificationBell() {
             </div>
           </div>
           {notifications.length === 0 ? (
-            <p className="px-lg py-lg text-body-sm text-on-surface-variant">{t("shell.notifications.empty")}</p>
+            <EmptyState icon="notifications_off" title={t("shell.notifications.empty")} />
           ) : (
             <ul className="divide-y divide-outline-variant/10">
               {notifications.slice(0, 12).map((item) => (
@@ -113,7 +123,7 @@ export function NotificationBell() {
                     type="button"
                     onClick={() => handleRead(item.id)}
                     className={
-                      "w-full text-left px-lg py-md hover:bg-primary-container/5 transition-colors " +
+                      "w-full text-left px-lg py-md hover:bg-primary-container/5 active:bg-primary-container/10 transition-colors " +
                       (item.read_at ? "opacity-60" : "")
                     }
                   >

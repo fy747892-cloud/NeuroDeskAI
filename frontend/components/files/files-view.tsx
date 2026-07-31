@@ -17,6 +17,8 @@ import { useSession } from "@/lib/session";
 import { useToast } from "@/lib/toast";
 import { SkeletonList } from "@/components/shell/skeleton";
 import { formatDateTime } from "@/lib/format";
+import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
+import { EmptyState } from "@/components/shell/empty-state";
 
 type DialogState = {
   title: string;
@@ -224,21 +226,33 @@ export function FilesView() {
     }
   }
 
-  async function handleDelete(file: FileRecord) {
-    if (!tokens?.accessToken || !window.confirm(t("files.deleteConfirm", { filename: file.filename }))) {
-      return;
-    }
-    setActiveFileId(file.id);
+  function handleDelete(file: FileRecord) {
+    if (!tokens?.accessToken) return;
+    const accessToken = tokens.accessToken;
+    const previousFiles = files;
     setError(null);
-    try {
-      await deleteFile(tokens.accessToken, file.id);
-      setFiles((current) => current.filter((item) => item.id !== file.id));
-      showToast(t("files.deleted", { filename: file.filename }), "success");
-    } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : t("files.deleteError"));
-    } finally {
-      setActiveFileId(null);
-    }
+
+    setFiles((current) => current.filter((item) => item.id !== file.id));
+
+    const pending = deferredExecute(async () => {
+      try {
+        await deleteFile(accessToken, file.id);
+      } catch (deleteError) {
+        setFiles(previousFiles);
+        setError(deleteError instanceof Error ? deleteError.message : t("files.deleteError"));
+      }
+    });
+
+    showToast(t("files.deleted", { filename: file.filename }), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setFiles(previousFiles);
+        },
+      },
+    });
   }
 
   function startEditing(file: FileRecord) {
@@ -355,13 +369,14 @@ export function FilesView() {
         ) : null}
         {isLoading ? <SkeletonList count={3} /> : null}
         {!isLoading && files.length === 0 ? (
-          <div className="glass-card p-xl rounded-xl text-body-md text-on-surface-variant text-center">
-            <span className="material-symbols-outlined text-[32px] text-outline mb-2 block">upload_file</span>
-            {t("files.emptyWithDropHint")}
+          <div className="glass-card rounded-xl">
+            <EmptyState icon="upload_file" size="lg" title={t("files.emptyWithDropHint")} />
           </div>
         ) : null}
         {!isLoading && files.length > 0 && visibleFiles.length === 0 ? (
-          <div className="glass-card p-xl rounded-xl text-body-md text-on-surface-variant">{t("files.noMatches")}</div>
+          <div className="glass-card rounded-xl">
+            <EmptyState icon="search_off" title={t("files.noMatches")} />
+          </div>
         ) : null}
         {visibleFiles.map((file) => (
           <FileCard

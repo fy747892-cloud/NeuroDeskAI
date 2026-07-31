@@ -1,12 +1,22 @@
 "use client";
 
-import { DragEvent, FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import {
+  FormEvent,
+  PointerEvent as ReactPointerEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Contact, createDeal, Deal, DEAL_STAGES, deleteDeal, listContacts, listDeals, updateDeal } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast";
 import { Skeleton } from "@/components/shell/skeleton";
+import { EmptyState } from "@/components/shell/empty-state";
 import { formatMoney } from "@/lib/format";
+import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
 
 const STAGE_LABEL_KEY: Record<string, string> = {
   lead: "deals.stage.lead",
@@ -41,6 +51,19 @@ export function DealsView() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draggedDealId, setDraggedDealId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<"recent" | "value_desc" | "value_asc" | "close_date">("recent");
+  const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const columnRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const dragGesture = useRef<{
+    dealId: string;
+    originStage: string;
+    pointerId: number;
+    startX: number;
+    startY: number;
+    dragging: boolean;
+  } | null>(null);
   const [newDeal, setNewDeal] = useState({
     title: "",
     value: "",
@@ -77,9 +100,44 @@ export function DealsView() {
     return map;
   }, [contacts]);
 
+  const filteredDeals = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    let result = deals;
+    if (query) {
+      result = result.filter((deal) => {
+        const contact = deal.contact_id ? contactsById.get(deal.contact_id) : null;
+        return (
+          deal.title.toLowerCase().includes(query) ||
+          contact?.full_name.toLowerCase().includes(query) ||
+          contact?.company?.toLowerCase().includes(query)
+        );
+      });
+    }
+
+    const sorted = [...result];
+    switch (sortBy) {
+      case "value_desc":
+        sorted.sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
+        break;
+      case "value_asc":
+        sorted.sort((a, b) => (a.value ?? 0) - (b.value ?? 0));
+        break;
+      case "close_date":
+        sorted.sort((a, b) => {
+          if (!a.expected_close_date) return 1;
+          if (!b.expected_close_date) return -1;
+          return new Date(a.expected_close_date).getTime() - new Date(b.expected_close_date).getTime();
+        });
+        break;
+      default:
+        sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+    return sorted;
+  }, [deals, search, sortBy, contactsById]);
+
   const columns = useMemo(
-    () => DEAL_STAGES.map((stage) => ({ stage, deals: deals.filter((deal) => deal.stage === stage) })),
-    [deals],
+    () => DEAL_STAGES.map((stage) => ({ stage, deals: filteredDeals.filter((deal) => deal.stage === stage) })),
+    [filteredDeals],
   );
 
   const summary = useMemo(() => {
@@ -103,49 +161,169 @@ export function DealsView() {
     }
   }
 
-  async function handleDeleteDeal(deal: Deal) {
-    if (!tokens?.accessToken || !window.confirm(t("deals.deleteConfirm", { title: deal.title }))) return;
-    setActiveId(deal.id);
-    setError(null);
-    try {
-      await deleteDeal(tokens.accessToken, deal.id);
-      setDeals((current) => current.filter((item) => item.id !== deal.id));
-      showToast(t("deals.dealDeleted"), "success");
-    } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : t("deals.dealDeleteError"));
-    } finally {
-      setActiveId(null);
+  function handleDeleteDeal(deal: Deal) {
+    if (!tokens?.accessToken) return;
+    const accessToken = tokens.accessToken;
+    const previousDeals = deals;
+
+    setDeals((current) => current.filter((item) => item.id !== deal.id));
+
+    const pending = deferredExecute(async () => {
+      try {
+        await deleteDeal(accessToken, deal.id);
+      } catch (deleteError) {
+        setDeals((current) => [deal, ...current]);
+        setError(deleteError instanceof Error ? deleteError.message : t("deals.dealDeleteError"));
+      }
+    });
+
+    showToast(t("deals.dealDeleted"), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setDeals(previousDeals);
+        },
+      },
+    });
+  }
+
+  function toggleSelected(dealId: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(dealId)) next.delete(dealId);
+      else next.add(dealId);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((current) =>
+      current.size === filteredDeals.length ? new Set() : new Set(filteredDeals.map((deal) => deal.id)),
+    );
+  }
+
+  function handleBulkDelete() {
+    if (!tokens?.accessToken || selectedIds.size === 0) return;
+    const accessToken = tokens.accessToken;
+    const idsToDelete = Array.from(selectedIds);
+    const previousDeals = deals;
+
+    setDeals((current) => current.filter((deal) => !selectedIds.has(deal.id)));
+    setSelectedIds(new Set());
+
+    const pending = deferredExecute(async () => {
+      const results = await Promise.allSettled(idsToDelete.map((id) => deleteDeal(accessToken, id)));
+      const failedIds = new Set(idsToDelete.filter((_, index) => results[index].status === "rejected"));
+      if (failedIds.size > 0) {
+        setDeals((current) => [...current, ...previousDeals.filter((deal) => failedIds.has(deal.id))]);
+        showToast(t("deals.bulk.deletePartialError", { count: failedIds.size }), "error");
+      }
+    });
+
+    showToast(t("deals.bulk.deleted", { count: idsToDelete.length }), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setDeals(previousDeals);
+        },
+      },
+    });
+  }
+
+  function registerCardRef(dealId: string, node: HTMLDivElement | null) {
+    if (node) cardRefs.current.set(dealId, node);
+    else cardRefs.current.delete(dealId);
+  }
+
+  function registerColumnRef(stage: string, node: HTMLDivElement | null) {
+    if (node) columnRefs.current.set(stage, node);
+    else columnRefs.current.delete(stage);
+  }
+
+  function stageAtPoint(clientX: number, clientY: number): string | null {
+    for (const [stage, node] of columnRefs.current) {
+      const rect = node.getBoundingClientRect();
+      if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+        return stage;
+      }
+    }
+    return null;
+  }
+
+  // Pointer Events (not the HTML5 Drag-and-Drop API) so dragging works the
+  // same way for mouse, touch, and pen — native HTML5 drag has no touch
+  // support at all, which made the board effectively desktop-only.
+  function handleHandlePointerDown(event: ReactPointerEvent<HTMLSpanElement>, deal: Deal) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    dragGesture.current = {
+      dealId: deal.id,
+      originStage: deal.stage,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      dragging: false,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function handleHandlePointerMove(event: ReactPointerEvent<HTMLSpanElement>) {
+    const gesture = dragGesture.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+
+    const dx = event.clientX - gesture.startX;
+    const dy = event.clientY - gesture.startY;
+
+    if (!gesture.dragging) {
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      gesture.dragging = true;
+      setDraggedDealId(gesture.dealId);
+    }
+
+    const card = cardRefs.current.get(gesture.dealId);
+    if (card) {
+      card.style.transform = `translate(${dx}px, ${dy}px) scale(1.02)`;
+    }
+
+    const stage = stageAtPoint(event.clientX, event.clientY);
+    setDragOverStage((current) => (current === stage ? current : stage));
+  }
+
+  async function handleHandlePointerUp(event: ReactPointerEvent<HTMLSpanElement>) {
+    const gesture = dragGesture.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    dragGesture.current = null;
+
+    const card = cardRefs.current.get(gesture.dealId);
+    if (card) card.style.transform = "";
+
+    if (!gesture.dragging) {
+      setDraggedDealId(null);
+      setDragOverStage(null);
+      return;
+    }
+
+    const targetStage = stageAtPoint(event.clientX, event.clientY);
+    setDraggedDealId(null);
+    setDragOverStage(null);
+
+    if (targetStage && targetStage !== gesture.originStage) {
+      const deal = deals.find((item) => item.id === gesture.dealId);
+      if (deal) await handleStageChange(deal, targetStage);
     }
   }
 
-  function handleDealDragStart(event: DragEvent<HTMLDivElement>, deal: Deal) {
-    setDraggedDealId(deal.id);
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", deal.id);
-  }
-
-  function handleDealDragEnd() {
+  function handleHandlePointerCancel(event: ReactPointerEvent<HTMLSpanElement>) {
+    const gesture = dragGesture.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    dragGesture.current = null;
+    const card = cardRefs.current.get(gesture.dealId);
+    if (card) card.style.transform = "";
     setDraggedDealId(null);
     setDragOverStage(null);
-  }
-
-  function handleColumnDragOver(event: DragEvent<HTMLDivElement>, stage: string) {
-    event.preventDefault();
-    setDragOverStage(stage);
-  }
-
-  function handleColumnDragLeave(stage: string) {
-    setDragOverStage((current) => (current === stage ? null : current));
-  }
-
-  async function handleColumnDrop(event: DragEvent<HTMLDivElement>, stage: string) {
-    event.preventDefault();
-    setDragOverStage(null);
-    const dealId = event.dataTransfer.getData("text/plain") || draggedDealId;
-    setDraggedDealId(null);
-    const deal = deals.find((item) => item.id === dealId);
-    if (!deal) return;
-    await handleStageChange(deal, stage);
   }
 
   async function handleCreateDeal(event: FormEvent<HTMLFormElement>) {
@@ -188,6 +366,28 @@ export function DealsView() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <div className="relative">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">
+              search
+            </span>
+            <input
+              className="bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 text-body-sm w-52"
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t("deals.searchPlaceholder")}
+              value={search}
+            />
+          </div>
+          <select
+            className="bg-surface-container-low border-none rounded-lg px-3 py-2 text-body-sm text-on-surface-variant"
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            value={sortBy}
+            aria-label={t("deals.sortAria")}
+          >
+            <option value="recent">{t("deals.sort.recent")}</option>
+            <option value="value_desc">{t("deals.sort.valueDesc")}</option>
+            <option value="value_asc">{t("deals.sort.valueAsc")}</option>
+            <option value="close_date">{t("deals.sort.closeDate")}</option>
+          </select>
           <button
             type="button"
             onClick={() => setShowForm((v) => !v)}
@@ -200,6 +400,45 @@ export function DealsView() {
       </div>
 
       {error ? <p className="text-error text-body-sm mb-md">{error}</p> : null}
+
+      {!isLoading && search.trim() && filteredDeals.length === 0 ? (
+        <EmptyState icon="search_off" title={t("deals.noSearchResults")} />
+      ) : null}
+
+      {!isLoading && filteredDeals.length > 0 ? (
+        <div className="flex items-center gap-md mb-md">
+          <label className="flex items-center gap-2 text-body-sm text-on-surface-variant cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={selectedIds.size === filteredDeals.length}
+              onChange={toggleSelectAll}
+              aria-label={t("deals.bulk.selectAll")}
+            />
+            {t("deals.bulk.selectAll")}
+          </label>
+          {selectedIds.size > 0 ? (
+            <div className="flex items-center gap-3 bg-primary-container/10 border border-primary/20 rounded-lg px-3 py-1.5">
+              <span className="text-body-sm text-primary font-bold">
+                {t("deals.bulk.selectedCount", { count: selectedIds.size })}
+              </span>
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                className="text-error text-[12px] font-bold hover:underline"
+              >
+                {t("deals.bulk.deleteSelected")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedIds(new Set())}
+                className="text-on-surface-variant text-[12px] font-bold hover:underline"
+              >
+                {t("common.clear")}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {showForm ? (
         <form onSubmit={handleCreateDeal} className="glass-card p-lg rounded-xl mb-lg grid grid-cols-2 md:grid-cols-5 gap-3">
@@ -256,6 +495,41 @@ export function DealsView() {
         </form>
       ) : null}
 
+      {!isLoading && deals.length === 0 ? (
+        <section className="rounded-2xl p-lg glass-card border border-primary/10 mb-lg">
+          <div className="flex items-center gap-2 mb-sm">
+            <span className="material-symbols-outlined text-primary" style={{ fontVariationSettings: "'FILL' 1" }}>
+              handshake
+            </span>
+            <span className="font-label-sm text-label-sm text-primary uppercase tracking-widest">
+              {t("deals.onboarding.eyebrow")}
+            </span>
+          </div>
+          <h3 className="font-headline-md text-headline-md text-on-surface mb-1">{t("deals.onboarding.title")}</h3>
+          <p className="text-body-sm text-on-surface-variant max-w-2xl mb-md">{t("deals.onboarding.subtitle")}</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
+            <div className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest">
+              <span className="material-symbols-outlined text-primary shrink-0">add_circle</span>
+              <span>
+                <span className="block font-label-md text-on-surface">{t("deals.onboarding.step1Title")}</span>
+                <span className="block text-body-sm text-on-surface-variant mt-0.5">
+                  {t("deals.onboarding.step1Body")}
+                </span>
+              </span>
+            </div>
+            <div className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest">
+              <span className="material-symbols-outlined text-primary shrink-0">drag_indicator</span>
+              <span>
+                <span className="block font-label-md text-on-surface">{t("deals.onboarding.step2Title")}</span>
+                <span className="block text-body-sm text-on-surface-variant mt-0.5">
+                  {t("deals.onboarding.step2Body")}
+                </span>
+              </span>
+            </div>
+          </div>
+        </section>
+      ) : null}
+
       <div className="flex-1 overflow-x-auto pb-4">
         <div className="flex gap-gutter">
           {isLoading
@@ -269,9 +543,7 @@ export function DealsView() {
             : columns.map(({ stage, deals: stageDeals }) => (
             <div
               key={stage}
-              onDragOver={(event) => handleColumnDragOver(event, stage)}
-              onDragLeave={() => handleColumnDragLeave(stage)}
-              onDrop={(event) => handleColumnDrop(event, stage)}
+              ref={(node) => registerColumnRef(stage, node)}
               className={
                 "kanban-column flex flex-col bg-surface-container-low/50 rounded-xl p-sm shrink-0 transition-colors " +
                 (dragOverStage === stage ? "ring-2 ring-primary bg-primary-container/5" : "")
@@ -290,7 +562,7 @@ export function DealsView() {
               </div>
               <div className="flex-1 flex flex-col gap-sm overflow-y-auto pb-4 px-1 min-h-[120px]">
                 {stageDeals.length === 0 ? (
-                  <p className="text-body-sm text-on-surface-variant px-2">{t("deals.noDealsInStage")}</p>
+                  <EmptyState icon="inbox" title={t("deals.noDealsInStage")} />
                 ) : null}
                 {stageDeals.map((deal) => {
                   const isAiSourced = deal.source_type !== "manual";
@@ -298,28 +570,35 @@ export function DealsView() {
                   return (
                     <div
                       key={deal.id}
-                      draggable
-                      onDragStart={(event) => handleDealDragStart(event, deal)}
-                      onDragEnd={handleDealDragEnd}
+                      ref={(node) => registerCardRef(deal.id, node)}
                       className={
-                        "bg-surface-container-lowest rounded-lg border border-outline-variant/30 p-md shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing group/card " +
+                        "bg-surface-container-lowest rounded-lg border border-outline-variant/30 p-md shadow-sm hover:shadow-md transition-shadow group/card " +
                         (isAiSourced ? "ai-glow " : "") +
-                        (draggedDealId === deal.id ? "opacity-40" : "")
+                        (draggedDealId === deal.id ? "shadow-xl relative z-20 transition-none" : "")
                       }
                     >
                       <div className="flex justify-between items-start mb-base">
-                        {isAiSourced ? (
-                          <span className="bg-secondary/10 text-secondary text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                            <span className="material-symbols-outlined !text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                              auto_awesome
+                        <div className="flex items-center gap-2 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(deal.id)}
+                            onChange={() => toggleSelected(deal.id)}
+                            aria-label={t("deals.bulk.selectOne", { title: deal.title })}
+                            className="shrink-0 w-3.5 h-3.5"
+                          />
+                          {isAiSourced ? (
+                            <span className="bg-secondary/10 text-secondary text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <span className="material-symbols-outlined !text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                                auto_awesome
+                              </span>
+                              {t("deals.aiSuggestedBadge")}
                             </span>
-                            {t("deals.aiSuggestedBadge")}
-                          </span>
-                        ) : (
-                          <span className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest">
-                            {t("deals.manualBadge")}
-                          </span>
-                        )}
+                          ) : (
+                            <span className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest">
+                              {t("deals.manualBadge")}
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-1">
                           <button
                             type="button"
@@ -330,7 +609,16 @@ export function DealsView() {
                           >
                             <span className="material-symbols-outlined text-[15px]">delete</span>
                           </button>
-                          <span className="material-symbols-outlined text-outline-variant text-[16px]">drag_indicator</span>
+                          <span
+                            className="material-symbols-outlined text-outline-variant text-[16px] cursor-grab active:cursor-grabbing touch-none select-none p-1.5 -m-1.5"
+                            onPointerDown={(event) => handleHandlePointerDown(event, deal)}
+                            onPointerMove={handleHandlePointerMove}
+                            onPointerUp={handleHandlePointerUp}
+                            onPointerCancel={handleHandlePointerCancel}
+                            aria-hidden="true"
+                          >
+                            drag_indicator
+                          </span>
                         </div>
                       </div>
                       <h4 className="font-headline-md text-body-lg text-on-surface leading-tight mb-1 truncate">
@@ -352,6 +640,7 @@ export function DealsView() {
                           disabled={activeId === deal.id}
                           onChange={(e) => handleStageChange(deal, e.target.value)}
                           value={deal.stage}
+                          aria-label={t("deals.stageSelectAria", { title: deal.title })}
                         >
                           {DEAL_STAGES.map((stageOption) => (
                             <option key={stageOption} value={stageOption}>

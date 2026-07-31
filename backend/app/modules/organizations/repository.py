@@ -113,21 +113,22 @@ class OrganizationRepository:
         if not members:
             return members
 
-        # OrganizationMember only stores user_id; attach email/full_name here
-        # (rather than a relationship) so OrganizationMemberOut.from_attributes
+        # OrganizationMember only stores user_id; attach email/full_name/avatar
+        # here (rather than a relationship) so OrganizationMemberOut.from_attributes
         # can read them without changing the ORM model's join surface.
         user_ids = [member.user_id for member in members]
         user_result = await self._db.execute(
-            select(User.id, User.email, UserProfile.full_name)
+            select(User.id, User.email, UserProfile.full_name, UserProfile.avatar_url)
             .outerjoin(UserProfile, UserProfile.user_id == User.id)
             .where(User.id.in_(user_ids))
         )
-        user_info = {row.id: (row.email, row.full_name) for row in user_result.all()}
+        user_info = {row.id: (row.email, row.full_name, row.avatar_url) for row in user_result.all()}
 
         for member in members:
-            email, full_name = user_info.get(member.user_id, (None, None))
+            email, full_name, avatar_url = user_info.get(member.user_id, (None, None, None))
             member.email = email
             member.full_name = full_name
+            member.avatar_url = avatar_url
 
         return members
 

@@ -6,6 +6,7 @@ import { SearchResult, semanticSearch } from "@/lib/api";
 import { groupResults, highlightMatch, resultHref, SOURCE_TYPE_META } from "@/lib/search-utils";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
+import { EmptyState } from "@/components/shell/empty-state";
 
 const OPEN_EVENT = "neurodesk:open-search";
 
@@ -104,6 +105,9 @@ export function SearchPalette() {
       onClick={() => setOpen(false)}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t("shell.search.placeholder")}
         className="w-full max-w-2xl bg-surface-container-lowest rounded-xl shadow-2xl overflow-hidden flex flex-col border border-outline-variant/30"
         onClick={(event) => event.stopPropagation()}
       >
@@ -134,9 +138,7 @@ export function SearchPalette() {
             </p>
           ) : null}
           {query.trim() && !isSearching && results.length === 0 ? (
-            <p className="px-lg py-xl text-body-md text-on-surface-variant text-center">
-              {t("shell.search.noResults")}
-            </p>
+            <EmptyState icon="search_off" title={t("shell.search.noResults")} />
           ) : null}
           {grouped.map(([sourceType, items]) => {
             const meta = SOURCE_TYPE_META[sourceType] ?? { label: sourceType, icon: "search" };
@@ -157,7 +159,7 @@ export function SearchPalette() {
                     return (
                       <button
                         className={
-                          "group w-full flex items-center gap-4 p-md rounded-lg cursor-pointer transition-colors border text-left " +
+                          "group w-full flex items-center gap-4 p-md rounded-lg cursor-pointer transition-colors active:scale-[0.98] border text-left " +
                           (isActive
                             ? "bg-primary-container/10 border-primary/20"
                             : "border-transparent hover:bg-primary-container/5 hover:border-primary/10")

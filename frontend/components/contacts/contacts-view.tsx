@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useState } from "react";
-import { Contact, createContact, listContacts } from "@/lib/api";
+import { FormEvent, MouseEvent, useCallback, useEffect, useState } from "react";
+import { Contact, createContact, deleteContact, listContacts } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast";
 import { Skeleton } from "@/components/shell/skeleton";
+import { EmptyState } from "@/components/shell/empty-state";
 import { getInitials } from "@/lib/format";
+import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
 
 export function ContactsView() {
   const { tokens } = useSession();
@@ -19,6 +21,7 @@ export function ContactsView() {
   const [isLoading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [isCreating, setCreating] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [newContact, setNewContact] = useState({
     fullName: "",
     email: "",
@@ -49,7 +52,55 @@ export function ContactsView() {
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setSelectedIds(new Set());
     loadContacts(search);
+  }
+
+  function toggleSelected(event: MouseEvent, contactId: string) {
+    event.preventDefault();
+    event.stopPropagation();
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(contactId)) next.delete(contactId);
+      else next.add(contactId);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((current) =>
+      current.size === contacts.length ? new Set() : new Set(contacts.map((contact) => contact.id)),
+    );
+  }
+
+  function handleBulkDelete() {
+    if (!tokens?.accessToken || selectedIds.size === 0) return;
+    const accessToken = tokens.accessToken;
+    const idsToDelete = Array.from(selectedIds);
+    const previousContacts = contacts;
+
+    setContacts((current) => current.filter((contact) => !selectedIds.has(contact.id)));
+    setSelectedIds(new Set());
+
+    const pending = deferredExecute(async () => {
+      const results = await Promise.allSettled(idsToDelete.map((id) => deleteContact(accessToken, id)));
+      const failedIds = new Set(idsToDelete.filter((_, index) => results[index].status === "rejected"));
+      if (failedIds.size > 0) {
+        setContacts((current) => [...current, ...previousContacts.filter((contact) => failedIds.has(contact.id))]);
+        showToast(t("contacts.bulk.deletePartialError", { count: failedIds.size }), "error");
+      }
+    });
+
+    showToast(t("contacts.bulk.deleted", { count: idsToDelete.length }), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setContacts(previousContacts);
+        },
+      },
+    });
   }
 
   async function handleCreateContact(event: FormEvent<HTMLFormElement>) {
@@ -107,6 +158,41 @@ export function ContactsView() {
       </div>
 
       {error ? <p className="text-error text-body-sm mb-md">{error}</p> : null}
+
+      {!isLoading && contacts.length > 0 ? (
+        <div className="flex items-center gap-md mb-md">
+          <label className="flex items-center gap-2 text-body-sm text-on-surface-variant cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={selectedIds.size === contacts.length}
+              onChange={toggleSelectAll}
+              aria-label={t("contacts.bulk.selectAll")}
+            />
+            {t("contacts.bulk.selectAll")}
+          </label>
+          {selectedIds.size > 0 ? (
+            <div className="flex items-center gap-3 bg-primary-container/10 border border-primary/20 rounded-lg px-3 py-1.5">
+              <span className="text-body-sm text-primary font-bold">
+                {t("contacts.bulk.selectedCount", { count: selectedIds.size })}
+              </span>
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                className="text-error text-[12px] font-bold hover:underline"
+              >
+                {t("contacts.bulk.deleteSelected")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedIds(new Set())}
+                className="text-on-surface-variant text-[12px] font-bold hover:underline"
+              >
+                {t("common.clear")}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
       {showForm ? (
         <form onSubmit={handleCreateContact} className="glass-card p-lg rounded-xl mb-lg grid grid-cols-2 gap-3">
@@ -173,14 +259,31 @@ export function ContactsView() {
             ))
           : null}
         {!isLoading && contacts.length === 0 ? (
-          <p className="text-body-sm text-on-surface-variant">{t("contacts.noContacts")}</p>
+          <div className="col-span-full">
+            <EmptyState
+              icon={search.trim() ? "search_off" : "contacts"}
+              size="lg"
+              title={t("contacts.noContacts")}
+            />
+          </div>
         ) : null}
         {contacts.map((contact) => (
           <Link
             key={contact.id}
             href={`/kisiler/${contact.id}`}
-            className="glass-card p-lg rounded-xl bento-card flex items-start gap-md"
+            className={
+              "glass-card p-lg rounded-xl bento-card flex items-start gap-md relative " +
+              (selectedIds.has(contact.id) ? "ring-2 ring-primary" : "")
+            }
           >
+            <input
+              type="checkbox"
+              checked={selectedIds.has(contact.id)}
+              onClick={(event) => toggleSelected(event, contact.id)}
+              onChange={() => {}}
+              aria-label={t("contacts.bulk.selectOne", { name: contact.full_name })}
+              className="absolute top-2 left-2 z-10 w-4 h-4"
+            />
             <div className="w-11 h-11 rounded-full bg-primary-container/20 flex items-center justify-center text-primary font-bold text-sm shrink-0">
               {getInitials(contact.full_name)}
             </div>

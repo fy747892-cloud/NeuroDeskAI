@@ -1,14 +1,17 @@
+import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import get_current_user
-from app.core.errors import AuthError, ConflictError
+from app.core.config import settings
+from app.core.errors import AuthError, ConflictError, NotFoundError, ValidationAppError
 from app.core.security import verify_password
 from app.db.session import get_db
 from app.modules.audit.repository import AuditRepository
 from app.modules.auth.repository import AuthRepository
+from app.modules.files.provider import ObjectStorageProvider
 from app.modules.organizations.repository import OrganizationRepository
 from app.modules.users.consent import get_consent
 from app.modules.users.models import User
@@ -22,6 +25,9 @@ from app.modules.users.schemas import (
 )
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+AVATAR_ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp"}
+AVATAR_MAX_SIZE_BYTES = 2 * 1024 * 1024
 
 
 @router.get("/me", response_model=UserOut)
@@ -64,6 +70,89 @@ async def update_me(
     )
     await db.commit()
     return await users.get_by_id(current_user.id) or current_user
+
+
+@router.post("/me/avatar", response_model=UserOut)
+async def upload_my_avatar(
+    file: UploadFile,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    content_type = file.content_type or ""
+    if content_type not in AVATAR_ALLOWED_MIME_TYPES:
+        raise ValidationAppError("Avatar must be a JPEG, PNG, or WEBP image.")
+
+    data = await file.read()
+    if not data or len(data) > AVATAR_MAX_SIZE_BYTES:
+        raise ValidationAppError(f"Avatar must be between 1 byte and {AVATAR_MAX_SIZE_BYTES} bytes.")
+
+    users = UserRepository(db)
+    profile = current_user.profile
+    if profile is None:
+        profile = await users.create_profile(
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id,
+            full_name=current_user.email,
+        )
+    old_storage_key = profile.avatar_storage_key
+
+    storage = ObjectStorageProvider()
+    storage_key = f"avatars/{current_user.id}/{uuid.uuid4()}"
+    await storage.put_object(storage_key=storage_key, data=data, content_type=content_type)
+
+    avatar_url = f"{settings.oauth_redirect_base_url.rstrip('/')}/api/v1/users/{current_user.id}/avatar"
+    await users.set_avatar(profile=profile, avatar_url=avatar_url, avatar_storage_key=storage_key)
+    await db.commit()
+
+    if old_storage_key:
+        try:
+            await storage.delete_object(storage_key=old_storage_key)
+        except Exception:
+            pass
+
+    return await users.get_by_id(current_user.id) or current_user
+
+
+@router.delete("/me/avatar", status_code=204)
+async def delete_my_avatar(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    profile = current_user.profile
+    if profile is None or profile.avatar_storage_key is None:
+        return
+
+    old_storage_key = profile.avatar_storage_key
+    users = UserRepository(db)
+    await users.set_avatar(profile=profile, avatar_url=None, avatar_storage_key=None)
+    await db.commit()
+
+    storage = ObjectStorageProvider()
+    try:
+        await storage.delete_object(storage_key=old_storage_key)
+    except Exception:
+        pass
+
+
+@router.get("/{user_id}/avatar")
+async def get_user_avatar(user_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -> Response:
+    users = UserRepository(db)
+    user = await users.get_by_id(user_id)
+    if user is None or user.profile is None or user.profile.avatar_storage_key is None:
+        raise NotFoundError("Avatar not found.")
+
+    storage = ObjectStorageProvider()
+    metadata = await storage.head_object(storage_key=user.profile.avatar_storage_key)
+    if metadata is None:
+        raise NotFoundError("Avatar not found.")
+
+    data = await storage.get_object_bytes(storage_key=user.profile.avatar_storage_key)
+    content_type = metadata.get("ContentType", "image/jpeg")
+    return Response(
+        content=data,
+        media_type=content_type,
+        headers={"Cache-Control": "public, max-age=86400"},
+    )
 
 
 @router.get("/me/consent", response_model=ConsentOut)

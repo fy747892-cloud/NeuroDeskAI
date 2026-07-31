@@ -156,6 +156,7 @@ async def invite_organization_member(
     await db.commit()
     member.email = body.email.strip().lower()
     member.full_name = None
+    member.avatar_url = None
     return member
 
 

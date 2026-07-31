@@ -10,6 +10,7 @@ import {
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
 import { formatDateTime } from "@/lib/format";
+import { EmptyState } from "@/components/shell/empty-state";
 
 const ACTION_META: Record<string, { icon: string; labelKey: string; confirmLabelKey: string; confirmIcon: string }> = {
   appointment: {
@@ -131,14 +132,44 @@ export function ApprovalsView() {
         <div className="max-w-4xl space-y-md">
           {isLoading ? <p className="text-body-md text-on-surface-variant">{t("common.loading")}</p> : null}
           {!isLoading && pendingApprovals.length === 0 ? (
-            <div className="max-w-4xl flex flex-col items-center justify-center py-xl border-2 border-dashed border-outline-variant/30 rounded-2xl opacity-50">
-              <span className="material-symbols-outlined text-[48px] text-outline-variant mb-md">
-                auto_awesome
-              </span>
-              <p className="font-headline-md text-on-surface-variant">{t("approvals.emptyTitle")}</p>
-              <p className="font-body-md text-on-surface-variant mt-2 text-center max-w-sm">
-                {t("approvals.emptySubtitle")}
-              </p>
+            <div className="space-y-md">
+              <EmptyState
+                icon="auto_awesome"
+                size="lg"
+                title={t("approvals.emptyTitle")}
+                subtitle={t("approvals.emptySubtitle")}
+              />
+              {summary.resolved === 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-md">
+                  <div className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest">
+                    <span className="material-symbols-outlined text-primary shrink-0">mic</span>
+                    <span>
+                      <span className="block font-label-md text-on-surface">{t("approvals.onboarding.step1Title")}</span>
+                      <span className="block text-body-sm text-on-surface-variant mt-0.5">
+                        {t("approvals.onboarding.step1Body")}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest">
+                    <span className="material-symbols-outlined text-primary shrink-0">auto_awesome</span>
+                    <span>
+                      <span className="block font-label-md text-on-surface">{t("approvals.onboarding.step2Title")}</span>
+                      <span className="block text-body-sm text-on-surface-variant mt-0.5">
+                        {t("approvals.onboarding.step2Body")}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest">
+                    <span className="material-symbols-outlined text-primary shrink-0">check_circle</span>
+                    <span>
+                      <span className="block font-label-md text-on-surface">{t("approvals.onboarding.step3Title")}</span>
+                      <span className="block text-body-sm text-on-surface-variant mt-0.5">
+                        {t("approvals.onboarding.step3Body")}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : null}
           {pendingApprovals.map((approval) => (
@@ -252,7 +283,7 @@ function ActionCard({
         <div className="flex flex-col items-end shrink-0">
           <div
             className={
-              "flex items-center gap-1 " + (confidenceTier === "high" ? "text-[#059669]" : "text-primary")
+              "flex items-center gap-1 " + (confidenceTier === "high" ? "text-success" : "text-primary")
             }
           >
             <span className="material-symbols-outlined text-[14px]" style={{ fontVariationSettings: "'FILL' 1" }}>

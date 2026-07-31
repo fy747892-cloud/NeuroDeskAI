@@ -60,6 +60,22 @@ class ObjectStorageProvider:
         )
         return await asyncio.to_thread(response["Body"].read)
 
+    async def put_object(self, *, storage_key: str, data: bytes, content_type: str) -> None:
+        await ensure_bucket()
+        await asyncio.to_thread(
+            self._client.put_object,
+            Bucket=settings.minio_bucket_name,
+            Key=storage_key,
+            Body=data,
+            ContentType=content_type,
+        )
+
+    async def delete_object(self, *, storage_key: str) -> None:
+        await ensure_bucket()
+        await asyncio.to_thread(
+            self._client.delete_object, Bucket=settings.minio_bucket_name, Key=storage_key
+        )
+
 
 class MockMalwareScanProvider:
     """Stands in for a real AV/malware scanning engine — CILT_11 explicitly scopes this

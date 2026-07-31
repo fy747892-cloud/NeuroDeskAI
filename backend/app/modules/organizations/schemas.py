@@ -37,6 +37,7 @@ class OrganizationMemberOut(BaseModel):
     created_at: datetime
     email: str | None = None
     full_name: str | None = None
+    avatar_url: str | None = None
 
 
 class OrganizationMemberRoleUpdate(BaseModel):

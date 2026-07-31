@@ -25,8 +25,15 @@ export function ChangelogButton() {
         setOpen(false);
       }
     }
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
   }, []);
 
   function handleOpen() {
@@ -42,6 +49,8 @@ export function ChangelogButton() {
         onClick={handleOpen}
         className="relative text-on-surface-variant hover:text-primary transition-colors"
         aria-label={t("shell.changelog.aria")}
+        aria-haspopup="true"
+        aria-expanded={isOpen}
       >
         <span className="material-symbols-outlined">campaign</span>
         {hasUnseen ? (

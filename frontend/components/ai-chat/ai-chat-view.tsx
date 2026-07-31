@@ -14,7 +14,11 @@ import {
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
-import { formatDateTime, getInitials } from "@/lib/format";
+import { useToast } from "@/lib/toast";
+import { formatDateTime } from "@/lib/format";
+import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
+import { Avatar } from "@/components/shell/avatar";
+import { EmptyState } from "@/components/shell/empty-state";
 
 type LocalMessage = {
   id: string;
@@ -25,9 +29,12 @@ type LocalMessage = {
   created_at: string;
 };
 
+const EXAMPLE_PROMPT_KEYS = ["tasksToday", "appointmentsThisWeek", "pendingApprovals", "recentConversations"] as const;
+
 export function AIChatView() {
   const { tokens, user } = useSession();
   const { t, language } = useLanguage();
+  const { showToast } = useToast();
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<LocalMessage[]>([]);
@@ -96,18 +103,47 @@ export function AIChatView() {
     }
   }
 
-  async function handleDeleteSession(sessionId: string) {
-    if (!tokens?.accessToken || !window.confirm(t("aiChat.deleteSessionConfirm"))) return;
-    try {
-      await deleteChatSession(tokens.accessToken, sessionId);
-      setSessions((current) => current.filter((s) => s.id !== sessionId));
-      if (activeSessionId === sessionId) {
-        setActiveSessionId(null);
-        setMessages([]);
-      }
-    } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : t("aiChat.errors.deleteSessionFailed"));
+  function handleDeleteSession(sessionId: string) {
+    if (!tokens?.accessToken) return;
+    const accessToken = tokens.accessToken;
+    const previousSessions = sessions;
+    const wasActive = activeSessionId === sessionId;
+    const previousMessages = messages;
+    const previousActiveSessionId = activeSessionId;
+
+    setSessions((current) => current.filter((s) => s.id !== sessionId));
+    if (wasActive) {
+      setActiveSessionId(null);
+      setMessages([]);
     }
+
+    const pending = deferredExecute(async () => {
+      try {
+        await deleteChatSession(accessToken, sessionId);
+      } catch (deleteError) {
+        setSessions(previousSessions);
+        if (wasActive) {
+          setActiveSessionId(previousActiveSessionId);
+          setMessages(previousMessages);
+        }
+        setError(deleteError instanceof Error ? deleteError.message : t("aiChat.errors.deleteSessionFailed"));
+      }
+    });
+
+    showToast(t("aiChat.sessionDeletedToast"), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setSessions(previousSessions);
+          if (wasActive) {
+            setActiveSessionId(previousActiveSessionId);
+            setMessages(previousMessages);
+          }
+        },
+      },
+    });
   }
 
   async function sendMessage(text: string) {
@@ -168,7 +204,7 @@ export function AIChatView() {
               {showSessions ? (
                 <div className="absolute right-0 mt-2 w-64 bg-surface-container-lowest border border-outline-variant/30 rounded-xl shadow-xl z-30 max-h-80 overflow-y-auto custom-scrollbar">
                   {sessions.length === 0 ? (
-                    <p className="p-md text-body-sm text-on-surface-variant">{t("aiChat.noSavedSessions")}</p>
+                    <EmptyState icon="history" title={t("aiChat.noSavedSessions")} />
                   ) : (
                     sessions.map((s) =>
                       renamingSessionId === s.id ? (
@@ -233,7 +269,22 @@ export function AIChatView() {
 
           <div ref={scrollRef} className="space-y-lg overflow-y-auto">
             {messages.length === 0 ? (
-              <p className="text-body-md text-on-surface-variant">{t("aiChat.emptyState")}</p>
+              <>
+                <EmptyState icon="smart_toy" size="lg" title={t("aiChat.emptyState")} />
+                <div className="flex flex-wrap justify-center gap-2 max-w-2xl mx-auto">
+                  {EXAMPLE_PROMPT_KEYS.map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      disabled={isSending}
+                      onClick={() => sendMessage(t(`aiChat.examplePrompts.${key}`))}
+                      className="px-3 py-2 bg-surface-container-high hover:bg-surface-container-highest rounded-full text-body-sm text-on-surface-variant transition-colors disabled:opacity-60"
+                    >
+                      {t(`aiChat.examplePrompts.${key}`)}
+                    </button>
+                  ))}
+                </div>
+              </>
             ) : null}
             {messages.map((message) =>
               message.role === "user" ? (
@@ -246,9 +297,11 @@ export function AIChatView() {
                       {formatDateTime(message.created_at, language)}
                     </span>
                   </div>
-                  <div className="w-8 h-8 rounded-full bg-primary-container/20 flex items-center justify-center text-primary text-[11px] font-bold shrink-0 mt-1">
-                    {getInitials(displayName)}
-                  </div>
+                  <Avatar
+                    avatarUrl={user?.profile?.avatar_url}
+                    name={displayName}
+                    className="w-8 h-8 text-[11px] mt-1"
+                  />
                 </div>
               ) : (
                 <div key={message.id} className="flex justify-start items-start gap-md">
@@ -261,7 +314,7 @@ export function AIChatView() {
                     <div className="bg-surface-container p-5 rounded-2xl rounded-tl-none ai-glow">
                       {message.confidence !== null ? (
                         <div className="flex items-center gap-2 mb-3 flex-wrap">
-                          <span className="flex h-2 w-2 rounded-full bg-green-500" />
+                          <span className="flex h-2 w-2 rounded-full bg-success" />
                           <span className="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">
                             {t("aiChat.confidenceLabel")}
                           </span>

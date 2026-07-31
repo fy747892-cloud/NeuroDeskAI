@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { FeedbackCategory, submitFeedback } from "@/lib/api";
 import { useSession } from "@/lib/session";
@@ -19,11 +19,30 @@ export function FeedbackButton() {
   const [message, setMessage] = useState("");
   const [isSubmitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const wasOpenRef = useRef(false);
 
   function close() {
     setOpen(false);
     setError(null);
   }
+
+  useEffect(() => {
+    if (isOpen) {
+      wasOpenRef.current = true;
+      panelRef.current?.focus();
+      const handleEscape = (event: KeyboardEvent) => {
+        if (event.key === "Escape") close();
+      };
+      document.addEventListener("keydown", handleEscape);
+      return () => document.removeEventListener("keydown", handleEscape);
+    }
+    if (wasOpenRef.current) {
+      wasOpenRef.current = false;
+      triggerRef.current?.focus();
+    }
+  }, [isOpen]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -50,10 +69,12 @@ export function FeedbackButton() {
   return (
     <>
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
         className="text-on-surface-variant hover:text-primary transition-colors"
         aria-label={t("shell.feedback.aria")}
+        aria-haspopup="dialog"
       >
         <span className="material-symbols-outlined">chat_bubble</span>
       </button>
@@ -64,11 +85,18 @@ export function FeedbackButton() {
           onClick={close}
         >
           <div
+            ref={panelRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="feedback-modal-title"
+            tabIndex={-1}
             className="w-full max-w-md bg-surface-container-lowest border border-outline-variant/30 rounded-xl shadow-xl"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="px-lg py-md border-b border-outline-variant/20 flex items-center justify-between">
-              <h4 className="font-headline-md text-headline-md">{t("shell.feedback.title")}</h4>
+              <h4 id="feedback-modal-title" className="font-headline-md text-headline-md">
+                {t("shell.feedback.title")}
+              </h4>
               <button
                 type="button"
                 onClick={close}

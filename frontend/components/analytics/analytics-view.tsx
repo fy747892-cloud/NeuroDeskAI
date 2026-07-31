@@ -19,6 +19,7 @@ import {
 import { useSession } from "@/lib/session";
 import { Language, useLanguage } from "@/lib/i18n/context";
 import { formatDateTime, formatMoney } from "@/lib/format";
+import { EmptyState } from "@/components/shell/empty-state";
 
 const RANGE_DAYS = 7;
 
@@ -261,7 +262,7 @@ export function AnalyticsView() {
         </div>
         {isLoading ? <p className="p-xl text-body-sm text-on-surface-variant">{t("common.loading")}</p> : null}
         {!isLoading && auditLogs.length === 0 ? (
-          <p className="p-xl text-body-sm text-on-surface-variant">{t("analytics.noAuditLogs")}</p>
+          <EmptyState icon="history" title={t("analytics.noAuditLogs")} />
         ) : null}
         {auditLogs.length > 0 ? (
           <div className="overflow-x-auto">
@@ -298,7 +299,7 @@ function localeFor(language: Language): string {
 
 function DeltaBadge({ value }: { value: number }) {
   return (
-    <span className={"text-body-sm font-semibold flex items-center " + (value >= 0 ? "text-green-600" : "text-error")}>
+    <span className={"text-body-sm font-semibold flex items-center " + (value >= 0 ? "text-success" : "text-error")}>
       <span className="material-symbols-outlined text-[16px]">{value >= 0 ? "trending_up" : "trending_down"}</span>
       {value >= 0 ? "+" : ""}
       {value}%
@@ -362,7 +363,7 @@ function TrendChart({
             x2={width}
             y1={height * fraction}
             y2={height * fraction}
-            stroke="#e2e8ff"
+            style={{ stroke: "rgb(var(--color-outline-variant) / 0.4)" }}
             strokeDasharray="4"
             strokeWidth={1}
           />
@@ -370,7 +371,7 @@ function TrendChart({
         <polyline
           points={pointsFor("created_count")}
           fill="none"
-          stroke="#c7c4d8"
+          style={{ stroke: "rgb(var(--color-outline-variant))" }}
           strokeWidth={2}
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -378,7 +379,7 @@ function TrendChart({
         <polyline
           points={pointsFor("completed_count")}
           fill="none"
-          stroke="#3525cd"
+          style={{ stroke: "rgb(var(--color-primary))" }}
           strokeWidth={3}
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -389,8 +390,7 @@ function TrendChart({
             cx={index * stepX}
             cy={height - (item.completed_count / maxValue) * height}
             r={4}
-            fill="#3525cd"
-            stroke="#fff"
+            style={{ fill: "rgb(var(--color-primary))", stroke: "rgb(var(--color-surface))" }}
             strokeWidth={2}
           >
             <title>

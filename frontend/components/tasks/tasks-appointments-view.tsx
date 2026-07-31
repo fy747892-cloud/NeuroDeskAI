@@ -22,7 +22,9 @@ import { useSession } from "@/lib/session";
 import { Language, useLanguage } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast";
 import { Skeleton, SkeletonList } from "@/components/shell/skeleton";
+import { EmptyState } from "@/components/shell/empty-state";
 import { formatDateTime, formatTime } from "@/lib/format";
+import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
 
 export function TasksAppointmentsView() {
   const { tokens } = useSession();
@@ -56,6 +58,9 @@ export function TasksAppointmentsView() {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [taskEditForm, setTaskEditForm] = useState({ title: "", priority: "medium", dueAt: "" });
   const [isSavingTaskEdit, setSavingTaskEdit] = useState(false);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  const [taskSearch, setTaskSearch] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState<"all" | "low" | "medium" | "high">("all");
 
   // Calendar state
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -161,17 +166,34 @@ export function TasksAppointmentsView() {
 
   const selectedDayAppointments = appointmentsByDay.get(selectedDate) ?? [];
 
-  async function handleCompletePriorityItem(itemId: string) {
-    if (!tokens?.accessToken) return;
-    setBusyItemId(itemId);
-    try {
-      await completeTask(tokens.accessToken, itemId);
-      await loadQueue();
-    } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : t("tasks.taskCompleteError"));
-    } finally {
-      setBusyItemId(null);
-    }
+  function handleCompletePriorityItem(itemId: string) {
+    if (!tokens?.accessToken || !queue) return;
+    const accessToken = tokens.accessToken;
+    const previousQueue = queue;
+
+    setQueue((current) =>
+      current ? { ...current, items: current.items.filter((item) => item.item_id !== itemId) } : current,
+    );
+
+    const pending = deferredExecute(async () => {
+      try {
+        await completeTask(accessToken, itemId);
+      } catch (actionError) {
+        setQueue(previousQueue);
+        setError(actionError instanceof Error ? actionError.message : t("tasks.taskCompleteError"));
+      }
+    });
+
+    showToast(t("tasks.taskCompletedToast"), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setQueue(previousQueue);
+        },
+      },
+    });
   }
 
   async function handleCreateTask(event: FormEvent<HTMLFormElement>) {
@@ -231,45 +253,190 @@ export function TasksAppointmentsView() {
     }
   }
 
-  async function handleDeleteTask(itemId: string) {
-    if (!tokens?.accessToken || !window.confirm(t("tasks.taskDeleteConfirm"))) return;
-    setBusyItemId(itemId);
+  function handleDeleteTask(itemId: string) {
+    if (!tokens?.accessToken || !queue) return;
+    const accessToken = tokens.accessToken;
+    const previousQueue = queue;
     setError(null);
-    try {
-      await deleteTask(tokens.accessToken, itemId);
-      await loadQueue();
-    } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : t("tasks.taskDeleteError"));
-    } finally {
-      setBusyItemId(null);
-    }
+
+    setQueue((current) =>
+      current ? { ...current, items: current.items.filter((item) => item.item_id !== itemId) } : current,
+    );
+
+    const pending = deferredExecute(async () => {
+      try {
+        await deleteTask(accessToken, itemId);
+      } catch (deleteError) {
+        setQueue(previousQueue);
+        setError(deleteError instanceof Error ? deleteError.message : t("tasks.taskDeleteError"));
+      }
+    });
+
+    showToast(t("tasks.taskDeletedToast"), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setQueue(previousQueue);
+        },
+      },
+    });
   }
 
-  async function handleCancelAppointment(appointmentId: string) {
-    if (!tokens?.accessToken || !window.confirm(t("tasks.appointmentCancelConfirm"))) return;
-    setActiveApptId(appointmentId);
-    try {
-      const updated = await cancelAppointment(tokens.accessToken, appointmentId);
-      setAppointments((current) => current.map((item) => (item.id === updated.id ? updated : item)));
-    } catch (cancelError) {
-      setError(cancelError instanceof Error ? cancelError.message : t("tasks.appointmentCancelError"));
-    } finally {
-      setActiveApptId(null);
-    }
+  const filteredQueueItems = useMemo(() => {
+    if (!queue) return [];
+    const query = taskSearch.trim().toLowerCase();
+    return queue.items.filter((item) => {
+      if (query && !item.title.toLowerCase().includes(query)) return false;
+      if (priorityFilter !== "all" && item.item_type === "task" && item.priority !== priorityFilter) return false;
+      return true;
+    });
+  }, [queue, taskSearch, priorityFilter]);
+
+  const taskIds = useMemo(
+    () => filteredQueueItems.filter((item) => item.item_type === "task").map((item) => item.item_id),
+    [filteredQueueItems],
+  );
+
+  function toggleTaskSelected(itemId: string) {
+    setSelectedTaskIds((current) => {
+      const next = new Set(current);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
   }
 
-  async function handleDeleteAppointment(appointmentId: string) {
-    if (!tokens?.accessToken || !window.confirm(t("tasks.appointmentDeleteConfirm"))) return;
-    setActiveApptId(appointmentId);
+  function toggleSelectAllTasks() {
+    setSelectedTaskIds((current) => (current.size === taskIds.length ? new Set() : new Set(taskIds)));
+  }
+
+  function handleBulkCompleteTasks() {
+    if (!tokens?.accessToken || selectedTaskIds.size === 0 || !queue) return;
+    const accessToken = tokens.accessToken;
+    const ids = Array.from(selectedTaskIds);
+    const previousQueue = queue;
     setError(null);
-    try {
-      await deleteAppointment(tokens.accessToken, appointmentId);
-      setAppointments((current) => current.filter((item) => item.id !== appointmentId));
-    } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : t("tasks.appointmentDeleteError"));
-    } finally {
-      setActiveApptId(null);
-    }
+
+    setQueue((current) =>
+      current ? { ...current, items: current.items.filter((item) => !selectedTaskIds.has(item.item_id)) } : current,
+    );
+    setSelectedTaskIds(new Set());
+
+    const pending = deferredExecute(async () => {
+      const results = await Promise.allSettled(ids.map((id) => completeTask(accessToken, id)));
+      const failedCount = results.filter((result) => result.status === "rejected").length;
+      if (failedCount > 0) {
+        await loadQueue();
+        showToast(t("tasks.bulk.completePartialError", { count: failedCount }), "error");
+      }
+    });
+
+    showToast(t("tasks.bulk.completed", { count: ids.length }), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setQueue(previousQueue);
+        },
+      },
+    });
+  }
+
+  function handleBulkDeleteTasks() {
+    if (!tokens?.accessToken || selectedTaskIds.size === 0 || !queue) return;
+    const accessToken = tokens.accessToken;
+    const ids = Array.from(selectedTaskIds);
+    const previousQueue = queue;
+    setError(null);
+
+    setQueue((current) =>
+      current ? { ...current, items: current.items.filter((item) => !selectedTaskIds.has(item.item_id)) } : current,
+    );
+    setSelectedTaskIds(new Set());
+
+    const pending = deferredExecute(async () => {
+      const results = await Promise.allSettled(ids.map((id) => deleteTask(accessToken, id)));
+      const failedCount = results.filter((result) => result.status === "rejected").length;
+      if (failedCount > 0) {
+        await loadQueue();
+        showToast(t("tasks.bulk.deletePartialError", { count: failedCount }), "error");
+      }
+    });
+
+    showToast(t("tasks.bulk.deleted", { count: ids.length }), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setQueue(previousQueue);
+        },
+      },
+    });
+  }
+
+  function handleCancelAppointment(appointmentId: string) {
+    if (!tokens?.accessToken) return;
+    const accessToken = tokens.accessToken;
+    const original = appointments.find((item) => item.id === appointmentId);
+    if (!original) return;
+
+    setAppointments((current) =>
+      current.map((item) => (item.id === appointmentId ? { ...item, status: "cancelled" } : item)),
+    );
+
+    const pending = deferredExecute(async () => {
+      try {
+        const updated = await cancelAppointment(accessToken, appointmentId);
+        setAppointments((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      } catch (cancelError) {
+        setAppointments((current) => current.map((item) => (item.id === appointmentId ? original : item)));
+        setError(cancelError instanceof Error ? cancelError.message : t("tasks.appointmentCancelError"));
+      }
+    });
+
+    showToast(t("tasks.appointmentCancelledToast"), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setAppointments((current) => current.map((item) => (item.id === appointmentId ? original : item)));
+        },
+      },
+    });
+  }
+
+  function handleDeleteAppointment(appointmentId: string) {
+    if (!tokens?.accessToken) return;
+    const accessToken = tokens.accessToken;
+    const previousAppointments = appointments;
+    setError(null);
+
+    setAppointments((current) => current.filter((item) => item.id !== appointmentId));
+
+    const pending = deferredExecute(async () => {
+      try {
+        await deleteAppointment(accessToken, appointmentId);
+      } catch (deleteError) {
+        setAppointments(previousAppointments);
+        setError(deleteError instanceof Error ? deleteError.message : t("tasks.appointmentDeleteError"));
+      }
+    });
+
+    showToast(t("tasks.appointmentDeletedToast"), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => {
+          pending.cancel();
+          setAppointments(previousAppointments);
+        },
+      },
+    });
   }
 
   function startEditingAppointment(appointment: Appointment) {
@@ -391,6 +558,73 @@ export function TasksAppointmentsView() {
             </button>
           </div>
 
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative flex-1 min-w-[160px]">
+              <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[16px]">
+                search
+              </span>
+              <input
+                className="w-full bg-surface-container-low border-none rounded-full pl-9 pr-4 py-1.5 text-body-sm"
+                onChange={(e) => setTaskSearch(e.target.value)}
+                placeholder={t("tasks.searchPlaceholder")}
+                value={taskSearch}
+              />
+            </div>
+            <select
+              className="bg-surface-container-low border-none rounded-lg px-3 py-1.5 text-body-sm text-on-surface-variant"
+              onChange={(e) => setPriorityFilter(e.target.value as typeof priorityFilter)}
+              value={priorityFilter}
+              aria-label={t("tasks.priorityFilterAria")}
+            >
+              <option value="all">{t("tasks.priorityFilterAll")}</option>
+              <option value="low">{t("tasks.priorityLow")}</option>
+              <option value="medium">{t("tasks.priorityMedium")}</option>
+              <option value="high">{t("tasks.priorityHigh")}</option>
+            </select>
+          </div>
+
+          {!isQueueLoading && taskIds.length > 0 ? (
+            <div className="flex items-center gap-md flex-wrap">
+              <label className="flex items-center gap-2 text-body-sm text-on-surface-variant cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={selectedTaskIds.size === taskIds.length}
+                  onChange={toggleSelectAllTasks}
+                  aria-label={t("tasks.bulk.selectAll")}
+                />
+                {t("tasks.bulk.selectAll")}
+              </label>
+              {selectedTaskIds.size > 0 ? (
+                <div className="flex items-center gap-3 bg-primary-container/10 border border-primary/20 rounded-lg px-3 py-1.5">
+                  <span className="text-body-sm text-primary font-bold">
+                    {t("tasks.bulk.selectedCount", { count: selectedTaskIds.size })}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleBulkCompleteTasks}
+                    className="text-primary text-[12px] font-bold hover:underline"
+                  >
+                    {t("tasks.bulk.completeSelected")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleBulkDeleteTasks}
+                    className="text-error text-[12px] font-bold hover:underline"
+                  >
+                    {t("tasks.bulk.deleteSelected")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTaskIds(new Set())}
+                    className="text-on-surface-variant text-[12px] font-bold hover:underline"
+                  >
+                    {t("common.clear")}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           {showTaskForm ? (
             <form onSubmit={handleCreateTask} className="glass-card p-lg rounded-xl space-y-2">
               <input
@@ -471,9 +705,12 @@ export function TasksAppointmentsView() {
           <div className="flex-1 overflow-y-auto space-y-md pr-2 max-h-[calc(100vh-320px)]">
             {isQueueLoading ? <SkeletonList count={3} /> : null}
             {!isQueueLoading && !queue?.items.length ? (
-              <p className="text-body-sm text-on-surface-variant">{t("tasks.noPrioritizedWork")}</p>
+              <EmptyState icon="task_alt" size="lg" title={t("tasks.noPrioritizedWork")} />
             ) : null}
-            {queue?.items.map((item) => {
+            {!isQueueLoading && (queue?.items.length ?? 0) > 0 && filteredQueueItems.length === 0 ? (
+              <EmptyState icon="search_off" title={t("tasks.noSearchResults")} />
+            ) : null}
+            {filteredQueueItems.map((item) => {
               const borderClass = item.score >= 80 ? "border-l-error" : item.priority === "high" ? "border-l-secondary" : "border-l-primary/30";
               const badgeClass = item.score >= 80 ? "bg-error-container text-on-error-container" : "bg-surface-container-highest text-on-surface-variant";
 
@@ -531,6 +768,15 @@ export function TasksAppointmentsView() {
                   key={`${item.item_type}-${item.item_id}`}
                   className={`glass-card p-lg rounded-xl hover:shadow-md transition-shadow group flex items-start gap-md border-l-4 ${borderClass}`}
                 >
+                  {item.item_type === "task" ? (
+                    <input
+                      type="checkbox"
+                      checked={selectedTaskIds.has(item.item_id)}
+                      onChange={() => toggleTaskSelected(item.item_id)}
+                      aria-label={t("tasks.bulk.selectOne", { title: item.title })}
+                      className="mt-1.5 w-3.5 h-3.5 shrink-0"
+                    />
+                  ) : null}
                   {item.item_type === "task" ? (
                     <button
                       type="button"
@@ -782,7 +1028,7 @@ export function TasksAppointmentsView() {
                 </>
               ) : null}
               {!isCalendarLoading && selectedDayAppointments.length === 0 ? (
-                <p className="text-body-sm text-on-surface-variant">{t("tasks.noAppointmentsToday")}</p>
+                <EmptyState icon="event_available" title={t("tasks.noAppointmentsToday")} />
               ) : null}
               {selectedDayAppointments.map((appointment) =>
                 editingApptId === appointment.id ? (

@@ -41,6 +41,13 @@
   --color-error: 186 26 26;
   --color-tertiary-container: 95 95 105;
   --color-error-container: 255 218 214;
+  /* Not part of the base M3 scheme — an "extended color" role (same pattern
+     M3 uses for custom semantic colors) for positive/success signals, since
+     none of primary/secondary/tertiary read as green in this palette. */
+  --color-success: 27 120 55;
+  --color-on-success: 255 255 255;
+  --color-success-container: 209 244 213;
+  --color-on-success-container: 12 71 28;
   --color-on-primary-fixed-variant: 51 35 204;
   --color-tertiary-fixed: 227 225 237;
   --color-surface-dim: 210 217 244;
@@ -99,6 +106,10 @@
   --color-error: 255 180 171;
   --color-tertiary-container: 70 69 79;
   --color-error-container: 147 0 10;
+  --color-success: 148 217 160;
+  --color-on-success: 12 71 28;
+  --color-success-container: 21 71 33;
+  --color-on-success-container: 199 244 205;
   --color-on-primary-fixed-variant: 51 35 204;
   --color-tertiary-fixed: 227 225 237;
   --color-surface-dim: 14 12 28;
@@ -130,6 +141,22 @@ body {
   color: theme("colors.on-surface");
   font-family: "Inter", sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Consistent, on-brand keyboard-focus indication for every interactive
+   element site-wide. Only fires for keyboard/programmatic focus
+   (:focus-visible), not mouse clicks, and — because it targets element +
+   pseudo-class — outranks Tailwind's `outline-none`/`focus:ring-0`
+   utilities regardless of source order, so it applies even where a
+   component suppressed focus styling without providing its own. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid rgb(var(--color-primary));
+  outline-offset: 2px;
 }
 
 .material-symbols-outlined {
@@ -235,6 +262,10 @@ body {
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
 }
 
+.bento-card:active {
+  transform: translateY(0) scale(0.98);
+}
+
 .transcript-container {
   mask-image: linear-gradient(to bottom, black 90%, transparent 100%);
 }
@@ -254,11 +285,15 @@ body {
   aspect-ratio: 1 / 1;
   padding: 8px;
   position: relative;
-  transition: background-color 0.2s;
+  transition: background-color 0.2s, transform 0.15s;
 }
 
 .calendar-day:hover {
   background-color: rgb(var(--calendar-day-hover-bg));
+}
+
+.calendar-day:active {
+  transform: scale(0.95);
 }
 
 .conflict-glow {

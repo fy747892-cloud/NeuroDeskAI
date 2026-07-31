@@ -19,7 +19,10 @@ import {
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
+import { useToast } from "@/lib/toast";
 import { formatDate, formatDateTime, formatMoney, getInitials } from "@/lib/format";
+import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
+import { EmptyState } from "@/components/shell/empty-state";
 
 const EVENT_ICON: Record<string, string> = {
   call: "call",
@@ -41,6 +44,7 @@ const EVENT_LABEL_KEY: Record<string, string> = {
 export function ContactDetailView({ contactId }: { contactId: string }) {
   const { tokens } = useSession();
   const { t, language } = useLanguage();
+  const { showToast } = useToast();
   const router = useRouter();
   const [contact, setContact] = useState<ContactDetail | null>(null);
   const [memory, setMemory] = useState<ContactMemory | null>(null);
@@ -54,7 +58,6 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
   const [isEditingContact, setEditingContact] = useState(false);
   const [editForm, setEditForm] = useState({ fullName: "", email: "", phone: "", company: "", title: "" });
   const [isSavingContact, setSavingContact] = useState(false);
-  const [isDeletingContact, setDeletingContact] = useState(false);
 
   const load = useCallback(async () => {
     if (!tokens?.accessToken) return;
@@ -132,18 +135,28 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
     }
   }
 
-  async function handleDeleteContact() {
+  function handleDeleteContact() {
     if (!tokens?.accessToken || !contact) return;
-    if (!window.confirm(t("contactDetail.deleteConfirm", { name: contact.full_name }))) return;
-    setDeletingContact(true);
-    setError(null);
-    try {
-      await deleteContact(tokens.accessToken, contactId);
-      router.push("/kisiler");
-    } catch (deleteError) {
-      setError(deleteError instanceof Error ? deleteError.message : t("contactDetail.deleteError"));
-      setDeletingContact(false);
-    }
+    const accessToken = tokens.accessToken;
+    const name = contact.full_name;
+
+    const pending = deferredExecute(async () => {
+      try {
+        await deleteContact(accessToken, contactId);
+      } catch (deleteError) {
+        showToast(deleteError instanceof Error ? deleteError.message : t("contactDetail.deleteError"), "error");
+      }
+    });
+
+    showToast(t("contactDetail.deletedToast", { name }), "success", {
+      duration: UNDO_WINDOW_MS,
+      action: {
+        label: t("common.undo"),
+        onClick: () => pending.cancel(),
+      },
+    });
+
+    router.push("/kisiler");
   }
 
   const eventTypes = useMemo(() => {
@@ -322,12 +335,11 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
                   </button>
                   <button
                     type="button"
-                    disabled={isDeletingContact}
                     onClick={handleDeleteContact}
-                    className="flex-1 border border-error/30 text-error py-2 rounded-lg font-label-sm flex items-center justify-center gap-1.5 active:scale-95 transition-transform disabled:opacity-60"
+                    className="flex-1 border border-error/30 text-error py-2 rounded-lg font-label-sm flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
                   >
                     <span className="material-symbols-outlined text-[16px]">delete</span>
-                    {isDeletingContact ? t("common.loading") : t("common.delete")}
+                    {t("common.delete")}
                   </button>
                 </div>
               </>
@@ -340,7 +352,7 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
             </h4>
             <div className="space-y-2 mb-md max-h-48 overflow-y-auto custom-scrollbar">
               {notes.length === 0 ? (
-                <p className="text-body-sm text-on-surface-variant">{t("contactDetail.noNotesYet")}</p>
+                <EmptyState icon="edit_note" title={t("contactDetail.noNotesYet")} />
               ) : null}
               {notes.map((note) => (
                 <div key={note.id} className="bg-surface-container-low p-3 rounded-xl text-body-sm text-on-surface-variant border-l-4 border-secondary">
@@ -413,7 +425,7 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
             </div>
 
             {filteredTimeline.length === 0 ? (
-              <p className="text-body-sm text-on-surface-variant">{t("contactDetail.noTimelineRecords")}</p>
+              <EmptyState icon="history" title={t("contactDetail.noTimelineRecords")} />
             ) : (
               <div className="space-y-8 relative before:content-[''] before:absolute before:left-[19px] before:top-2 before:bottom-2 before:w-px before:bg-outline-variant">
                 {filteredTimeline.map((event) => (
@@ -445,7 +457,7 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
           <div className="bg-surface-container-lowest border border-outline-variant p-xl rounded-2xl">
             <h3 className="font-headline-md text-label-md mb-lg">{t("contactDetail.activeDeals")}</h3>
             {openDeals.length === 0 ? (
-              <p className="text-body-sm text-on-surface-variant">{t("contactDetail.noOpenDeals")}</p>
+              <EmptyState icon="handshake" title={t("contactDetail.noOpenDeals")} />
             ) : (
               <div className="space-y-6">
                 {openDeals.map((deal) => {

@@ -78,6 +78,14 @@ class UserRepository:
         await self._db.flush()
         return profile
 
+    async def set_avatar(
+        self, *, profile: UserProfile, avatar_url: str | None, avatar_storage_key: str | None
+    ) -> UserProfile:
+        profile.avatar_url = avatar_url
+        profile.avatar_storage_key = avatar_storage_key
+        await self._db.flush()
+        return profile
+
     async def update_active_organization(
         self, *, user: User, organization_id: uuid.UUID
     ) -> User:

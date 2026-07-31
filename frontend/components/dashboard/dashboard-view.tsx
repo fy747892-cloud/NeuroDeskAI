@@ -14,6 +14,7 @@ import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
 import { formatTime } from "@/lib/format";
 import { Skeleton, SkeletonRow } from "@/components/shell/skeleton";
+import { EmptyState } from "@/components/shell/empty-state";
 
 export function DashboardView() {
   const { tokens, user } = useSession();
@@ -123,7 +124,7 @@ export function DashboardView() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-md">
             <Link
               href="/gorusmeler"
-              className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest hover:border-primary/40 hover:shadow-md transition-all"
+              className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest hover:border-primary/40 hover:shadow-md active:scale-[0.98] transition-all"
             >
               <span className="material-symbols-outlined text-primary shrink-0">mic</span>
               <span>
@@ -135,7 +136,7 @@ export function DashboardView() {
             </Link>
             <Link
               href="/gorevler"
-              className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest hover:border-primary/40 hover:shadow-md transition-all"
+              className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest hover:border-primary/40 hover:shadow-md active:scale-[0.98] transition-all"
             >
               <span className="material-symbols-outlined text-primary shrink-0">task_alt</span>
               <span>
@@ -147,7 +148,7 @@ export function DashboardView() {
             </Link>
             <Link
               href="/kisiler"
-              className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest hover:border-primary/40 hover:shadow-md transition-all"
+              className="flex items-start gap-3 p-md rounded-xl border border-outline-variant/30 bg-surface-container-lowest hover:border-primary/40 hover:shadow-md active:scale-[0.98] transition-all"
             >
               <span className="material-symbols-outlined text-primary shrink-0">person_add</span>
               <span>
@@ -226,12 +227,13 @@ export function DashboardView() {
                 <Skeleton className="h-16 w-full rounded-xl" />
               </>
             ) : appointments.length === 0 ? (
-              <p className="text-body-sm text-on-surface-variant">{t("dashboard.noUpcomingAppointments")}</p>
+              <EmptyState icon="event_available" title={t("dashboard.noUpcomingAppointments")} />
             ) : (
               appointments.map((appt) => (
-                <article
+                <Link
                   key={appt.id}
-                  className="p-md rounded-xl bg-surface-container-lowest border border-outline-variant/30 hover:shadow-md transition-shadow cursor-pointer group"
+                  href="/gorevler"
+                  className="block p-md rounded-xl bg-surface-container-lowest border border-outline-variant/30 hover:shadow-md hover:border-primary/30 active:scale-[0.98] transition-all group"
                 >
                   <div className="flex gap-md">
                     <div className="flex flex-col items-center justify-center w-14 py-2 bg-primary-container/10 rounded-lg shrink-0">
@@ -248,7 +250,7 @@ export function DashboardView() {
                       </p>
                     </div>
                   </div>
-                </article>
+                </Link>
               ))
             )}
           </div>
@@ -273,7 +275,7 @@ export function DashboardView() {
                 <SkeletonRow />
               </div>
             ) : criticalTasks.length === 0 ? (
-              <p className="p-md text-body-sm text-on-surface-variant">{t("dashboard.noCriticalTasks")}</p>
+              <EmptyState icon="check_circle" title={t("dashboard.noCriticalTasks")} />
             ) : (
               <div className="divide-y divide-outline-variant/20">
                 {criticalTasks.map((task) => (
@@ -314,7 +316,7 @@ export function DashboardView() {
                 <Skeleton className="h-24 w-full rounded-2xl" />
               </>
             ) : approvals.length === 0 ? (
-              <p className="text-body-sm text-on-surface-variant">{t("dashboard.noApprovals")}</p>
+              <EmptyState icon="auto_awesome" title={t("dashboard.noApprovals")} />
             ) : (
               approvals.map((approval) => (
                 <div
