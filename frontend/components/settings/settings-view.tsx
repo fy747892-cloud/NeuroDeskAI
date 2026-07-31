@@ -102,6 +102,7 @@ export function SettingsView() {
   const [showDeleteAccountForm, setShowDeleteAccountForm] = useState(false);
   const [deleteAccountPassword, setDeleteAccountPassword] = useState("");
   const [isDeletingAccount, setDeletingAccount] = useState(false);
+  const [canViewAuditLogs, setCanViewAuditLogs] = useState(false);
 
   const loadSettings = useCallback(async () => {
     if (!tokens?.accessToken) return;
@@ -120,27 +121,32 @@ export function SettingsView() {
       setUsage(nextUsage);
       setEmailAccounts(nextEmailAccounts);
       setCalendarAccounts(nextCalendarAccounts);
-      const [nextOrganization, nextMembers, nextAuditLogs, nextConsent, nextSessions, nextTotpStatus] =
+      const [nextOrganization, nextMembers, nextConsent, nextSessions, nextTotpStatus] =
         await Promise.all([
           getCurrentOrganization(tokens.accessToken),
           listOrganizationMembers(tokens.accessToken),
-          listAuditLogs(tokens.accessToken, 10),
           getConsentSettings(tokens.accessToken),
           listSessions(tokens.accessToken),
           getTotpStatus(tokens.accessToken),
         ]);
       setOrganization(nextOrganization);
       setMembers(nextMembers);
-      setAuditLogs(nextAuditLogs);
       setConsent(nextConsent);
       setSessions(nextSessions);
       setTotpEnabled(nextTotpStatus.enabled);
+
+      // Audit logs are owner/admin-only on the backend (Permission.AUDIT_READ) —
+      // skip the call entirely for other roles instead of eating a 403.
+      const myRole = nextMembers.find((member) => member.user_id === user?.id)?.role;
+      const canSeeAuditLogs = myRole === "owner" || myRole === "admin";
+      setCanViewAuditLogs(canSeeAuditLogs);
+      setAuditLogs(canSeeAuditLogs ? await listAuditLogs(tokens.accessToken, 10) : []);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : t("settings.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [tokens?.accessToken]);
+  }, [tokens?.accessToken, user?.id]);
 
   useEffect(() => {
     loadSettings();
@@ -1043,37 +1049,39 @@ export function SettingsView() {
         </div>
       </section>
 
-      <section className="glass-card rounded-xl overflow-hidden mt-lg">
-        <div className="px-lg py-md border-b border-outline-variant/30">
-          <h3 className="font-headline-md text-headline-md">{t("settings.audit.title")}</h3>
-        </div>
-        {isLoading ? <p className="p-lg text-body-sm text-on-surface-variant">{t("common.loading")}</p> : null}
-        {!isLoading && auditLogs.length === 0 ? (
-          <p className="p-lg text-body-sm text-on-surface-variant">{t("settings.audit.empty")}</p>
-        ) : null}
-        {auditLogs.length > 0 ? (
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-surface-container text-outline font-label-sm uppercase tracking-wider">
-                <th className="px-lg py-3">{t("settings.audit.actionColumn")}</th>
-                <th className="px-lg py-3">{t("settings.audit.entityColumn")}</th>
-                <th className="px-lg py-3 text-right">{t("settings.audit.timeColumn")}</th>
-              </tr>
-            </thead>
-            <tbody className="text-body-sm">
-              {auditLogs.map((log) => (
-                <tr key={log.id} className="border-b border-outline-variant/10">
-                  <td className="px-lg py-3">{log.action}</td>
-                  <td className="px-lg py-3">{log.entity_type}</td>
-                  <td className="px-lg py-3 text-right text-outline">
-                    {formatDateTime(log.created_at, language)}
-                  </td>
+      {canViewAuditLogs ? (
+        <section className="glass-card rounded-xl overflow-hidden mt-lg">
+          <div className="px-lg py-md border-b border-outline-variant/30">
+            <h3 className="font-headline-md text-headline-md">{t("settings.audit.title")}</h3>
+          </div>
+          {isLoading ? <p className="p-lg text-body-sm text-on-surface-variant">{t("common.loading")}</p> : null}
+          {!isLoading && auditLogs.length === 0 ? (
+            <p className="p-lg text-body-sm text-on-surface-variant">{t("settings.audit.empty")}</p>
+          ) : null}
+          {auditLogs.length > 0 ? (
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-surface-container text-outline font-label-sm uppercase tracking-wider">
+                  <th className="px-lg py-3">{t("settings.audit.actionColumn")}</th>
+                  <th className="px-lg py-3">{t("settings.audit.entityColumn")}</th>
+                  <th className="px-lg py-3 text-right">{t("settings.audit.timeColumn")}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : null}
-      </section>
+              </thead>
+              <tbody className="text-body-sm">
+                {auditLogs.map((log) => (
+                  <tr key={log.id} className="border-b border-outline-variant/10">
+                    <td className="px-lg py-3">{log.action}</td>
+                    <td className="px-lg py-3">{log.entity_type}</td>
+                    <td className="px-lg py-3 text-right text-outline">
+                      {formatDateTime(log.created_at, language)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
+        </section>
+      ) : null}
     </div>
   );
 }
