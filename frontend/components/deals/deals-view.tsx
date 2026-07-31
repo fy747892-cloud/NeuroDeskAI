@@ -49,6 +49,8 @@ export function DealsView() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draggedDealId, setDraggedDealId] = useState<string | null>(null);
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setBulkDeleting] = useState(false);
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const columnRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const dragGesture = useRef<{
@@ -133,6 +135,40 @@ export function DealsView() {
       setError(deleteError instanceof Error ? deleteError.message : t("deals.dealDeleteError"));
     } finally {
       setActiveId(null);
+    }
+  }
+
+  function toggleSelected(dealId: string) {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(dealId)) next.delete(dealId);
+      else next.add(dealId);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds((current) =>
+      current.size === deals.length ? new Set() : new Set(deals.map((deal) => deal.id)),
+    );
+  }
+
+  async function handleBulkDelete() {
+    if (!tokens?.accessToken || selectedIds.size === 0) return;
+    if (!window.confirm(t("deals.bulk.deleteConfirm", { count: selectedIds.size }))) return;
+    setBulkDeleting(true);
+    setError(null);
+    const ids = Array.from(selectedIds);
+    const results = await Promise.allSettled(ids.map((id) => deleteDeal(tokens.accessToken as string, id)));
+    const succeededIds = new Set(ids.filter((_, index) => results[index].status === "fulfilled"));
+    const failedCount = ids.length - succeededIds.size;
+    setDeals((current) => current.filter((deal) => !succeededIds.has(deal.id)));
+    setSelectedIds(new Set());
+    setBulkDeleting(false);
+    if (failedCount > 0) {
+      setError(t("deals.bulk.deletePartialError", { count: failedCount }));
+    } else {
+      showToast(t("deals.bulk.deleted", { count: succeededIds.size }), "success");
     }
   }
 
@@ -281,6 +317,42 @@ export function DealsView() {
 
       {error ? <p className="text-error text-body-sm mb-md">{error}</p> : null}
 
+      {!isLoading && deals.length > 0 ? (
+        <div className="flex items-center gap-md mb-md">
+          <label className="flex items-center gap-2 text-body-sm text-on-surface-variant cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={selectedIds.size === deals.length}
+              onChange={toggleSelectAll}
+              aria-label={t("deals.bulk.selectAll")}
+            />
+            {t("deals.bulk.selectAll")}
+          </label>
+          {selectedIds.size > 0 ? (
+            <div className="flex items-center gap-3 bg-primary-container/10 border border-primary/20 rounded-lg px-3 py-1.5">
+              <span className="text-body-sm text-primary font-bold">
+                {t("deals.bulk.selectedCount", { count: selectedIds.size })}
+              </span>
+              <button
+                type="button"
+                disabled={isBulkDeleting}
+                onClick={handleBulkDelete}
+                className="text-error text-[12px] font-bold hover:underline disabled:opacity-60"
+              >
+                {isBulkDeleting ? t("common.loading") : t("deals.bulk.deleteSelected")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedIds(new Set())}
+                className="text-on-surface-variant text-[12px] font-bold hover:underline"
+              >
+                {t("common.clear")}
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {showForm ? (
         <form onSubmit={handleCreateDeal} className="glass-card p-lg rounded-xl mb-lg grid grid-cols-2 md:grid-cols-5 gap-3">
           <input
@@ -384,18 +456,27 @@ export function DealsView() {
                       }
                     >
                       <div className="flex justify-between items-start mb-base">
-                        {isAiSourced ? (
-                          <span className="bg-secondary/10 text-secondary text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                            <span className="material-symbols-outlined !text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-                              auto_awesome
+                        <div className="flex items-center gap-2 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(deal.id)}
+                            onChange={() => toggleSelected(deal.id)}
+                            aria-label={t("deals.bulk.selectOne", { title: deal.title })}
+                            className="shrink-0 w-3.5 h-3.5"
+                          />
+                          {isAiSourced ? (
+                            <span className="bg-secondary/10 text-secondary text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                              <span className="material-symbols-outlined !text-[12px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+                                auto_awesome
+                              </span>
+                              {t("deals.aiSuggestedBadge")}
                             </span>
-                            {t("deals.aiSuggestedBadge")}
-                          </span>
-                        ) : (
-                          <span className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest">
-                            {t("deals.manualBadge")}
-                          </span>
-                        )}
+                          ) : (
+                            <span className="text-on-surface-variant text-[10px] font-bold uppercase tracking-widest">
+                              {t("deals.manualBadge")}
+                            </span>
+                          )}
+                        </div>
                         <div className="flex items-center gap-1">
                           <button
                             type="button"

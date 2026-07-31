@@ -56,6 +56,8 @@ export function TasksAppointmentsView() {
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [taskEditForm, setTaskEditForm] = useState({ title: "", priority: "medium", dueAt: "" });
   const [isSavingTaskEdit, setSavingTaskEdit] = useState(false);
+  const [selectedTaskIds, setSelectedTaskIds] = useState<Set<string>>(new Set());
+  const [isBulkActingTasks, setBulkActingTasks] = useState(false);
 
   // Calendar state
   const [appointments, setAppointments] = useState<Appointment[]>([]);
@@ -245,6 +247,59 @@ export function TasksAppointmentsView() {
     }
   }
 
+  const taskIds = useMemo(
+    () => (queue?.items.filter((item) => item.item_type === "task").map((item) => item.item_id) ?? []),
+    [queue],
+  );
+
+  function toggleTaskSelected(itemId: string) {
+    setSelectedTaskIds((current) => {
+      const next = new Set(current);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }
+
+  function toggleSelectAllTasks() {
+    setSelectedTaskIds((current) => (current.size === taskIds.length ? new Set() : new Set(taskIds)));
+  }
+
+  async function handleBulkCompleteTasks() {
+    if (!tokens?.accessToken || selectedTaskIds.size === 0) return;
+    setBulkActingTasks(true);
+    setError(null);
+    const ids = Array.from(selectedTaskIds);
+    const results = await Promise.allSettled(ids.map((id) => completeTask(tokens.accessToken as string, id)));
+    const failedCount = results.filter((result) => result.status === "rejected").length;
+    setSelectedTaskIds(new Set());
+    await loadQueue();
+    setBulkActingTasks(false);
+    if (failedCount > 0) {
+      setError(t("tasks.bulk.completePartialError", { count: failedCount }));
+    } else {
+      showToast(t("tasks.bulk.completed", { count: ids.length }), "success");
+    }
+  }
+
+  async function handleBulkDeleteTasks() {
+    if (!tokens?.accessToken || selectedTaskIds.size === 0) return;
+    if (!window.confirm(t("tasks.bulk.deleteConfirm", { count: selectedTaskIds.size }))) return;
+    setBulkActingTasks(true);
+    setError(null);
+    const ids = Array.from(selectedTaskIds);
+    const results = await Promise.allSettled(ids.map((id) => deleteTask(tokens.accessToken as string, id)));
+    const failedCount = results.filter((result) => result.status === "rejected").length;
+    setSelectedTaskIds(new Set());
+    await loadQueue();
+    setBulkActingTasks(false);
+    if (failedCount > 0) {
+      setError(t("tasks.bulk.deletePartialError", { count: failedCount }));
+    } else {
+      showToast(t("tasks.bulk.deleted", { count: ids.length }), "success");
+    }
+  }
+
   async function handleCancelAppointment(appointmentId: string) {
     if (!tokens?.accessToken || !window.confirm(t("tasks.appointmentCancelConfirm"))) return;
     setActiveApptId(appointmentId);
@@ -391,6 +446,50 @@ export function TasksAppointmentsView() {
             </button>
           </div>
 
+          {!isQueueLoading && taskIds.length > 0 ? (
+            <div className="flex items-center gap-md flex-wrap">
+              <label className="flex items-center gap-2 text-body-sm text-on-surface-variant cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={selectedTaskIds.size === taskIds.length}
+                  onChange={toggleSelectAllTasks}
+                  aria-label={t("tasks.bulk.selectAll")}
+                />
+                {t("tasks.bulk.selectAll")}
+              </label>
+              {selectedTaskIds.size > 0 ? (
+                <div className="flex items-center gap-3 bg-primary-container/10 border border-primary/20 rounded-lg px-3 py-1.5">
+                  <span className="text-body-sm text-primary font-bold">
+                    {t("tasks.bulk.selectedCount", { count: selectedTaskIds.size })}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={isBulkActingTasks}
+                    onClick={handleBulkCompleteTasks}
+                    className="text-primary text-[12px] font-bold hover:underline disabled:opacity-60"
+                  >
+                    {isBulkActingTasks ? t("common.loading") : t("tasks.bulk.completeSelected")}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isBulkActingTasks}
+                    onClick={handleBulkDeleteTasks}
+                    className="text-error text-[12px] font-bold hover:underline disabled:opacity-60"
+                  >
+                    {isBulkActingTasks ? t("common.loading") : t("tasks.bulk.deleteSelected")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedTaskIds(new Set())}
+                    className="text-on-surface-variant text-[12px] font-bold hover:underline"
+                  >
+                    {t("common.clear")}
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
           {showTaskForm ? (
             <form onSubmit={handleCreateTask} className="glass-card p-lg rounded-xl space-y-2">
               <input
@@ -531,6 +630,15 @@ export function TasksAppointmentsView() {
                   key={`${item.item_type}-${item.item_id}`}
                   className={`glass-card p-lg rounded-xl hover:shadow-md transition-shadow group flex items-start gap-md border-l-4 ${borderClass}`}
                 >
+                  {item.item_type === "task" ? (
+                    <input
+                      type="checkbox"
+                      checked={selectedTaskIds.has(item.item_id)}
+                      onChange={() => toggleTaskSelected(item.item_id)}
+                      aria-label={t("tasks.bulk.selectOne", { title: item.title })}
+                      className="mt-1.5 w-3.5 h-3.5 shrink-0"
+                    />
+                  ) : null}
                   {item.item_type === "task" ? (
                     <button
                       type="button"
