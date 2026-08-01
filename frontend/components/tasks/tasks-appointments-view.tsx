@@ -547,7 +547,7 @@ export function TasksAppointmentsView() {
       {error ? <p className="text-error text-body-sm mb-md">{error}</p> : null}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-xl">
-        <section className={"lg:col-span-5 flex flex-col gap-lg " + (activeView === "calendar" ? "hidden lg:flex" : "")}>
+        <section className={"flex flex-col gap-lg " + (activeView === "calendar" ? "hidden" : "lg:col-span-12")}>
           <div className="flex items-center justify-between">
             <h3 className="font-headline-md text-headline-md">{t("tasks.priorityEngine")}</h3>
             <button
@@ -835,7 +835,7 @@ export function TasksAppointmentsView() {
           </div>
         </section>
 
-        <section className={"lg:col-span-7 flex flex-col " + (activeView === "list" ? "hidden lg:flex" : "")}>
+        <section className={"flex flex-col " + (activeView === "list" ? "hidden" : "lg:col-span-12")}>
           <div className="flex items-center justify-between mb-lg flex-wrap gap-2">
             <div className="flex items-center gap-md">
               <h3 className="font-headline-md text-headline-md">{formatMonthLabel(visibleMonth, language)}</h3>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import {
   addConversationParticipant,
@@ -36,6 +37,8 @@ const EXTRACT_ICON: Record<string, string> = {
 };
 
 export function ConversationsView() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { tokens } = useSession();
   const { t, language } = useLanguage();
   const { showToast } = useToast();
@@ -63,6 +66,7 @@ export function ConversationsView() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const hasAutoStartedRef = useRef(false);
 
   const loadConversations = useCallback(async () => {
     if (!tokens?.accessToken) return;
@@ -104,6 +108,17 @@ export function ConversationsView() {
       cleanupRecorder();
     };
   }, []);
+
+  useEffect(() => {
+    if (hasAutoStartedRef.current) return;
+    if (searchParams.get("autostart") !== "1") return;
+    if (!tokens?.accessToken) return;
+
+    hasAutoStartedRef.current = true;
+    router.replace("/gorusmeler");
+    handleStartRecording();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, tokens?.accessToken]);
 
   useEffect(() => {
     async function loadDetail() {
