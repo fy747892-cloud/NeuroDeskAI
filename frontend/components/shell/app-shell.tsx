@@ -21,6 +21,7 @@ const navItems = [
   { icon: "forum", labelKey: "conversations", href: "/gorusmeler" },
   { icon: "task_alt", labelKey: "tasks", href: "/gorevler" },
   { icon: "contacts", labelKey: "contacts", href: "/kisiler" },
+  { icon: "mail", labelKey: "mailler", href: "/mailler" },
   { icon: "folder", labelKey: "files", href: "/dosyalar" },
   { icon: "handshake", labelKey: "deals", href: "/firsatlar" },
   { icon: "smart_toy", labelKey: "aiChat", href: "/ai-chat" },
