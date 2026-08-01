@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChatMessage,
@@ -34,6 +35,8 @@ type LocalMessage = {
 const EXAMPLE_PROMPT_KEYS = ["tasksToday", "appointmentsThisWeek", "pendingApprovals", "recentConversations"] as const;
 
 export function AIChatView() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { tokens, user } = useSession();
   const { t, language } = useLanguage();
   const { showToast } = useToast();
@@ -48,6 +51,16 @@ export function AIChatView() {
   const [renamingSessionId, setRenamingSessionId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const hasAutoOpenedVoiceRef = useRef(false);
+
+  useEffect(() => {
+    if (hasAutoOpenedVoiceRef.current) return;
+    if (searchParams.get("voice") !== "1") return;
+    hasAutoOpenedVoiceRef.current = true;
+    router.replace("/ai-chat");
+    setVoiceOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const loadSessions = useCallback(async () => {
     if (!tokens?.accessToken) return;
@@ -445,6 +458,25 @@ function getSpeechRecognitionCtor(): (new () => SpeechRecognitionLike) | null {
   return (w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null) as (new () => SpeechRecognitionLike) | null;
 }
 
+function isSpeechSynthesisSupported(): boolean {
+  return typeof window !== "undefined" && "speechSynthesis" in window;
+}
+
+function speak(
+  text: string,
+  lang: string,
+  handlers?: { onStart?: () => void; onEnd?: () => void },
+) {
+  if (!isSpeechSynthesisSupported() || !text.trim()) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = lang;
+  utterance.onstart = () => handlers?.onStart?.();
+  utterance.onend = () => handlers?.onEnd?.();
+  utterance.onerror = () => handlers?.onEnd?.();
+  window.speechSynthesis.speak(utterance);
+}
+
 function VoiceOverlay({
   onClose,
   onSubmitText,
@@ -462,8 +494,10 @@ function VoiceOverlay({
   const [isBusy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isListening, setListening] = useState(false);
+  const [isSpeaking, setSpeaking] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const isSpeechSupported = useMemo(() => getSpeechRecognitionCtor() !== null, []);
+  const canSpeakResponses = useMemo(() => isSpeechSynthesisSupported(), []);
 
   const submitTranscript = useCallback(
     async (text: string) => {
@@ -478,13 +512,17 @@ function VoiceOverlay({
           actionType: result.action.action_type,
           requiresApproval: result.action.requires_approval,
         });
+        speak(result.spoken_response, language === "tr" ? "tr-TR" : "en-US", {
+          onStart: () => setSpeaking(true),
+          onEnd: () => setSpeaking(false),
+        });
       } catch (voiceError) {
         setError(voiceError instanceof Error ? voiceError.message : t("aiChat.errors.voiceInterpretFailed"));
       } finally {
         setBusy(false);
       }
     },
-    [t, tokens?.accessToken],
+    [t, tokens?.accessToken, language],
   );
 
   async function handleVoiceSubmit(event: FormEvent<HTMLFormElement>) {
@@ -501,6 +539,10 @@ function VoiceOverlay({
     if (!Ctor) {
       setError(t("aiChat.errors.voiceNotSupported"));
       return;
+    }
+    if (canSpeakResponses) {
+      window.speechSynthesis.cancel();
+      setSpeaking(false);
     }
     setError(null);
     setResponse(null);
@@ -555,6 +597,9 @@ function VoiceOverlay({
   useEffect(() => {
     return () => {
       recognitionRef.current?.stop();
+      if (isSpeechSynthesisSupported()) {
+        window.speechSynthesis.cancel();
+      }
     };
   }, []);
 
@@ -577,10 +622,14 @@ function VoiceOverlay({
 
       <div className="max-w-3xl w-full px-xl mb-auto mt-24 text-center">
         <span className="px-3 py-1 rounded-full bg-primary-container/10 text-primary font-label-sm text-label-sm uppercase tracking-wider mb-4 inline-flex items-center gap-2">
-          {isListening ? (
+          {isListening || isSpeaking ? (
             <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
           ) : null}
-          {isSpeechSupported ? t("aiChat.realTimeTranscript") : t("aiChat.typeInstead")}
+          {isSpeaking
+            ? t("aiChat.aiSpeaking")
+            : isSpeechSupported
+              ? t("aiChat.realTimeTranscript")
+              : t("aiChat.typeInstead")}
         </span>
         <form id="voice-form" onSubmit={handleVoiceSubmit} className="relative">
           <input
@@ -608,7 +657,7 @@ function VoiceOverlay({
 
       <div className="flex flex-col items-center gap-12 py-xl">
         <div className="relative">
-          {isListening ? (
+          {isListening || isSpeaking ? (
             <div className="absolute inset-0 bg-primary/20 rounded-full blur-3xl scale-150 animate-pulse" />
           ) : null}
           <button

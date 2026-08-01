@@ -841,6 +841,7 @@ export const tr: TranslationDictionary = {
     stopListeningAria: "Dinlemeyi durdur ve gönder",
     realTimeTranscript: "Gerçek Zamanlı Transkript",
     typeInstead: "Bu tarayıcıda sesli tanıma yok — yazarak gönder",
+    aiSpeaking: "AI yanıtlıyor...",
     voiceInputPlaceholder: "Söylemek istediğini yaz...",
     neuroDeskResponse: "NeuroDesk Yanıtı",
     voiceMeta: "Niyet: {{intent}} · Tip: {{actionType}} ·",
