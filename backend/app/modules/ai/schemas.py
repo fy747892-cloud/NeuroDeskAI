@@ -42,7 +42,7 @@ class AIActionApprovalOut(BaseModel):
     organization_id: UUID
     requested_by: UUID
     decided_by: UUID | None
-    analysis_result_id: UUID
+    analysis_result_id: UUID | None
     action_type: str
     source_type: str
     source_id: UUID

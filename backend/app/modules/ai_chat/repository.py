@@ -82,6 +82,7 @@ class ChatRepository:
         content: str,
         confidence: float | None = None,
         sources: list[dict] | None = None,
+        pending_action_approval_id: uuid.UUID | None = None,
     ) -> ChatMessage:
         message = ChatMessage(
             tenant_id=tenant_id,
@@ -90,6 +91,7 @@ class ChatRepository:
             content=content,
             confidence=confidence,
             sources=sources,
+            pending_action_approval_id=pending_action_approval_id,
         )
         self._db.add(message)
         await self._db.flush()

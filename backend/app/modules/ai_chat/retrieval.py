@@ -111,7 +111,10 @@ async def retrieve_context(
                     source_type="contact",
                     source_id=contact.id,
                     title=contact.full_name,
-                    snippet=f"{contact.full_name} ({contact.company or 'no company'})",
+                    snippet=(
+                        f"{contact.full_name} ({contact.company or 'şirket yok'}) - "
+                        f"{contact.phone or 'telefon yok'}"
+                    ),
                 ),
             )
 

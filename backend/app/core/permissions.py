@@ -47,6 +47,8 @@ class Permission(StrEnum):
     BILLING_MANAGE = "billing.manage"
     DEALS_READ = "deals.read"
     DEALS_MANAGE = "deals.manage"
+    WHATSAPP_READ = "whatsapp.read"
+    WHATSAPP_MANAGE = "whatsapp.manage"
 
 
 ROLE_PERMISSIONS: dict[Role, set[Permission]] = {
@@ -87,6 +89,8 @@ ROLE_PERMISSIONS: dict[Role, set[Permission]] = {
         Permission.BILLING_MANAGE,
         Permission.DEALS_READ,
         Permission.DEALS_MANAGE,
+        Permission.WHATSAPP_READ,
+        Permission.WHATSAPP_MANAGE,
     },
     Role.ADMIN: {
         Permission.USERS_READ,
@@ -124,6 +128,8 @@ ROLE_PERMISSIONS: dict[Role, set[Permission]] = {
         Permission.BILLING_MANAGE,
         Permission.DEALS_READ,
         Permission.DEALS_MANAGE,
+        Permission.WHATSAPP_READ,
+        Permission.WHATSAPP_MANAGE,
     },
     Role.MEMBER: {
         Permission.USERS_READ,
@@ -155,6 +161,8 @@ ROLE_PERMISSIONS: dict[Role, set[Permission]] = {
         Permission.BILLING_READ,
         Permission.DEALS_READ,
         Permission.DEALS_MANAGE,
+        Permission.WHATSAPP_READ,
+        Permission.WHATSAPP_MANAGE,
     },
     Role.VIEWER: {
         Permission.USERS_READ,
@@ -173,6 +181,7 @@ ROLE_PERMISSIONS: dict[Role, set[Permission]] = {
         Permission.ANALYTICS_READ,
         Permission.BILLING_READ,
         Permission.DEALS_READ,
+        Permission.WHATSAPP_READ,
     },
 }
 

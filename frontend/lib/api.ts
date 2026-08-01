@@ -253,7 +253,7 @@ export type AIActionApproval = DashboardApproval & {
   organization_id: string;
   requested_by: string;
   decided_by: string | null;
-  analysis_result_id: string;
+  analysis_result_id: string | null;
   source_id: string;
   source_title: string | null;
   suggested_payload: Record<string, unknown>;
@@ -328,6 +328,24 @@ export type ChatMessage = {
   content: string;
   confidence: number | null;
   sources: ChatSource[] | null;
+  pending_action_approval_id: string | null;
+  created_at: string;
+};
+
+export type WhatsAppMessage = {
+  id: string;
+  tenant_id: string;
+  organization_id: string;
+  user_id: string;
+  contact_id: string;
+  status: "ready" | "opened";
+  body: string;
+  to_phone_raw: string;
+  deep_link_url: string;
+  source_type: "ai_chat" | "manual";
+  source_id: string | null;
+  ai_action_approval_id: string | null;
+  opened_at: string | null;
   created_at: string;
 };
 
@@ -1345,7 +1363,11 @@ async function materializeApprovedAction(accessToken: string, approval: AIAction
         ? "/api/v1/appointments/from-approval"
         : approval.action_type === "deal" || approval.action_type === "create_deal" || approval.action_type === "deal/create_deal"
           ? "/api/v1/deals/from-approval"
-          : null;
+          : approval.action_type === "whatsapp_message" ||
+              approval.action_type === "create_whatsapp_message" ||
+              approval.action_type === "whatsapp_message/create_whatsapp_message"
+            ? "/api/v1/whatsapp/from-approval"
+            : null;
 
   if (!endpoint) return;
 
@@ -1390,6 +1412,50 @@ export async function createDealFromApproval(accessToken: string, approvalId: st
   return request<Deal>("/api/v1/deals/from-approval", {
     method: "POST",
     body: JSON.stringify({ approval_id: approvalId }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function sendWhatsAppFromApproval(accessToken: string, approvalId: string): Promise<WhatsAppMessage> {
+  return request<WhatsAppMessage>("/api/v1/whatsapp/from-approval", {
+    method: "POST",
+    body: JSON.stringify({ approval_id: approvalId }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function sendManualWhatsAppMessage(
+  accessToken: string,
+  payload: { contact_id: string; body: string },
+): Promise<WhatsAppMessage> {
+  return request<WhatsAppMessage>("/api/v1/whatsapp/manual", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function markWhatsAppOpened(accessToken: string, messageId: string): Promise<WhatsAppMessage> {
+  return request<WhatsAppMessage>(`/api/v1/whatsapp/${messageId}/mark-opened`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function listWhatsAppMessagesForContact(
+  accessToken: string,
+  contactId: string,
+): Promise<WhatsAppMessage[]> {
+  return request<WhatsAppMessage[]>(`/api/v1/whatsapp/contacts/${contactId}`, {
+    cache: "no-store",
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },

@@ -71,8 +71,8 @@ class AIActionApproval(UUIDPKMixin, TimestampMixin, Base):
     decided_by: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True
     )
-    analysis_result_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("ai_analysis_results.id"), nullable=False, index=True
+    analysis_result_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ai_analysis_results.id"), nullable=True, index=True
     )
     action_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     source_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
@@ -84,4 +84,4 @@ class AIActionApproval(UUIDPKMixin, TimestampMixin, Base):
     expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
-    analysis_result: Mapped[AIAnalysisResult] = relationship()
+    analysis_result: Mapped[AIAnalysisResult | None] = relationship()

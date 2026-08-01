@@ -20,6 +20,7 @@ class ChatMessageOut(BaseModel):
     content: str
     confidence: float | None
     sources: list[ChatSourceOut] | None
+    pending_action_approval_id: UUID | None
     created_at: datetime
 
 

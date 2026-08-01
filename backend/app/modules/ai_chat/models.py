@@ -34,3 +34,6 @@ class ChatMessage(UUIDPKMixin, TimestampMixin, Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     sources: Mapped[dict | list | None] = mapped_column(JSONB, nullable=True)
+    pending_action_approval_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("ai_action_approvals.id"), nullable=True, index=True
+    )

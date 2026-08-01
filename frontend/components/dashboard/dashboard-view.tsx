@@ -9,9 +9,11 @@ import {
   DashboardTask,
   getDashboard,
   rejectAction,
+  sendWhatsAppFromApproval,
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
+import { useToast } from "@/lib/toast";
 import { formatTime } from "@/lib/format";
 import { Skeleton, SkeletonRow } from "@/components/shell/skeleton";
 import { EmptyState } from "@/components/shell/empty-state";
@@ -19,6 +21,7 @@ import { EmptyState } from "@/components/shell/empty-state";
 export function DashboardView() {
   const { tokens, user } = useSession();
   const { t, language } = useLanguage();
+  const { showToast } = useToast();
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
@@ -58,7 +61,17 @@ export function DashboardView() {
     if (!tokens?.accessToken) return;
     setBusyId(approvalId);
     try {
+      const approval = dashboard?.pending_ai_approvals.find((item) => item.id === approvalId);
       await approveAction(tokens.accessToken, approvalId);
+      if (approval?.action_type === "whatsapp_message") {
+        const message = await sendWhatsAppFromApproval(tokens.accessToken, approvalId);
+        showToast(t("dashboard.whatsappReadyToast"), "success", {
+          action: {
+            label: t("approvals.whatsappToast.action"),
+            onClick: () => window.open(message.deep_link_url, "_blank", "noopener,noreferrer"),
+          },
+        });
+      }
       await loadDashboard();
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : t("dashboard.approveError"));
@@ -330,7 +343,7 @@ export function DashboardView() {
                         {actionTypeIcon(approval.action_type)}
                       </span>
                       <span className="font-label-sm text-label-sm text-on-surface-variant capitalize">
-                        {approval.action_type}
+                        {actionTypeLabel(approval.action_type, t)}
                       </span>
                     </div>
                     <p className="font-label-md text-label-md mb-sm text-on-surface">
@@ -423,7 +436,14 @@ function actionTypeIcon(actionType: string): string {
       return "payments";
     case "task":
       return "checklist";
+    case "whatsapp_message":
+      return "chat";
     default:
       return "auto_awesome";
   }
+}
+
+function actionTypeLabel(actionType: string, t: (key: string) => string): string {
+  if (actionType === "whatsapp_message") return t("dashboard.actionType.whatsapp");
+  return actionType;
 }

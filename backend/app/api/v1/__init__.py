@@ -24,6 +24,7 @@ from app.api.v1.search import router as search_router
 from app.api.v1.tasks import router as tasks_router
 from app.api.v1.users import router as users_router
 from app.api.v1.voice import router as voice_router
+from app.api.v1.whatsapp import router as whatsapp_router
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth_router)
@@ -51,3 +52,4 @@ api_router.include_router(billing_router)
 api_router.include_router(deals_router)
 api_router.include_router(client_errors_router)
 api_router.include_router(feedback_router)
+api_router.include_router(whatsapp_router)
