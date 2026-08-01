@@ -197,15 +197,17 @@ export function AppShell({ children }: { children: ReactNode }) {
         <main className="flex-1">{children}</main>
       </div>
 
-      <Link
-        href="/gorusmeler"
-        aria-label={t("shell.recordAria")}
-        className="fixed bottom-md right-md sm:bottom-xl sm:right-xl z-50 w-14 h-14 sm:w-16 sm:h-16 bg-primary text-on-primary rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all"
-      >
-        <span className="material-symbols-outlined text-[32px]" style={{ fontVariationSettings: "'FILL' 1" }}>
-          mic
-        </span>
-      </Link>
+      {pathname !== "/ai-chat" ? (
+        <Link
+          href="/gorusmeler"
+          aria-label={t("shell.recordAria")}
+          className="fixed bottom-md right-md sm:bottom-xl sm:right-xl z-30 w-14 h-14 sm:w-16 sm:h-16 bg-primary text-on-primary rounded-full shadow-2xl flex items-center justify-center hover:scale-110 active:scale-95 transition-all"
+        >
+          <span className="material-symbols-outlined text-[32px]" style={{ fontVariationSettings: "'FILL' 1" }}>
+            mic
+          </span>
+        </Link>
+      ) : null}
 
       <SearchPalette />
     </div>
