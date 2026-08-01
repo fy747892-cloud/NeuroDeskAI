@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { authenticate, AuthMode, exchangeGoogleLoginCode, getGoogleLoginUrl } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
@@ -28,6 +28,8 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [mfaCode, setMfaCode] = useState("");
   const [useRecoveryCode, setUseRecoveryCode] = useState(false);
   const [isGoogleBusy, setGoogleBusy] = useState(false);
+  const [isExchangingCode, setExchangingCode] = useState(false);
+  const exchangedCodeRef = useRef<string | null>(null);
 
   const isRegister = mode === "register";
 
@@ -45,15 +47,23 @@ export function AuthForm({ mode }: AuthFormProps) {
     const googleError = searchParams.get("google_error");
 
     if (loginCode) {
+      // React StrictMode (dev) double-invokes effects; the exchange code is single-use
+      // server-side, so a duplicate call would fail and could leave the UI stuck spinning.
+      if (exchangedCodeRef.current === loginCode) return;
+      exchangedCodeRef.current = loginCode;
+
       setGoogleBusy(true);
+      setExchangingCode(true);
       exchangeGoogleLoginCode(loginCode)
         .then(async (tokens) => {
           await setAuthenticatedSession(tokens);
           router.push("/");
         })
         .catch((error) => {
+          exchangedCodeRef.current = null;
           setMessage(error instanceof Error ? error.message : t("auth.google.exchangeError"));
           setGoogleBusy(false);
+          setExchangingCode(false);
           router.replace(isRegister ? "/kayit" : "/giris");
         });
       return;
@@ -131,7 +141,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     }
   }
 
-  if (searchParams.get("login_code")) {
+  if (isExchangingCode) {
     return (
       <div className="flex flex-col items-center gap-3 py-12 text-center">
         <span className="material-symbols-outlined text-primary text-3xl animate-spin">progress_activity</span>
