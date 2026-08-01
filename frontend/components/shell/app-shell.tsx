@@ -284,7 +284,7 @@ function SideNavContent({
 
       <div className="px-md mt-auto pt-md border-t border-outline-variant/30">
         <Link
-          href="/ai-chat"
+          href="/gorusmeler?autostart=1"
           onClick={onNavigate}
           className="w-full flex items-center justify-center gap-2 bg-primary text-on-primary py-3 rounded-xl font-label-md text-label-md active:scale-95 transition-transform"
         >
