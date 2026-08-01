@@ -161,7 +161,7 @@ class AIRepository:
         tenant_id: uuid.UUID,
         organization_id: uuid.UUID,
         requested_by: uuid.UUID,
-        analysis_result_id: uuid.UUID,
+        analysis_result_id: uuid.UUID | None,
         action_type: str,
         source_type: str,
         source_id: uuid.UUID,

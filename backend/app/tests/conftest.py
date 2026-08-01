@@ -54,6 +54,7 @@ from app.modules.organizations.models import Organization, OrganizationMember, T
 from app.modules.search.models import Embedding  # noqa: F401
 from app.modules.tasks.models import Task  # noqa: F401
 from app.modules.users.models import User, UserProfile  # noqa: F401
+from app.modules.whatsapp.models import WhatsAppMessage  # noqa: F401
 
 TEST_DATABASE_URL = os.getenv(
     "TEST_DATABASE_URL",

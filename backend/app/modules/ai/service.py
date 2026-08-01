@@ -15,6 +15,7 @@ from app.modules.conversations.models import Call, DEFAULT_WEB_RECORDING_TITLE
 from app.modules.conversations.repository import ConversationRepository
 from app.modules.deals.service import DealService
 from app.modules.tasks.service import TaskService
+from app.modules.whatsapp.service import WhatsAppService
 
 
 ACTION_PAYLOAD_DEFAULTS = {
@@ -387,6 +388,15 @@ class AIAnalysisService:
                 )
         if action_type in {"deal", "create_deal", "deal/create_deal"} and not payload.get("title"):
             raise ValidationAppError("Approved deal payload must include a title.")
+        if action_type in {
+            "whatsapp_message",
+            "create_whatsapp_message",
+            "whatsapp_message/create_whatsapp_message",
+        }:
+            if not payload.get("contact_id"):
+                raise ValidationAppError("Approved WhatsApp message payload must include a contact_id.")
+            if not str(payload.get("body") or "").strip():
+                raise ValidationAppError("Approved WhatsApp message payload must include a body.")
 
     async def _materialize_approved_action(
         self,
@@ -417,6 +427,18 @@ class AIAnalysisService:
                 tenant_id=tenant_id,
                 organization_id=organization_id,
                 owner_user_id=user_id,
+                approval_id=approval.id,
+            )
+            return
+        if approval.action_type in {
+            "whatsapp_message",
+            "create_whatsapp_message",
+            "whatsapp_message/create_whatsapp_message",
+        }:
+            await WhatsAppService(self._db).prepare_message_from_approval(
+                tenant_id=tenant_id,
+                organization_id=organization_id,
+                user_id=user_id,
                 approval_id=approval.id,
             )
 
