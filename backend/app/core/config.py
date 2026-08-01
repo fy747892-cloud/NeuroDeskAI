@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: str = ""
     google_oauth_scopes: str = "https://www.googleapis.com/auth/gmail.metadata openid email"
+    google_calendar_oauth_scopes: str = ""
     microsoft_client_id: str = ""
     microsoft_client_secret: str = ""
     microsoft_oauth_scopes: str = "offline_access User.Read Mail.Read"

@@ -476,11 +476,13 @@ export function TasksAppointmentsView() {
     if (!tokens?.accessToken) return;
     setActiveApptId("calendar-connect");
     try {
-      const account = await connectGoogleCalendar(tokens.accessToken);
-      setCalendarAccounts((current) => [account, ...current]);
+      const { authorize_url } = await connectGoogleCalendar(tokens.accessToken);
+      // Full-page redirect, same as the Ayarlar integration card: the consent
+      // screen needs a real top-level navigation, then the backend callback
+      // redirects back with ?connected=google_calendar.
+      window.location.href = authorize_url;
     } catch (connectError) {
       setError(connectError instanceof Error ? connectError.message : t("tasks.calendarConnectError"));
-    } finally {
       setActiveApptId(null);
     }
   }

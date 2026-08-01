@@ -32,6 +32,7 @@ class Appointment(UUIDPKMixin, TimestampMixin, SoftDeleteMixin, Base):
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="confirmed", index=True)
     source_type: Mapped[str] = mapped_column(String(50), nullable=False, default="manual", index=True)
     source_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, index=True)
+    external_event_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     ai_action_approval_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("ai_action_approvals.id"),

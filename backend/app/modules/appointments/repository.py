@@ -28,6 +28,7 @@ class AppointmentRepository:
         appointment_timezone: str | None = None,
         source_type: str = "manual",
         source_id: uuid.UUID | None = None,
+        external_event_id: str | None = None,
         ai_action_approval_id: uuid.UUID | None = None,
     ) -> Appointment:
         appointment = Appointment(
@@ -44,11 +45,29 @@ class AppointmentRepository:
             status="confirmed",
             source_type=source_type,
             source_id=source_id,
+            external_event_id=external_event_id,
             ai_action_approval_id=ai_action_approval_id,
         )
         self._db.add(appointment)
         await self._db.flush()
         return appointment
+
+    async def get_by_external_event_id(
+        self,
+        *,
+        tenant_id: uuid.UUID,
+        organization_id: uuid.UUID,
+        external_event_id: str,
+    ) -> Appointment | None:
+        result = await self._db.execute(
+            select(Appointment).where(
+                Appointment.tenant_id == tenant_id,
+                Appointment.organization_id == organization_id,
+                Appointment.external_event_id == external_event_id,
+                Appointment.is_deleted.is_(False),
+            )
+        )
+        return result.scalar_one_or_none()
 
     async def list_appointments(
         self,

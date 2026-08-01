@@ -288,21 +288,3 @@ async def test_appointment_is_tenant_scoped(client: AsyncClient):
         f"/api/v1/appointments/{appointment_id}", headers=second_headers
     )
     assert cross_tenant_response.status_code == 404
-
-
-async def test_calendar_google_connect_creates_pending_account_and_lists_it(client: AsyncClient):
-    headers = await _auth_headers(client, "calendar-connect@example.com")
-
-    connect_response = await client.post("/api/v1/calendar/google/connect", headers=headers)
-    assert connect_response.status_code == 201
-    account = connect_response.json()
-    assert account["provider"] == "google"
-    assert account["status"] == "pending_oauth"
-
-    list_response = await client.get("/api/v1/calendar/accounts", headers=headers)
-    assert list_response.status_code == 200
-    assert list_response.json()[0]["id"] == account["id"]
-
-    idempotent_response = await client.post("/api/v1/calendar/google/connect", headers=headers)
-    assert idempotent_response.status_code == 201
-    assert idempotent_response.json()["id"] == account["id"]
