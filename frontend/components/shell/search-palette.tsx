@@ -114,7 +114,7 @@ export function SearchPalette() {
         <div className="p-lg flex items-center gap-4 border-b border-outline-variant/20 bg-surface-bright">
           <span className="material-symbols-outlined text-primary text-2xl">search</span>
           <input
-            className="flex-1 bg-transparent border-none outline-none focus:ring-0 font-body-lg text-body-lg text-on-surface placeholder-on-surface-variant/60"
+            className="flex-1 bg-transparent border-none outline-none focus:ring-0 font-body-lg text-body-lg text-on-surface placeholder-on-surface-variant/80"
             onChange={(event) => setQuery(event.target.value)}
             onKeyDown={handleKeyNav}
             placeholder={t("shell.search.placeholder")}
