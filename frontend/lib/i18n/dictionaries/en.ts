@@ -841,6 +841,7 @@ export const en: TranslationDictionary = {
     stopListeningAria: "Stop listening and send",
     realTimeTranscript: "Real-time Transcript",
     typeInstead: "No speech recognition in this browser — send by typing",
+    aiSpeaking: "AI is responding...",
     voiceInputPlaceholder: "Type what you want to say...",
     neuroDeskResponse: "NeuroDesk Response",
     voiceMeta: "Intent: {{intent}} · Type: {{actionType}} ·",
