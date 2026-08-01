@@ -18,6 +18,14 @@ def test_normalize_phone_for_whatsapp_rejects_too_short():
     assert normalize_phone_for_whatsapp("12345") is None
 
 
+def test_normalize_phone_for_whatsapp_rewrites_turkish_leading_zero():
+    assert normalize_phone_for_whatsapp("0555 123 45 67") == "905551234567"
+
+
+def test_normalize_phone_for_whatsapp_rewrites_turkish_bare_local_number():
+    assert normalize_phone_for_whatsapp("555 123 45 67") == "905551234567"
+
+
 def test_build_whatsapp_deep_link_encodes_body():
     link = build_whatsapp_deep_link(phone_digits="905551234567", body="Merhaba, nasılsınız?")
     assert link.startswith("https://wa.me/905551234567?text=")
