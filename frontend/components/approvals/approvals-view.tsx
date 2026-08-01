@@ -6,9 +6,11 @@ import {
   approveAction,
   listApprovals,
   rejectAction,
+  sendWhatsAppFromApproval,
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
+import { useToast } from "@/lib/toast";
 import { formatDateTime } from "@/lib/format";
 import { EmptyState } from "@/components/shell/empty-state";
 
@@ -31,11 +33,18 @@ const ACTION_META: Record<string, { icon: string; labelKey: string; confirmLabel
     confirmLabelKey: "approvals.actionMeta.task.confirmLabel",
     confirmIcon: "add_task",
   },
+  whatsapp_message: {
+    icon: "chat",
+    labelKey: "approvals.actionMeta.whatsapp.label",
+    confirmLabelKey: "approvals.actionMeta.whatsapp.confirmLabel",
+    confirmIcon: "send",
+  },
 };
 
 export function ApprovalsView() {
   const { tokens } = useSession();
   const { t, language } = useLanguage();
+  const { showToast } = useToast();
   const [approvals, setApprovals] = useState<AIActionApproval[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
@@ -75,6 +84,16 @@ export function ApprovalsView() {
     setError(null);
     try {
       await approveAction(tokens.accessToken, approval.id);
+      if (approval.action_type === "whatsapp_message") {
+        const message = await sendWhatsAppFromApproval(tokens.accessToken, approval.id);
+        const contactName = String(approval.suggested_payload.contact_name ?? "");
+        showToast(t("approvals.whatsappToast.message", { name: contactName }), "success", {
+          action: {
+            label: t("approvals.whatsappToast.action"),
+            onClick: () => window.open(message.deep_link_url, "_blank", "noopener,noreferrer"),
+          },
+        });
+      }
       await load();
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : t("approvals.errors.approveFailed"));
@@ -247,10 +266,15 @@ function ActionCard({
   };
   const metaLabel = meta.labelKey ? t(meta.labelKey) : approval.action_type.toUpperCase();
   const confirmLabel = t(meta.confirmLabelKey);
-  const title = summarizePayload(approval.suggested_payload, t);
-  const description = payloadText(approval.suggested_payload, "description");
+  const isWhatsApp = approval.action_type === "whatsapp_message";
+  const title = isWhatsApp
+    ? payloadText(approval.suggested_payload, "contact_name") ?? summarizePayload(approval.suggested_payload, t)
+    : summarizePayload(approval.suggested_payload, t);
+  const description = isWhatsApp
+    ? payloadText(approval.suggested_payload, "body")
+    : payloadText(approval.suggested_payload, "description");
   const reason = payloadText(approval.suggested_payload, "reason");
-  const fields = payloadFields(approval.suggested_payload);
+  const fields = payloadFields(approval.suggested_payload, approval.action_type);
   const sourceLabel = approval.source_title
     ? t("approvals.sourceLabelNamed", { title: approval.source_title })
     : t("approvals.sourceLabel", { type: approval.source_type });
@@ -358,8 +382,12 @@ function payloadText(payload: Record<string, unknown>, key: string): string | nu
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function payloadFields(payload: Record<string, unknown>): [string, string][] {
+function payloadFields(payload: Record<string, unknown>, actionType: string): [string, string][] {
   const skipKeys = new Set(["title", "summary", "description", "body", "reason"]);
+  if (actionType === "whatsapp_message") {
+    skipKeys.add("contact_id");
+    skipKeys.add("contact_name");
+  }
   return Object.entries(payload)
     .filter(([key, value]) => !skipKeys.has(key) && value !== null && value !== undefined && value !== "")
     .slice(0, 4)

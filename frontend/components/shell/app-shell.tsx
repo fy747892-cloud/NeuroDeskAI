@@ -24,6 +24,7 @@ const navItems = [
   { icon: "folder", labelKey: "files", href: "/dosyalar" },
   { icon: "handshake", labelKey: "deals", href: "/firsatlar" },
   { icon: "smart_toy", labelKey: "aiChat", href: "/ai-chat" },
+  { icon: "fact_check", labelKey: "approvalCenter", href: "/onay-merkezi" },
   { icon: "analytics", labelKey: "analytics", href: "/analitik" },
   { icon: "settings", labelKey: "settings", href: "/ayarlar" },
 ] satisfies Array<{ icon: string; labelKey: string; href: Route }>;
@@ -67,6 +68,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       setNavBadges({
         tasks: dashboard.summary.open_tasks_count,
         dashboard: dashboard.summary.pending_ai_approvals_count,
+        approvalCenter: dashboard.summary.pending_ai_approvals_count,
       });
     } catch {
       setNavBadges({});

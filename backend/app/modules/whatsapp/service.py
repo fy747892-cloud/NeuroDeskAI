@@ -160,7 +160,10 @@ class WhatsAppService:
             event_type="whatsapp_draft_ready",
             source_type="whatsapp_message",
             source_id=message.id,
-            event_metadata={"body": body},
+            event_metadata={
+                "title": f"WhatsApp mesajı: {contact.full_name}",
+                "summary": body,
+            },
         )
         return message
 

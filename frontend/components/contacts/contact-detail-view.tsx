@@ -15,7 +15,10 @@ import {
   getContact,
   getContactMemory,
   listDeals,
+  listWhatsAppMessagesForContact,
+  sendManualWhatsAppMessage,
   updateContact,
+  WhatsAppMessage,
 } from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
@@ -32,6 +35,7 @@ const EVENT_ICON: Record<string, string> = {
   ai_note: "auto_awesome",
   ai_insight: "auto_awesome",
   note: "sticky_note_2",
+  whatsapp_draft_ready: "chat",
 };
 
 const EVENT_LABEL_KEY: Record<string, string> = {
@@ -58,21 +62,27 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
   const [isEditingContact, setEditingContact] = useState(false);
   const [editForm, setEditForm] = useState({ fullName: "", email: "", phone: "", company: "", title: "" });
   const [isSavingContact, setSavingContact] = useState(false);
+  const [whatsAppHistory, setWhatsAppHistory] = useState<WhatsAppMessage[]>([]);
+  const [isComposingWhatsApp, setComposingWhatsApp] = useState(false);
+  const [whatsAppBody, setWhatsAppBody] = useState("");
+  const [isSendingWhatsApp, setSendingWhatsApp] = useState(false);
 
   const load = useCallback(async () => {
     if (!tokens?.accessToken) return;
     setLoading(true);
     setError(null);
     try {
-      const [contactDetail, contactMemory, allDeals] = await Promise.all([
+      const [contactDetail, contactMemory, allDeals, whatsAppMessages] = await Promise.all([
         getContact(tokens.accessToken, contactId),
         getContactMemory(tokens.accessToken, contactId),
         listDeals(tokens.accessToken),
+        listWhatsAppMessagesForContact(tokens.accessToken, contactId),
       ]);
       setContact(contactDetail);
       setNotes(contactDetail.notes);
       setMemory(contactMemory);
       setDeals(allDeals.filter((deal) => deal.contact_id === contactId));
+      setWhatsAppHistory(whatsAppMessages);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : t("contactDetail.loadError"));
     } finally {
@@ -97,6 +107,26 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
       setError(noteError instanceof Error ? noteError.message : t("contactDetail.noteAddError"));
     } finally {
       setAddingNote(false);
+    }
+  }
+
+  async function handleSendWhatsApp(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tokens?.accessToken || !whatsAppBody.trim()) return;
+    setSendingWhatsApp(true);
+    setError(null);
+    try {
+      const message = await sendManualWhatsAppMessage(tokens.accessToken, {
+        contact_id: contactId,
+        body: whatsAppBody.trim(),
+      });
+      setWhatsAppHistory((current) => [message, ...current]);
+      setWhatsAppBody("");
+      setComposingWhatsApp(false);
+    } catch (sendError) {
+      setError(sendError instanceof Error ? sendError.message : t("contactDetail.whatsapp.sendError"));
+    } finally {
+      setSendingWhatsApp(false);
     }
   }
 
@@ -323,6 +353,16 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
                       {t("contactDetail.callAction")}
                     </a>
                   ) : null}
+                  {contact.phone ? (
+                    <button
+                      type="button"
+                      onClick={() => setComposingWhatsApp((v) => !v)}
+                      className="flex-1 border border-outline-variant text-on-surface-variant py-2 rounded-lg font-label-sm flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">chat</span>
+                      {t("contactDetail.whatsapp.button")}
+                    </button>
+                  ) : null}
                 </div>
                 <div className="w-full flex gap-2 mt-2">
                   <button
@@ -386,6 +426,65 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
                 </button>
               </div>
             </form>
+          </div>
+
+          <div className="bg-surface-container-lowest border border-outline-variant p-lg rounded-2xl">
+            <h4 className="font-label-sm text-label-sm uppercase tracking-widest text-outline mb-md">
+              {t("contactDetail.whatsapp.title")}
+            </h4>
+            {!contact.phone ? (
+              <EmptyState icon="chat" title={t("contactDetail.whatsapp.noPhone")} />
+            ) : isComposingWhatsApp ? (
+              <form onSubmit={handleSendWhatsApp} className="space-y-2">
+                <textarea
+                  className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                  onChange={(e) => setWhatsAppBody(e.target.value)}
+                  placeholder={t("contactDetail.whatsapp.composerPlaceholder")}
+                  rows={3}
+                  value={whatsAppBody}
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={isSendingWhatsApp || !whatsAppBody.trim()}
+                    className="flex-1 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
+                  >
+                    {isSendingWhatsApp ? t("common.loading") : t("contactDetail.whatsapp.send")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setComposingWhatsApp(false);
+                      setWhatsAppBody("");
+                    }}
+                    className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
+                  >
+                    {t("common.cancel")}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+                {whatsAppHistory.length === 0 ? (
+                  <EmptyState icon="chat" title={t("contactDetail.whatsapp.empty")} />
+                ) : null}
+                {whatsAppHistory.slice(0, 4).map((message) => (
+                  <a
+                    key={message.id}
+                    href={message.deep_link_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block bg-surface-container-low p-3 rounded-xl text-body-sm text-on-surface-variant border-l-4 border-secondary hover:border-primary transition-colors"
+                  >
+                    <p className="line-clamp-2">{message.body}</p>
+                    <p className="text-[10px] text-outline mt-1 flex items-center gap-2">
+                      <span className="uppercase font-bold">{message.status}</span>
+                      {formatDateTime(message.created_at, language)}
+                    </p>
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

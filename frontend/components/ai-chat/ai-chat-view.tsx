@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ChatMessage,
@@ -26,6 +27,7 @@ type LocalMessage = {
   content: string;
   confidence: number | null;
   sources: ChatSource[] | null;
+  pendingApprovalId: string | null;
   created_at: string;
 };
 
@@ -155,6 +157,7 @@ export function AIChatView() {
       content: trimmed,
       confidence: null,
       sources: null,
+      pendingApprovalId: null,
       created_at: new Date().toISOString(),
     };
     setMessages((current) => [...current, userMessage]);
@@ -343,6 +346,17 @@ export function AIChatView() {
                             </div>
                           ))}
                         </div>
+                      ) : null}
+
+                      {message.pendingApprovalId ? (
+                        <Link
+                          href="/onay-merkezi"
+                          className="mt-lg flex items-center gap-2 w-fit bg-primary-container/10 border border-primary/20 text-primary rounded-xl px-3 py-2.5 text-body-sm hover:bg-primary-container/20 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">chat</span>
+                          {t("aiChat.pendingWhatsappApproval")}
+                          <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                        </Link>
                       ) : null}
                     </div>
                     <span className="text-[10px] text-on-surface-variant">
@@ -674,6 +688,7 @@ function toLocalMessage(message: ChatMessage): LocalMessage {
     content: message.content,
     confidence: message.confidence,
     sources: message.sources,
+    pendingApprovalId: message.pending_action_approval_id,
     created_at: message.created_at,
   };
 }
