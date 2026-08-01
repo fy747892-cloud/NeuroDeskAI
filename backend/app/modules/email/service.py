@@ -7,8 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.crypto import decrypt_token, encrypt_token
 from app.core.errors import AuthError, NotFoundError, ProviderError, ValidationAppError
+from app.core.oauth_state import OAuthStateStore
 from app.modules.email.models import EmailAccount
-from app.modules.email.oauth_state import OAuthStateStore
 from app.modules.email.provider import get_mail_provider, get_oauth_provider
 from app.modules.email.repository import (
     EmailAccountRepository,
@@ -22,7 +22,7 @@ class EmailIntegrationService:
         self._accounts = EmailAccountRepository(db)
         self._tokens = EmailTokenRepository(db)
         self._messages = EmailMessageRepository(db)
-        self._states = OAuthStateStore(redis)
+        self._states = OAuthStateStore(redis, key_prefix="gmail_oauth_state:")
 
     async def start_connect(
         self,

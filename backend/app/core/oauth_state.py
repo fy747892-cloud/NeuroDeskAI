@@ -5,14 +5,14 @@ import uuid
 from redis.asyncio import Redis
 
 STATE_TTL_SECONDS = 600
-STATE_KEY_PREFIX = "gmail_oauth_state:"
 
 
 class OAuthStateStore:
     """Short-lived, single-use OAuth state tokens backed by Redis (CSRF protection)."""
 
-    def __init__(self, redis: Redis):
+    def __init__(self, redis: Redis, *, key_prefix: str):
         self._redis = redis
+        self._key_prefix = key_prefix
 
     async def generate(
         self,
@@ -31,13 +31,13 @@ class OAuthStateStore:
                 "return_to": return_to,
             }
         )
-        await self._redis.set(f"{STATE_KEY_PREFIX}{state}", payload, ex=STATE_TTL_SECONDS)
+        await self._redis.set(f"{self._key_prefix}{state}", payload, ex=STATE_TTL_SECONDS)
         return state
 
     async def consume(self, state: str) -> dict | None:
         # GETDEL is atomic: a state token can only ever be consumed once,
         # closing the replay window between reading and deleting it.
-        payload = await self._redis.getdel(f"{STATE_KEY_PREFIX}{state}")
+        payload = await self._redis.getdel(f"{self._key_prefix}{state}")
         if payload is None:
             return None
         return json.loads(payload)

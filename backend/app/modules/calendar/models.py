@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -25,5 +25,21 @@ class CalendarAccount(UUIDPKMixin, TimestampMixin, SoftDeleteMixin, Base):
     )
     provider: Mapped[str] = mapped_column(String(50), nullable=False, default="google")
     external_account_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    email_address: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending_oauth")
+    consent_scope: Mapped[str | None] = mapped_column(String(255), nullable=True)
     connected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class CalendarToken(UUIDPKMixin, TimestampMixin, Base):
+    __tablename__ = "calendar_tokens"
+
+    tenant_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), nullable=False, index=True)
+    calendar_account_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("calendar_accounts.id"), nullable=False, unique=True, index=True
+    )
+    access_token_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
+    refresh_token_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
+    scope: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

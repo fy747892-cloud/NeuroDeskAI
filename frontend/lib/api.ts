@@ -623,9 +623,23 @@ export type CalendarAccount = {
   user_id: string;
   provider: string;
   external_account_id: string | null;
+  email_address: string | null;
   status: string;
+  consent_scope: string | null;
   connected_at: string | null;
+  last_synced_at: string | null;
   created_at: string;
+};
+
+export type CalendarConnectStart = {
+  authorize_url: string;
+  state: string;
+};
+
+export type CalendarSyncSummary = {
+  fetched: number;
+  created: number;
+  skipped: number;
 };
 
 export type VoiceCommandResult = {
@@ -2017,8 +2031,32 @@ export async function listCalendarAccounts(accessToken: string): Promise<Calenda
   });
 }
 
-export async function connectGoogleCalendar(accessToken: string): Promise<CalendarAccount> {
-  return request<CalendarAccount>("/api/v1/calendar/google/connect", {
+export async function connectGoogleCalendar(accessToken: string): Promise<CalendarConnectStart> {
+  return request<CalendarConnectStart>("/api/v1/calendar/google/connect", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function syncCalendarAccount(
+  accessToken: string,
+  accountId: string,
+): Promise<CalendarSyncSummary> {
+  return request<CalendarSyncSummary>(`/api/v1/calendar/accounts/${accountId}/sync`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function revokeCalendarAccount(
+  accessToken: string,
+  accountId: string,
+): Promise<CalendarAccount> {
+  return request<CalendarAccount>(`/api/v1/calendar/accounts/${accountId}/revoke`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,

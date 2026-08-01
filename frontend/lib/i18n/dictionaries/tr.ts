@@ -326,7 +326,9 @@ export const tr: TranslationDictionary = {
       connectedNotice: "{{provider}} bağlandı.",
       connectError: "Bağlantı kurulamadı.",
       disconnectError: "Bağlantı kaldırılamadı.",
-      googleCalendarConnected: "Google Takvim bağlandı.",
+      sync: "Senkronize Et",
+      calendarSyncSuccess: "{{count}} yeni takvim etkinliği senkronize edildi.",
+      calendarSyncError: "Takvim senkronizasyonu başarısız oldu.",
     },
     billing: {
       title: "Faturalandırma ve Plan",

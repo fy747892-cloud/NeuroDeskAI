@@ -29,6 +29,7 @@ import {
   logoutAllSessions,
   Organization,
   OrganizationMember,
+  revokeCalendarAccount,
   revokeEmailAccount,
   revokeSession,
   setupTotp,
@@ -36,6 +37,7 @@ import {
   startOutlookConnect,
   Subscription,
   switchPlan,
+  syncCalendarAccount,
   TotpSetup,
   updateConsentSettings,
   updateMemberRole,
@@ -188,7 +190,14 @@ export function SettingsView() {
   useEffect(() => {
     const connected = searchParams.get("connected");
     if (!connected) return;
-    const label = connected === "gmail" ? "Gmail" : connected === "outlook" ? "Outlook" : connected;
+    const label =
+      connected === "gmail"
+        ? "Gmail"
+        : connected === "outlook"
+          ? "Outlook"
+          : connected === "google_calendar"
+            ? "Google Calendar"
+            : connected;
     showToast(t("settings.integrations.connectedNotice", { provider: label }), "success");
     router.replace("/ayarlar");
   }, [searchParams, router]);
@@ -475,11 +484,41 @@ export function SettingsView() {
     setBusyIntegration("google-calendar");
     setError(null);
     try {
-      const account = await connectGoogleCalendar(tokens.accessToken);
-      setCalendarAccounts((current) => [account, ...current]);
-      showToast(t("settings.integrations.googleCalendarConnected"), "success");
+      const { authorize_url } = await connectGoogleCalendar(tokens.accessToken);
+      // Full-page redirect, same as Gmail/Outlook: the consent screen needs a
+      // real top-level navigation, then the backend callback redirects back
+      // here with ?connected=google_calendar.
+      window.location.href = authorize_url;
     } catch (connectError) {
       setError(connectError instanceof Error ? connectError.message : t("tasks.calendarConnectError"));
+      setBusyIntegration(null);
+    }
+  }
+
+  async function handleDisconnectCalendar(accountId: string) {
+    if (!tokens?.accessToken) return;
+    setBusyIntegration(accountId);
+    setError(null);
+    try {
+      const updated = await revokeCalendarAccount(tokens.accessToken, accountId);
+      setCalendarAccounts((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+    } catch (revokeError) {
+      setError(revokeError instanceof Error ? revokeError.message : t("settings.integrations.disconnectError"));
+    } finally {
+      setBusyIntegration(null);
+    }
+  }
+
+  async function handleSyncCalendar(accountId: string) {
+    if (!tokens?.accessToken) return;
+    setBusyIntegration(`sync-${accountId}`);
+    setError(null);
+    try {
+      const summary = await syncCalendarAccount(tokens.accessToken, accountId);
+      showToast(t("settings.integrations.calendarSyncSuccess", { count: summary.created }), "success");
+      setCalendarAccounts(await listCalendarAccounts(tokens.accessToken));
+    } catch (syncError) {
+      setError(syncError instanceof Error ? syncError.message : t("settings.integrations.calendarSyncError"));
     } finally {
       setBusyIntegration(null);
     }
@@ -515,7 +554,8 @@ export function SettingsView() {
     () => emailAccounts.find((account) => account.provider === "outlook" && account.status !== "revoked"),
     [emailAccounts],
   );
-  const googleCalendarAccount = calendarAccounts[0] ?? null;
+  const googleCalendarAccount =
+    calendarAccounts.find((account) => account.status !== "revoked") ?? null;
 
   return (
     <div className="p-xl max-w-[1200px]">
@@ -553,10 +593,15 @@ export function SettingsView() {
             />
             <IntegrationCard
               meta={INTEGRATION_META.google}
-              detail={googleCalendarAccount?.external_account_id ?? t("common.notConnected")}
+              detail={googleCalendarAccount?.email_address ?? t("common.notConnected")}
               isConnected={Boolean(googleCalendarAccount)}
-              isBusy={busyIntegration === "google-calendar"}
+              isBusy={busyIntegration === "google-calendar" || busyIntegration === googleCalendarAccount?.id}
               onConnect={handleConnectCalendar}
+              onDisconnect={
+                googleCalendarAccount ? () => handleDisconnectCalendar(googleCalendarAccount.id) : undefined
+              }
+              onSync={googleCalendarAccount ? () => handleSyncCalendar(googleCalendarAccount.id) : undefined}
+              isSyncing={busyIntegration === `sync-${googleCalendarAccount?.id}`}
             />
             <div
               aria-disabled="true"
@@ -1209,6 +1254,8 @@ function IntegrationCard({
   isBusy,
   onConnect,
   onDisconnect,
+  onSync,
+  isSyncing,
 }: {
   meta: { label: string; icon: string; tint: string };
   detail: string;
@@ -1216,6 +1263,8 @@ function IntegrationCard({
   isBusy: boolean;
   onConnect: () => void;
   onDisconnect?: () => void;
+  onSync?: () => void;
+  isSyncing?: boolean;
 }) {
   const { t } = useLanguage();
   return (
@@ -1239,14 +1288,29 @@ function IntegrationCard({
         </div>
       </div>
       <p className="text-body-sm text-on-surface-variant mb-lg leading-relaxed truncate">{detail}</p>
-      <button
-        type="button"
-        disabled={isBusy}
-        onClick={isConnected ? onDisconnect : onConnect}
-        className="w-full py-2 border border-outline-variant rounded-lg text-on-surface-variant font-label-sm hover:bg-surface-container-high transition-colors active:scale-[0.98] disabled:opacity-60"
-      >
-        {isBusy ? t("auth.submitting") : isConnected ? t("common.disconnect") : t("common.connect")}
-      </button>
+      <div className="flex gap-2">
+        {isConnected && onSync ? (
+          <button
+            type="button"
+            disabled={isBusy || isSyncing}
+            onClick={onSync}
+            className="flex-1 py-2 border border-outline-variant rounded-lg text-on-surface-variant font-label-sm hover:bg-surface-container-high transition-colors active:scale-[0.98] disabled:opacity-60 flex items-center justify-center gap-1.5"
+          >
+            <span className="material-symbols-outlined text-[16px]">
+              {isSyncing ? "hourglass_top" : "sync"}
+            </span>
+            {isSyncing ? t("auth.submitting") : t("settings.integrations.sync")}
+          </button>
+        ) : null}
+        <button
+          type="button"
+          disabled={isBusy}
+          onClick={isConnected ? onDisconnect : onConnect}
+          className="flex-1 py-2 border border-outline-variant rounded-lg text-on-surface-variant font-label-sm hover:bg-surface-container-high transition-colors active:scale-[0.98] disabled:opacity-60"
+        >
+          {isBusy ? t("auth.submitting") : isConnected ? t("common.disconnect") : t("common.connect")}
+        </button>
+      </div>
     </div>
   );
 }

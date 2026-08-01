@@ -326,7 +326,9 @@ export const en: TranslationDictionary = {
       connectedNotice: "{{provider}} connected.",
       connectError: "Could not connect.",
       disconnectError: "Could not disconnect.",
-      googleCalendarConnected: "Google Calendar connected.",
+      sync: "Sync",
+      calendarSyncSuccess: "{{count}} new calendar events synced.",
+      calendarSyncError: "Calendar sync failed.",
     },
     billing: {
       title: "Billing & Plan",
