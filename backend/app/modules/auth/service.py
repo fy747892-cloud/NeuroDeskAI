@@ -230,20 +230,22 @@ class AuthService:
             expires_at=expires_at,
         )
 
+        access_token = await self._build_access_token(user)
+        return TokenResponse(access_token=access_token, refresh_token=raw_refresh_token)
+
+    async def _build_access_token(self, user: User) -> str:
         member = await self._orgs.get_member(
             tenant_id=user.tenant_id,
             organization_id=user.organization_id,
             user_id=user.id,
         ) if user.organization_id else None
 
-        access_token = create_access_token(
+        return create_access_token(
             user_id=user.id,
             tenant_id=user.tenant_id,
             organization_id=user.organization_id,
             roles=[member.role] if member else [],
         )
-
-        return TokenResponse(access_token=access_token, refresh_token=raw_refresh_token)
 
     async def rotate_refresh_token(self, *, raw_refresh_token: str, device: DeviceContext) -> TokenResponse:
         token_hash = hash_refresh_token(raw_refresh_token)
@@ -267,7 +269,27 @@ class AuthService:
 
         await self._auth.revoke_refresh_token(refresh_token)
 
-        tokens = await self._issue_tokens(user, device)
+        # Rotation continues the same session (device_id/ip/user_agent may shift
+        # slightly, e.g. a new IP mid-session) rather than spawning a new
+        # "active session" row every ~14 minutes while a tab stays open.
+        expires_at = refresh_token_expiry()
+        await self._auth.touch_session(
+            session_id=refresh_token.session_id,
+            expires_at=expires_at,
+            ip_address=device.ip_address,
+            user_agent=device.user_agent,
+        )
+
+        raw_new_refresh_token = generate_refresh_token()
+        await self._auth.create_refresh_token(
+            user_id=user.id,
+            session_id=refresh_token.session_id,
+            token_hash=hash_refresh_token(raw_new_refresh_token),
+            expires_at=expires_at,
+        )
+
+        access_token = await self._build_access_token(user)
+        tokens = TokenResponse(access_token=access_token, refresh_token=raw_new_refresh_token)
         await self._db.commit()
         return tokens
 

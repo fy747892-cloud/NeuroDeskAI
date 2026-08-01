@@ -78,6 +78,20 @@ class AuthRepository:
         result = await self._db.execute(select(UserSession).where(UserSession.id == session_id))
         return result.scalar_one_or_none()
 
+    async def touch_session(
+        self,
+        *,
+        session_id: uuid.UUID,
+        expires_at: datetime,
+        ip_address: str | None,
+        user_agent: str | None,
+    ) -> None:
+        await self._db.execute(
+            update(UserSession)
+            .where(UserSession.id == session_id)
+            .values(expires_at=expires_at, ip_address=ip_address, user_agent=user_agent)
+        )
+
     async def revoke_session(self, session_id: uuid.UUID) -> None:
         now = datetime.now(timezone.utc)
         await self._db.execute(
