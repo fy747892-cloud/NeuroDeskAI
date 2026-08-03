@@ -570,6 +570,14 @@ export type PriorityQueue = {
   items: PriorityItem[];
 };
 
+export type Page<T> = {
+  items: T[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+};
+
 export type CallTranscription = {
   id: string;
   call_id: string;
@@ -1097,8 +1105,19 @@ export async function deleteAppointment(accessToken: string, appointmentId: stri
   }
 }
 
-export async function listConversations(accessToken: string): Promise<Conversation[]> {
-  return request<Conversation[]>("/api/v1/conversations", {
+export async function listConversations(
+  accessToken: string,
+  params: { page?: number; pageSize?: number } = {},
+): Promise<Page<Conversation>> {
+  const searchParams = new URLSearchParams();
+  if (params.page) {
+    searchParams.set("page", String(params.page));
+  }
+  if (params.pageSize) {
+    searchParams.set("page_size", String(params.pageSize));
+  }
+  const search = searchParams.size > 0 ? `?${searchParams.toString()}` : "";
+  return request<Page<Conversation>>(`/api/v1/conversations${search}`, {
     cache: "no-store",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -1173,8 +1192,8 @@ export async function requestConversationAnalysis(
 
 export async function listContacts(
   accessToken: string,
-  params: { search?: string; status?: string } = {},
-): Promise<Contact[]> {
+  params: { search?: string; status?: string; page?: number; pageSize?: number } = {},
+): Promise<Page<Contact>> {
   const searchParams = new URLSearchParams();
   if (params.search) {
     searchParams.set("search", params.search);
@@ -1182,9 +1201,15 @@ export async function listContacts(
   if (params.status) {
     searchParams.set("status_filter", params.status);
   }
+  if (params.page) {
+    searchParams.set("page", String(params.page));
+  }
+  if (params.pageSize) {
+    searchParams.set("page_size", String(params.pageSize));
+  }
 
   const search = searchParams.size > 0 ? `?${searchParams.toString()}` : "";
-  return request<Contact[]>(`/api/v1/contacts${search}`, {
+  return request<Page<Contact>>(`/api/v1/contacts${search}`, {
     cache: "no-store",
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -1701,8 +1726,25 @@ export async function syncEmailAccount(
   });
 }
 
-export async function listFiles(accessToken: string): Promise<FileRecord[]> {
-  return request<FileRecord[]>("/api/v1/files", {
+export async function listFiles(
+  accessToken: string,
+  params: { search?: string; status?: string; page?: number; pageSize?: number } = {},
+): Promise<Page<FileRecord>> {
+  const searchParams = new URLSearchParams();
+  if (params.search) {
+    searchParams.set("search", params.search);
+  }
+  if (params.status) {
+    searchParams.set("status_filter", params.status);
+  }
+  if (params.page) {
+    searchParams.set("page", String(params.page));
+  }
+  if (params.pageSize) {
+    searchParams.set("page_size", String(params.pageSize));
+  }
+  const search = searchParams.size > 0 ? `?${searchParams.toString()}` : "";
+  return request<Page<FileRecord>>(`/api/v1/files${search}`, {
     cache: "no-store",
     headers: {
       Authorization: `Bearer ${accessToken}`,

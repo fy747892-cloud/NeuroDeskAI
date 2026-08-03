@@ -77,12 +77,12 @@ export function DealsView() {
     setLoading(true);
     setError(null);
     try {
-      const [nextDeals, nextContacts] = await Promise.all([
+      const [nextDeals, contactsPage] = await Promise.all([
         listDeals(tokens.accessToken),
-        listContacts(tokens.accessToken),
+        listContacts(tokens.accessToken, { pageSize: 100 }),
       ]);
       setDeals(nextDeals);
-      setContacts(nextContacts);
+      setContacts(contactsPage.items);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : t("deals.loadError"));
     } finally {

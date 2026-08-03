@@ -56,7 +56,7 @@ class DashboardService:
             start_date=now,
             end_date=now + UPCOMING_APPOINTMENTS_WINDOW,
         )
-        recent_conversations = await self._conversations.list_conversations(
+        recent_conversations, _ = await self._conversations.list_conversations(
             tenant_id=tenant_id,
             organization_id=organization_id,
             limit=RECENT_CONVERSATIONS_LIMIT,

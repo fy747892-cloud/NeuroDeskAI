@@ -46,7 +46,7 @@ async def test_contact_crud_and_soft_delete(client: AsyncClient):
 
     list_response = await client.get("/api/v1/contacts", headers=headers)
     assert list_response.status_code == 200
-    assert contact["id"] in {item["id"] for item in list_response.json()}
+    assert contact["id"] in {item["id"] for item in list_response.json()["items"]}
 
     update_response = await client.patch(
         f"/api/v1/contacts/{contact['id']}", headers=headers, json={"title": "Mathematician"}
@@ -69,12 +69,49 @@ async def test_contact_search_matches_name_email_phone_company(client: AsyncClie
     )
 
     by_name = await client.get("/api/v1/contacts", headers=headers, params={"search": "Hopper"})
-    assert [c["full_name"] for c in by_name.json()] == ["Grace Hopper"]
+    assert [c["full_name"] for c in by_name.json()["items"]] == ["Grace Hopper"]
 
     by_company = await client.get(
         "/api/v1/contacts", headers=headers, params={"search": "Bletchley"}
     )
-    assert [c["full_name"] for c in by_company.json()] == ["Alan Turing"]
+    assert [c["full_name"] for c in by_company.json()["items"]] == ["Alan Turing"]
+
+
+async def test_contact_list_pagination_is_stable_across_pages(client: AsyncClient):
+    headers = await _auth_headers(client, "contact-pagination@example.com")
+    names = ["Amy Adams", "Beth Baker", "Cara Cole", "Dana Diaz", "Eve Evans"]
+    for name in names:
+        await _create_contact(client, headers, full_name=name, email=f"{name.split()[0].lower()}@example.com")
+
+    first_page = await client.get(
+        "/api/v1/contacts", headers=headers, params={"page": 1, "page_size": 2}
+    )
+    assert first_page.status_code == 200
+    first_body = first_page.json()
+    assert first_body["total"] == 5
+    assert first_body["page"] == 1
+    assert first_body["page_size"] == 2
+    assert first_body["total_pages"] == 3
+    assert [c["full_name"] for c in first_body["items"]] == ["Amy Adams", "Beth Baker"]
+
+    second_page = await client.get(
+        "/api/v1/contacts", headers=headers, params={"page": 2, "page_size": 2}
+    )
+    second_body = second_page.json()
+    assert [c["full_name"] for c in second_body["items"]] == ["Cara Cole", "Dana Diaz"]
+
+    third_page = await client.get(
+        "/api/v1/contacts", headers=headers, params={"page": 3, "page_size": 2}
+    )
+    third_body = third_page.json()
+    assert [c["full_name"] for c in third_body["items"]] == ["Eve Evans"]
+
+    all_ids = (
+        {c["id"] for c in first_body["items"]}
+        | {c["id"] for c in second_body["items"]}
+        | {c["id"] for c in third_body["items"]}
+    )
+    assert len(all_ids) == 5
 
 
 async def test_contact_timeline_records_create_note_and_link_in_order(client: AsyncClient):

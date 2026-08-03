@@ -27,6 +27,7 @@ import { useLanguage } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast";
 import { Skeleton, SkeletonRow, SkeletonText } from "@/components/shell/skeleton";
 import { EmptyState } from "@/components/shell/empty-state";
+import { Pagination } from "@/components/shell/pagination";
 import { formatDateTime, formatTime } from "@/lib/format";
 import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
 
@@ -43,6 +44,8 @@ export function ConversationsView() {
   const { t, language } = useLanguage();
   const { showToast } = useToast();
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversationsPage, setConversationsPage] = useState(1);
+  const [conversationsTotalPages, setConversationsTotalPages] = useState(1);
   const [analysisJobs, setAnalysisJobs] = useState<AIAnalysisJob[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [contactMemories, setContactMemories] = useState<Record<string, ContactMemory>>({});
@@ -73,19 +76,20 @@ export function ConversationsView() {
     setLoading(true);
     setError(null);
     try {
-      const [nextConversations, nextJobs] = await Promise.all([
-        listConversations(tokens.accessToken),
+      const [conversationsPageResult, nextJobs] = await Promise.all([
+        listConversations(tokens.accessToken, { page: conversationsPage }),
         listAnalysisJobs(tokens.accessToken),
       ]);
-      setConversations(nextConversations);
+      setConversations(conversationsPageResult.items);
+      setConversationsTotalPages(conversationsPageResult.total_pages);
       setAnalysisJobs(nextJobs);
-      setSelectedId((current) => current ?? nextConversations[0]?.id ?? null);
+      setSelectedId((current) => current ?? conversationsPageResult.items[0]?.id ?? null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : t("conversations.errors.loadFailed"));
     } finally {
       setLoading(false);
     }
-  }, [t, tokens?.accessToken]);
+  }, [t, tokens?.accessToken, conversationsPage]);
 
   useEffect(() => {
     loadConversations();
@@ -95,7 +99,8 @@ export function ConversationsView() {
     async function loadContacts() {
       if (!tokens?.accessToken) return;
       try {
-        setContacts(await listContacts(tokens.accessToken));
+        const contactsPage = await listContacts(tokens.accessToken, { pageSize: 100 });
+        setContacts(contactsPage.items);
       } catch {
         setContacts([]);
       }
@@ -670,6 +675,12 @@ export function ConversationsView() {
             );
           })}
         </div>
+        <Pagination
+          page={conversationsPage}
+          totalPages={conversationsTotalPages}
+          onPageChange={setConversationsPage}
+          disabled={isLoading}
+        />
       </section>
 
       <section className="flex-1 flex flex-col bg-surface-container-lowest overflow-hidden">

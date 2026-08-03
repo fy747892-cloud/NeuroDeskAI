@@ -30,7 +30,7 @@ async def test_create_list_and_get_conversation(client: AsyncClient):
 
     list_response = await client.get("/api/v1/conversations", headers=headers)
     assert list_response.status_code == 200
-    assert list_response.json()[0]["id"] == body["id"]
+    assert list_response.json()["items"][0]["id"] == body["id"]
 
     detail_response = await client.get(f"/api/v1/conversations/{body['id']}", headers=headers)
     assert detail_response.status_code == 200
@@ -59,7 +59,7 @@ async def test_update_and_soft_delete_conversation(client: AsyncClient):
 
     list_response = await client.get("/api/v1/conversations", headers=headers)
     assert list_response.status_code == 200
-    assert list_response.json() == []
+    assert list_response.json()["items"] == []
 
     detail_response = await client.get(f"/api/v1/conversations/{conversation_id}", headers=headers)
     assert detail_response.status_code == 404

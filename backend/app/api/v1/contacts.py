@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import require_permission
 from app.core.errors import NotFoundError
+from app.core.pagination import Page, PaginationParams
 from app.core.permissions import Permission
 from app.core.pii import mask_email, mask_phone
 from app.db.session import get_db
@@ -39,21 +40,25 @@ def _masked_contact_metadata(contact: Contact) -> dict:
     return metadata
 
 
-@router.get("", response_model=list[ContactOut])
+@router.get("", response_model=Page[ContactOut])
 async def list_contacts(
     search: str | None = None,
     status_filter: str | None = None,
+    pagination: PaginationParams = Depends(),
     current_user: User = Depends(require_permission(Permission.CONTACTS_READ)),
     db: AsyncSession = Depends(get_db),
-) -> list[Contact]:
+) -> Page[ContactOut]:
     if current_user.organization_id is None:
         raise NotFoundError("Current organization not found.")
-    return await ContactRepository(db).list_contacts(
+    items, total = await ContactRepository(db).list_contacts(
         tenant_id=current_user.tenant_id,
         organization_id=current_user.organization_id,
         search=search,
         status=status_filter,
+        limit=pagination.page_size,
+        offset=pagination.offset,
     )
+    return Page.create(items, total, pagination.page, pagination.page_size)
 
 
 @router.post("", response_model=ContactOut, status_code=status.HTTP_201_CREATED)

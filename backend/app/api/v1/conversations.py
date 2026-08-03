@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import require_permission
 from app.core.errors import NotFoundError
+from app.core.pagination import Page, PaginationParams
 from app.core.permissions import Permission
 from app.db.session import get_db
 from app.modules.audit.repository import AuditRepository
@@ -23,17 +24,21 @@ from app.modules.users.models import User
 router = APIRouter(prefix="/conversations", tags=["conversations"])
 
 
-@router.get("", response_model=list[ConversationOut])
+@router.get("", response_model=Page[ConversationOut])
 async def list_conversations(
+    pagination: PaginationParams = Depends(),
     current_user: User = Depends(require_permission(Permission.CONVERSATIONS_READ)),
     db: AsyncSession = Depends(get_db),
-) -> list[Conversation]:
+) -> Page[ConversationOut]:
     if current_user.organization_id is None:
         raise NotFoundError("Current organization not found.")
-    return await ConversationRepository(db).list_conversations(
+    items, total = await ConversationRepository(db).list_conversations(
         tenant_id=current_user.tenant_id,
         organization_id=current_user.organization_id,
+        limit=pagination.page_size,
+        offset=pagination.offset,
     )
+    return Page.create(items, total, pagination.page, pagination.page_size)
 
 
 @router.post("", response_model=ConversationDetailOut, status_code=status.HTTP_201_CREATED)

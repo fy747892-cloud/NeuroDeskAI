@@ -85,7 +85,7 @@ async def retrieve_context(
                 ),
             )
 
-        conversations = await conversations_repo.list_conversations(
+        conversations, _ = await conversations_repo.list_conversations(
             tenant_id=tenant_id, organization_id=organization_id, search=keyword
         )
         for conversation in conversations:
@@ -100,7 +100,7 @@ async def retrieve_context(
                 ),
             )
 
-        contacts = await contacts_repo.list_contacts(
+        contacts, _ = await contacts_repo.list_contacts(
             tenant_id=tenant_id, organization_id=organization_id, search=keyword
         )
         for contact in contacts:

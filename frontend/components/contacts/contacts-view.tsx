@@ -8,6 +8,7 @@ import { useLanguage } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast";
 import { Skeleton } from "@/components/shell/skeleton";
 import { EmptyState } from "@/components/shell/empty-state";
+import { Pagination } from "@/components/shell/pagination";
 import { getInitials } from "@/lib/format";
 import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
 
@@ -17,6 +18,9 @@ export function ContactsView() {
   const { showToast } = useToast();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [search, setSearch] = useState("");
+  const [activeSearch, setActiveSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -30,21 +34,23 @@ export function ContactsView() {
     title: "",
   });
 
-  const loadContacts = useCallback(
-    async (nextSearch = "") => {
-      if (!tokens?.accessToken) return;
-      setLoading(true);
-      setError(null);
-      try {
-        setContacts(await listContacts(tokens.accessToken, { search: nextSearch.trim() || undefined }));
-      } catch (loadError) {
-        setError(loadError instanceof Error ? loadError.message : t("contacts.loadError"));
-      } finally {
-        setLoading(false);
-      }
-    },
-    [tokens?.accessToken],
-  );
+  const loadContacts = useCallback(async () => {
+    if (!tokens?.accessToken) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const contactsPage = await listContacts(tokens.accessToken, {
+        search: activeSearch.trim() || undefined,
+        page,
+      });
+      setContacts(contactsPage.items);
+      setTotalPages(contactsPage.total_pages);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : t("contacts.loadError"));
+    } finally {
+      setLoading(false);
+    }
+  }, [tokens?.accessToken, activeSearch, page]);
 
   useEffect(() => {
     loadContacts();
@@ -53,7 +59,8 @@ export function ContactsView() {
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSelectedIds(new Set());
-    loadContacts(search);
+    setPage(1);
+    setActiveSearch(search);
   }
 
   function toggleSelected(event: MouseEvent, contactId: string) {
@@ -261,7 +268,7 @@ export function ContactsView() {
         {!isLoading && contacts.length === 0 ? (
           <div className="col-span-full">
             <EmptyState
-              icon={search.trim() ? "search_off" : "contacts"}
+              icon={activeSearch.trim() ? "search_off" : "contacts"}
               size="lg"
               title={t("contacts.noContacts")}
             />
@@ -302,6 +309,7 @@ export function ContactsView() {
           </Link>
         ))}
       </div>
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} disabled={isLoading} />
     </div>
   );
 }
