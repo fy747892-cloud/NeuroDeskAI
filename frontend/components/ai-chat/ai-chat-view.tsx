@@ -498,7 +498,6 @@ function VoiceOverlay({
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const isSpeechSupported = useMemo(() => getSpeechRecognitionCtor() !== null, []);
   const canSpeakResponses = useMemo(() => isSpeechSynthesisSupported(), []);
-  const hasAutoStartedRef = useRef(false);
 
   const submitTranscript = useCallback(
     async (text: string) => {
@@ -555,17 +554,21 @@ function VoiceOverlay({
     recognition.continuous = false;
     recognition.interimResults = true;
     recognition.onresult = (event: any) => {
+      if (recognitionRef.current !== recognition) return;
       let combined = "";
       for (let i = 0; i < event.results.length; i += 1) {
         combined += event.results[i][0].transcript;
       }
       setTranscript(combined);
     };
-    recognition.onerror = () => {
+    recognition.onerror = (event: any) => {
+      if (recognitionRef.current !== recognition) return;
+      if (event?.error === "aborted") return;
       setError(t("aiChat.errors.voiceRecognitionFailed"));
       setListening(false);
     };
     recognition.onend = () => {
+      if (recognitionRef.current !== recognition) return;
       setListening(false);
       recognitionRef.current = null;
       setTranscript((current) => {
@@ -596,19 +599,15 @@ function VoiceOverlay({
   }
 
   useEffect(() => {
+    if (isSpeechSupported) {
+      startListening();
+    }
     return () => {
       recognitionRef.current?.stop();
       if (isSpeechSynthesisSupported()) {
         window.speechSynthesis.cancel();
       }
     };
-  }, []);
-
-  useEffect(() => {
-    if (hasAutoStartedRef.current) return;
-    if (!isSpeechSupported) return;
-    hasAutoStartedRef.current = true;
-    startListening();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSpeechSupported]);
 
