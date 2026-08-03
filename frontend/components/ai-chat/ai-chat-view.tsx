@@ -616,10 +616,15 @@ function VoiceOverlay({
   }
 
   useEffect(() => {
+    let startTimer: ReturnType<typeof setTimeout> | null = null;
     if (isSpeechSupported) {
-      startListening();
+      // Deferred so React StrictMode's dev-only mount→cleanup→mount replay
+      // never has to spin up and tear down a real SpeechRecognition/mic
+      // session — only the surviving mount's timer actually fires.
+      startTimer = setTimeout(() => startListening(), 0);
     }
     return () => {
+      if (startTimer) clearTimeout(startTimer);
       clearSilenceTimeout();
       recognitionRef.current?.stop();
       if (isSpeechSynthesisSupported()) {
