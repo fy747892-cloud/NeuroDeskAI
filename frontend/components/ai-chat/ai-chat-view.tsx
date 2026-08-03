@@ -562,20 +562,7 @@ function VoiceOverlay({
     recognition.lang = language === "tr" ? "tr-TR" : "en-US";
     recognition.continuous = true;
     recognition.interimResults = true;
-    (recognition as unknown as { onstart: (() => void) | null }).onstart = () => {
-      console.log("[voice] onstart, current === this:", recognitionRef.current === recognition);
-    };
-    (recognition as unknown as { onaudiostart: (() => void) | null }).onaudiostart = () => {
-      console.log("[voice] onaudiostart");
-    };
-    (recognition as unknown as { onspeechstart: (() => void) | null }).onspeechstart = () => {
-      console.log("[voice] onspeechstart");
-    };
-    (recognition as unknown as { onnomatch: (() => void) | null }).onnomatch = () => {
-      console.log("[voice] onnomatch");
-    };
     recognition.onresult = (event: any) => {
-      console.log("[voice] onresult, current === this:", recognitionRef.current === recognition, event);
       if (recognitionRef.current !== recognition) return;
       let combined = "";
       for (let i = 0; i < event.results.length; i += 1) {
@@ -590,15 +577,17 @@ function VoiceOverlay({
       }, 1600);
     };
     recognition.onerror = (event: any) => {
-      console.log("[voice] onerror, current === this:", recognitionRef.current === recognition, "error:", event?.error, "message:", event?.message);
       if (recognitionRef.current !== recognition) return;
       clearSilenceTimeout();
       if (event?.error === "aborted") return;
-      setError(t("aiChat.errors.voiceRecognitionFailed"));
+      setError(
+        event?.error === "network"
+          ? t("aiChat.errors.voiceNetworkFailed")
+          : t("aiChat.errors.voiceRecognitionFailed"),
+      );
       setListening(false);
     };
     recognition.onend = () => {
-      console.log("[voice] onend, current === this:", recognitionRef.current === recognition);
       if (recognitionRef.current !== recognition) return;
       clearSilenceTimeout();
       setListening(false);

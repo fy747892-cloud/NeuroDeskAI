@@ -817,6 +817,7 @@ export const tr: TranslationDictionary = {
       voiceInterpretFailed: "Sesli komut yorumlanamadı.",
       voiceNotSupported: "Bu tarayıcı sesli tanımayı desteklemiyor. Komutunu yazabilirsin.",
       voiceRecognitionFailed: "Ses tanıma başarısız oldu. Tekrar dene ya da yazarak gönder.",
+      voiceNetworkFailed: "Sesli tanıma servisine ulaşılamadı (VPN, reklam engelleyici veya ağ kısıtlaması olabilir). Yazarak gönderebilirsin.",
       renameSessionFailed: "Oturum yeniden adlandırılamadı.",
       deleteSessionFailed: "Oturum silinemedi.",
     },

@@ -817,6 +817,7 @@ export const en: TranslationDictionary = {
       voiceInterpretFailed: "Could not interpret the voice command.",
       voiceNotSupported: "This browser doesn't support speech recognition. You can type your command instead.",
       voiceRecognitionFailed: "Speech recognition failed. Try again or send by typing.",
+      voiceNetworkFailed: "Couldn't reach the speech recognition service (may be blocked by a VPN, ad blocker, or network policy). You can type instead.",
       renameSessionFailed: "Could not rename the session.",
       deleteSessionFailed: "Could not delete the session.",
     },
