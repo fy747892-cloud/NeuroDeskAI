@@ -498,6 +498,7 @@ function VoiceOverlay({
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const isSpeechSupported = useMemo(() => getSpeechRecognitionCtor() !== null, []);
   const canSpeakResponses = useMemo(() => isSpeechSynthesisSupported(), []);
+  const hasAutoStartedRef = useRef(false);
 
   const submitTranscript = useCallback(
     async (text: string) => {
@@ -551,7 +552,7 @@ function VoiceOverlay({
 
     const recognition = new Ctor();
     recognition.lang = language === "tr" ? "tr-TR" : "en-US";
-    recognition.continuous = true;
+    recognition.continuous = false;
     recognition.interimResults = true;
     recognition.onresult = (event: any) => {
       let combined = "";
@@ -603,6 +604,14 @@ function VoiceOverlay({
     };
   }, []);
 
+  useEffect(() => {
+    if (hasAutoStartedRef.current) return;
+    if (!isSpeechSupported) return;
+    hasAutoStartedRef.current = true;
+    startListening();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSpeechSupported]);
+
   async function handleSendToChat() {
     if (!transcript.trim()) return;
     await onSubmitText(transcript.trim());
@@ -631,28 +640,36 @@ function VoiceOverlay({
               ? t("aiChat.realTimeTranscript")
               : t("aiChat.typeInstead")}
         </span>
-        <form id="voice-form" onSubmit={handleVoiceSubmit} className="relative">
-          <input
-            autoFocus
-            className="w-full bg-transparent border-b-2 border-primary/20 focus:border-primary text-center font-headline-lg text-headline-lg text-on-surface font-medium leading-relaxed outline-none pb-2 pr-12"
-            onChange={(e) => setTranscript(e.target.value)}
-            placeholder={t("aiChat.voiceInputPlaceholder")}
-            value={transcript}
-          />
-          <button
-            type="button"
-            disabled={!transcript}
-            onClick={() => {
-              setTranscript("");
-              setResponse(null);
-              setActionMeta(null);
-            }}
-            className="absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full text-on-surface-variant hover:bg-surface-container-high disabled:opacity-40"
-            aria-label={t("common.clear")}
-          >
-            <span className="material-symbols-outlined">backspace</span>
-          </button>
-        </form>
+        {isSpeechSupported ? (
+          <div className="min-h-[3.5em] flex items-center justify-center">
+            <p className="font-headline-lg text-headline-lg text-on-surface font-medium leading-relaxed">
+              {transcript || (isListening ? t("aiChat.listeningHint") : t("aiChat.tapMicHint"))}
+            </p>
+          </div>
+        ) : (
+          <form id="voice-form" onSubmit={handleVoiceSubmit} className="relative">
+            <input
+              autoFocus
+              className="w-full bg-transparent border-b-2 border-primary/20 focus:border-primary text-center font-headline-lg text-headline-lg text-on-surface font-medium leading-relaxed outline-none pb-2 pr-12"
+              onChange={(e) => setTranscript(e.target.value)}
+              placeholder={t("aiChat.voiceInputPlaceholder")}
+              value={transcript}
+            />
+            <button
+              type="button"
+              disabled={!transcript}
+              onClick={() => {
+                setTranscript("");
+                setResponse(null);
+                setActionMeta(null);
+              }}
+              className="absolute right-0 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full text-on-surface-variant hover:bg-surface-container-high disabled:opacity-40"
+              aria-label={t("common.clear")}
+            >
+              <span className="material-symbols-outlined">backspace</span>
+            </button>
+          </form>
+        )}
       </div>
 
       <div className="flex flex-col items-center gap-12 py-xl">
@@ -722,9 +739,11 @@ function VoiceOverlay({
               </div>
             </div>
           </div>
-        ) : (
+        ) : isBusy ? (
+          <p className="text-center text-body-sm text-on-surface-variant">{t("aiChat.thinkingHint")}</p>
+        ) : !isSpeechSupported ? (
           <p className="text-center text-body-sm text-on-surface-variant">{t("aiChat.voicePrompt")}</p>
-        )}
+        ) : null}
       </div>
     </div>
   );
