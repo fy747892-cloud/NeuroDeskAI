@@ -46,3 +46,24 @@ class DealUpdate(BaseModel):
 
 class DealCreateFromApproval(BaseModel):
     approval_id: UUID
+
+
+class DealStageBreakdownOut(BaseModel):
+    stage: str
+    currency: str
+    total_value: float
+    deal_count: int
+
+
+class DealForecastMonthOut(BaseModel):
+    month: str
+    currency: str
+    total_value: float
+    deal_count: int
+
+
+class DealPipelineReportOut(BaseModel):
+    by_stage: list[DealStageBreakdownOut]
+    by_expected_month: list[DealForecastMonthOut]
+    open_stages: list[str]
+    generated_at: datetime

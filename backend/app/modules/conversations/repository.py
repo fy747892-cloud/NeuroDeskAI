@@ -57,23 +57,28 @@ class ConversationRepository:
         tenant_id: uuid.UUID,
         organization_id: uuid.UUID,
         limit: int | None = None,
+        offset: int = 0,
         search: str | None = None,
-    ) -> list[Conversation]:
-        statement = (
-            select(Conversation)
-            .where(
-                Conversation.tenant_id == tenant_id,
-                Conversation.organization_id == organization_id,
-                Conversation.is_deleted.is_(False),
-            )
-            .order_by(Conversation.created_at.desc())
+    ) -> tuple[list[Conversation], int]:
+        statement = select(Conversation).where(
+            Conversation.tenant_id == tenant_id,
+            Conversation.organization_id == organization_id,
+            Conversation.is_deleted.is_(False),
         )
         if search is not None:
             statement = statement.where(Conversation.title.ilike(f"%{search}%"))
+
+        total = (
+            await self._db.execute(select(func.count()).select_from(statement.subquery()))
+        ).scalar_one()
+
+        ordered_statement = statement.order_by(
+            Conversation.created_at.desc(), Conversation.id.desc()
+        ).offset(offset)
         if limit is not None:
-            statement = statement.limit(limit)
-        result = await self._db.execute(statement)
-        return list(result.scalars().all())
+            ordered_statement = ordered_statement.limit(limit)
+        result = await self._db.execute(ordered_statement)
+        return list(result.scalars().all()), total
 
     async def get_last_for_contact(
         self,

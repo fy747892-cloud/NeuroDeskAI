@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import require_permission
 from app.core.errors import NotFoundError, ValidationAppError
+from app.core.pagination import Page, PaginationParams
 from app.core.permissions import Permission
 from app.core.rate_limit import RateLimiter
 from app.db.redis import get_redis
@@ -86,16 +87,28 @@ async def complete_file_upload(
     return file
 
 
-@router.get("", response_model=list[FileOut])
+@router.get("", response_model=Page[FileOut])
 async def list_files(
+    search: str | None = None,
+    status_filter: str | None = None,
+    pagination: PaginationParams = Depends(),
     current_user: User = Depends(require_permission(Permission.FILES_READ)),
     db: AsyncSession = Depends(get_db),
-) -> list[File]:
+) -> Page[FileOut]:
     if current_user.organization_id is None:
         raise NotFoundError("Current organization not found.")
-    return await FileRepository(db).list_files(
-        tenant_id=current_user.tenant_id, organization_id=current_user.organization_id
+    items, total = await FileRepository(db).list_files(
+        tenant_id=current_user.tenant_id,
+        organization_id=current_user.organization_id,
+        search=search,
+        status=status_filter,
+        limit=pagination.page_size,
+        offset=pagination.offset,
     )
+    # response_model=Page[FileOut] performs the actual ORM->schema conversion at
+    # request time; Page[File] can't be used as a static annotation here since
+    # instantiating a Pydantic generic with a non-Pydantic ORM class crashes at import.
+    return Page.create(items, total, pagination.page, pagination.page_size)  # type: ignore[arg-type]
 
 
 @router.get("/{file_id}", response_model=FileOut)

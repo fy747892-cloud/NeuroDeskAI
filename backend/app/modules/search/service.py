@@ -48,16 +48,18 @@ class SearchService:
             text = f"{appointment.title}\n{appointment.description or ''}".strip()
             sources.append(("appointment", appointment.id, text, {"title": appointment.title}))
 
-        for conversation in await self._conversations.list_conversations(
+        conversations, _ = await self._conversations.list_conversations(
             tenant_id=tenant_id, organization_id=organization_id
-        ):
+        )
+        for conversation in conversations:
             sources.append(
                 ("conversation", conversation.id, conversation.title, {"title": conversation.title})
             )
 
-        for contact in await self._contacts.list_contacts(
+        contacts, _ = await self._contacts.list_contacts(
             tenant_id=tenant_id, organization_id=organization_id
-        ):
+        )
+        for contact in contacts:
             text = f"{contact.full_name}\n{contact.company or ''}".strip()
             sources.append(("contact", contact.id, text, {"title": contact.full_name}))
 

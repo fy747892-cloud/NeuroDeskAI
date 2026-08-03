@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.contacts.models import Contact, ContactNote, ContactTimelineEvent
@@ -47,7 +47,9 @@ class ContactRepository:
         organization_id: uuid.UUID,
         search: str | None = None,
         status: str | None = None,
-    ) -> list[Contact]:
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> tuple[list[Contact], int]:
         statement = select(Contact).where(
             Contact.tenant_id == tenant_id,
             Contact.organization_id == organization_id,
@@ -65,8 +67,18 @@ class ContactRepository:
                     Contact.company.ilike(term),
                 )
             )
-        result = await self._db.execute(statement.order_by(Contact.full_name.asc()))
-        return list(result.scalars().all())
+
+        total = (
+            await self._db.execute(select(func.count()).select_from(statement.subquery()))
+        ).scalar_one()
+
+        ordered_statement = statement.order_by(
+            Contact.full_name.asc(), Contact.id.asc()
+        ).offset(offset)
+        if limit is not None:
+            ordered_statement = ordered_statement.limit(limit)
+        result = await self._db.execute(ordered_statement)
+        return list(result.scalars().all()), total
 
     async def get_by_id(
         self,

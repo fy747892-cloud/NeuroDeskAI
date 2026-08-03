@@ -57,6 +57,17 @@ class EmailAccountRepository:
         )
         return list(result.scalars().all())
 
+    async def list_all_connected(self) -> list[EmailAccount]:
+        result = await self._db.execute(
+            select(EmailAccount)
+            .where(
+                EmailAccount.status == "connected",
+                EmailAccount.is_deleted.is_(False),
+            )
+            .order_by(EmailAccount.created_at.desc())
+        )
+        return list(result.scalars().all())
+
     async def create(
         self,
         *,
@@ -209,6 +220,8 @@ class EmailMessageRepository:
         snippet: str | None,
         body: str | None,
         received_at: datetime | None,
+        direction: str = "inbound",
+        contact_id: uuid.UUID | None = None,
     ) -> EmailMessageMetadata:
         message = EmailMessageMetadata(
             tenant_id=tenant_id,
@@ -221,6 +234,8 @@ class EmailMessageRepository:
             snippet=snippet,
             body=body,
             received_at=received_at,
+            direction=direction,
+            contact_id=contact_id,
         )
         self._db.add(message)
         await self._db.flush()

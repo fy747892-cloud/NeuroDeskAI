@@ -66,6 +66,15 @@ class OrganizationRepository:
         await self._db.flush()
         return member
 
+    async def list_all_active(self) -> list[Organization]:
+        result = await self._db.execute(
+            select(Organization).where(
+                Organization.status == "active",
+                Organization.is_deleted.is_(False),
+            )
+        )
+        return list(result.scalars().all())
+
     async def get_by_id(
         self, *, tenant_id: uuid.UUID, organization_id: uuid.UUID
     ) -> Organization | None:

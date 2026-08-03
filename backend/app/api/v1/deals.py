@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,8 +10,16 @@ from app.core.permissions import Permission
 from app.db.session import get_db
 from app.modules.audit.repository import AuditRepository
 from app.modules.deals.models import Deal
-from app.modules.deals.repository import DealRepository
-from app.modules.deals.schemas import DealCreate, DealCreateFromApproval, DealOut, DealUpdate
+from app.modules.deals.repository import OPEN_STAGES, DealRepository
+from app.modules.deals.schemas import (
+    DealCreate,
+    DealCreateFromApproval,
+    DealForecastMonthOut,
+    DealOut,
+    DealPipelineReportOut,
+    DealStageBreakdownOut,
+    DealUpdate,
+)
 from app.modules.deals.service import DealService
 from app.modules.users.models import User
 
@@ -29,6 +38,34 @@ async def list_deals(
         tenant_id=current_user.tenant_id,
         organization_id=current_user.organization_id,
         stage=stage,
+    )
+
+
+@router.get("/pipeline-report", response_model=DealPipelineReportOut)
+async def get_pipeline_report(
+    current_user: User = Depends(require_permission(Permission.DEALS_READ)),
+    db: AsyncSession = Depends(get_db),
+) -> DealPipelineReportOut:
+    if current_user.organization_id is None:
+        raise NotFoundError("Current organization not found.")
+    repo = DealRepository(db)
+    by_stage = await repo.pipeline_by_stage(
+        tenant_id=current_user.tenant_id, organization_id=current_user.organization_id
+    )
+    by_expected_month = await repo.pipeline_by_expected_month(
+        tenant_id=current_user.tenant_id, organization_id=current_user.organization_id
+    )
+    return DealPipelineReportOut(
+        by_stage=[
+            DealStageBreakdownOut(stage=stage, currency=currency, total_value=total, deal_count=count)
+            for stage, currency, total, count in by_stage
+        ],
+        by_expected_month=[
+            DealForecastMonthOut(month=month, currency=currency, total_value=total, deal_count=count)
+            for month, currency, total, count in by_expected_month
+        ],
+        open_stages=list(OPEN_STAGES),
+        generated_at=datetime.now(timezone.utc),
     )
 
 

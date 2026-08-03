@@ -57,6 +57,17 @@ class CalendarAccountRepository:
         )
         return list(result.scalars().all())
 
+    async def list_all_connected(self) -> list[CalendarAccount]:
+        result = await self._db.execute(
+            select(CalendarAccount)
+            .where(
+                CalendarAccount.status == "connected",
+                CalendarAccount.is_deleted.is_(False),
+            )
+            .order_by(CalendarAccount.created_at.desc())
+        )
+        return list(result.scalars().all())
+
     async def create(
         self,
         *,

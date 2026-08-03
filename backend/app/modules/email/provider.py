@@ -1,5 +1,7 @@
+import base64
 import secrets
 from datetime import datetime, timedelta, timezone
+from email.mime.text import MIMEText
 from typing import Protocol
 from urllib.parse import urlencode
 
@@ -177,6 +179,13 @@ class MockGmailProvider:
             for index in range(1, max_results + 1)
         ]
 
+    async def send_message(
+        self, *, access_token: str, to: str, subject: str, body_text: str
+    ) -> dict:
+        if "[mock-fail]" in body_text:
+            raise RuntimeError("Mock Gmail provider failed to send message.")
+        return {"id": f"mock-sent-{secrets.token_urlsafe(8)}"}
+
 
 class GmailProvider:
     """Real Gmail API readonly message listing."""
@@ -224,6 +233,24 @@ class GmailProvider:
                     }
                 )
             return results
+
+    async def send_message(
+        self, *, access_token: str, to: str, subject: str, body_text: str
+    ) -> dict:
+        message = MIMEText(body_text)
+        message["to"] = to
+        message["subject"] = subject
+        raw = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii")
+
+        headers = {"Authorization": f"Bearer {access_token}"}
+        async with httpx.AsyncClient(timeout=HTTP_TIMEOUT_SECONDS) as client:
+            response = await client.post(
+                f"{GMAIL_API_BASE}/messages/send",
+                headers=headers,
+                json={"raw": raw},
+            )
+        response.raise_for_status()
+        return response.json()
 
 
 class MockMicrosoftOAuthProvider:
@@ -365,6 +392,11 @@ class MockOutlookMailProvider:
             for index in range(1, max_results + 1)
         ]
 
+    async def send_message(
+        self, *, access_token: str, to: str, subject: str, body_text: str
+    ) -> dict:
+        raise RuntimeError("Sending is not yet supported for Outlook accounts.")
+
 
 class OutlookMailProvider:
     """Real Microsoft Graph mail listing."""
@@ -404,6 +436,11 @@ class OutlookMailProvider:
             )
         return results
 
+    async def send_message(
+        self, *, access_token: str, to: str, subject: str, body_text: str
+    ) -> dict:
+        raise RuntimeError("Sending is not yet supported for Outlook accounts.")
+
 
 class OAuthProvider(Protocol):
     def build_authorize_url(self, *, state: str) -> str: ...
@@ -413,6 +450,10 @@ class OAuthProvider(Protocol):
 
 class MailProvider(Protocol):
     async def list_message_metadata(self, *, access_token: str, max_results: int = 10) -> list[dict]: ...
+
+    async def send_message(
+        self, *, access_token: str, to: str, subject: str, body_text: str
+    ) -> dict: ...
 
 
 def get_oauth_provider(provider: str) -> OAuthProvider:

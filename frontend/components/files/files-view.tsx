@@ -19,6 +19,7 @@ import { SkeletonList } from "@/components/shell/skeleton";
 import { formatDateTime } from "@/lib/format";
 import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
 import { EmptyState } from "@/components/shell/empty-state";
+import { Pagination } from "@/components/shell/pagination";
 
 type DialogState = {
   title: string;
@@ -45,6 +46,8 @@ export function FilesView() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [sortBy, setSortBy] = useState<"newest" | "oldest" | "name" | "size">("newest");
   const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
   const [isDragActive, setDragActive] = useState(false);
   const dragCounter = useRef(0);
 
@@ -57,15 +60,7 @@ export function FilesView() {
   );
 
   const visibleFiles = useMemo(() => {
-    let next = files;
-    if (statusFilter !== "all") {
-      next = next.filter((file) => file.status === statusFilter);
-    }
-    if (searchQuery.trim()) {
-      const query = searchQuery.trim().toLocaleLowerCase(language === "tr" ? "tr-TR" : "en-US");
-      next = next.filter((file) => file.filename.toLocaleLowerCase().includes(query));
-    }
-    const sorted = [...next];
+    const sorted = [...files];
     switch (sortBy) {
       case "oldest":
         sorted.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
@@ -80,21 +75,26 @@ export function FilesView() {
         sorted.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     }
     return sorted;
-  }, [files, statusFilter, searchQuery, sortBy, language]);
+  }, [files, sortBy]);
 
   const loadFiles = useCallback(async () => {
     if (!tokens?.accessToken) return;
     setLoading(true);
     try {
-      const nextFiles = await listFiles(tokens.accessToken);
-      setFiles(nextFiles);
+      const filesPage = await listFiles(tokens.accessToken, {
+        search: searchQuery.trim() || undefined,
+        status: statusFilter !== "all" ? statusFilter : undefined,
+        page,
+      });
+      setFiles(filesPage.items);
+      setTotalPages(filesPage.total_pages);
       setError(null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : t("files.loadError"));
     } finally {
       setLoading(false);
     }
-  }, [tokens?.accessToken, t]);
+  }, [tokens?.accessToken, t, searchQuery, statusFilter, page]);
 
   useEffect(() => {
     loadFiles();
@@ -322,14 +322,20 @@ export function FilesView() {
             </span>
             <input
               className="w-full bg-surface-container-low border-none rounded-full pl-10 pr-4 py-2 text-body-sm"
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setPage(1);
+                setSearchQuery(e.target.value);
+              }}
               placeholder={t("files.searchPlaceholder")}
               value={searchQuery}
             />
           </div>
           <select
             className="bg-surface-container-low border-none rounded-lg px-3 py-2 text-body-sm"
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => {
+              setPage(1);
+              setStatusFilter(e.target.value);
+            }}
             value={statusFilter}
           >
             <option value="all">{t("files.filterAllStatuses")}</option>
@@ -368,14 +374,14 @@ export function FilesView() {
           </div>
         ) : null}
         {isLoading ? <SkeletonList count={3} /> : null}
-        {!isLoading && files.length === 0 ? (
-          <div className="glass-card rounded-xl">
-            <EmptyState icon="upload_file" size="lg" title={t("files.emptyWithDropHint")} />
-          </div>
-        ) : null}
-        {!isLoading && files.length > 0 && visibleFiles.length === 0 ? (
+        {!isLoading && files.length === 0 && (searchQuery.trim() || statusFilter !== "all") ? (
           <div className="glass-card rounded-xl">
             <EmptyState icon="search_off" title={t("files.noMatches")} />
+          </div>
+        ) : null}
+        {!isLoading && files.length === 0 && !searchQuery.trim() && statusFilter === "all" ? (
+          <div className="glass-card rounded-xl">
+            <EmptyState icon="upload_file" size="lg" title={t("files.emptyWithDropHint")} />
           </div>
         ) : null}
         {visibleFiles.map((file) => (
@@ -400,6 +406,7 @@ export function FilesView() {
           />
         ))}
       </section>
+      <Pagination page={page} totalPages={totalPages} onPageChange={setPage} disabled={isLoading} />
 
       {dialog ? <TextDialog dialog={dialog} onClose={() => setDialog(null)} /> : null}
     </div>

@@ -8,7 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.crypto import decrypt_token, encrypt_token
 from app.core.errors import AuthError, NotFoundError, ProviderError, ValidationAppError
 from app.core.oauth_state import OAuthStateStore
-from app.modules.email.models import EmailAccount
+from app.modules.contacts.models import Contact
+from app.modules.contacts.repository import ContactRepository
+from app.modules.email.models import EmailAccount, EmailMessageMetadata
 from app.modules.email.provider import get_mail_provider, get_oauth_provider
 from app.modules.email.repository import (
     EmailAccountRepository,
@@ -22,6 +24,7 @@ class EmailIntegrationService:
         self._accounts = EmailAccountRepository(db)
         self._tokens = EmailTokenRepository(db)
         self._messages = EmailMessageRepository(db)
+        self._contacts = ContactRepository(db)
         self._states = OAuthStateStore(redis, key_prefix="gmail_oauth_state:")
 
     async def start_connect(
@@ -185,3 +188,65 @@ class EmailIntegrationService:
 
         await self._accounts.mark_synced(account=account, synced_at=datetime.now(timezone.utc))
         return {"fetched": len(fetched_messages), "created": created, "skipped": skipped}
+
+    async def send_message(
+        self, *, account: EmailAccount, contact: Contact, subject: str, body: str
+    ) -> EmailMessageMetadata:
+        if account.status != "connected":
+            raise ValidationAppError(
+                "Only a connected email account can send messages (it may be revoked or not yet connected)."
+            )
+        if not contact.email:
+            raise ValidationAppError("This contact has no email address to send to.")
+
+        token_row = await self._tokens.get_by_account(email_account_id=account.id)
+        if token_row is None:
+            raise ValidationAppError("This account has no stored access token.")
+        if account.provider == "gmail" and "gmail.send" not in (
+            account.consent_scope or token_row.scope or ""
+        ):
+            raise ValidationAppError(
+                "E-posta göndermek için Gmail hesabınızın gönderme iznine (gmail.send) sahip "
+                "olması gerekiyor. Lütfen Mailler sayfasından Gmail hesabınızı yeniden bağlayın."
+            )
+        if account.provider != "gmail":
+            raise ValidationAppError("Sending is currently only supported for Gmail accounts.")
+
+        if token_row.expires_at is not None and token_row.expires_at <= datetime.now(timezone.utc):
+            account = await self.refresh_access_token(account=account)
+            token_row = await self._tokens.get_by_account(email_account_id=account.id)
+            if token_row is None:
+                raise ValidationAppError("This account has no stored access token.")
+
+        access_token = decrypt_token(token_row.access_token_encrypted)
+        mail_provider = get_mail_provider(account.provider)
+        try:
+            sent = await mail_provider.send_message(
+                access_token=access_token, to=contact.email, subject=subject, body_text=body
+            )
+        except httpx.HTTPStatusError as exc:
+            raise ProviderError(f"Mail provider request failed: {exc}") from exc
+
+        message = await self._messages.create(
+            tenant_id=account.tenant_id,
+            organization_id=account.organization_id,
+            email_account_id=account.id,
+            provider_message_id=sent["id"],
+            thread_id=sent.get("threadId"),
+            subject=subject,
+            from_address=account.email_address,
+            snippet=body[:280],
+            body=body,
+            received_at=datetime.now(timezone.utc),
+            direction="outbound",
+            contact_id=contact.id,
+        )
+        await self._contacts.add_timeline_event(
+            tenant_id=account.tenant_id,
+            contact_id=contact.id,
+            event_type="email_sent",
+            source_type="email_message",
+            source_id=message.id,
+            event_metadata={"title": f"E-posta: {subject}", "summary": body[:280]},
+        )
+        return message

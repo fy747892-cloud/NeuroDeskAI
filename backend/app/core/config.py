@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=(".env", "backend/.env"), extra="ignore")
 
     env: str = "local"
+    scheduler_enabled: bool = False
 
     database_url: str
     database_ssl_mode: str = "disable"
@@ -23,7 +24,10 @@ class Settings(BaseSettings):
     token_encryption_key: str
     google_client_id: str = ""
     google_client_secret: str = ""
-    google_oauth_scopes: str = "https://www.googleapis.com/auth/gmail.metadata openid email"
+    google_oauth_scopes: str = (
+        "https://www.googleapis.com/auth/gmail.metadata "
+        "https://www.googleapis.com/auth/gmail.send openid email"
+    )
     google_calendar_oauth_scopes: str = ""
     microsoft_client_id: str = ""
     microsoft_client_secret: str = ""
@@ -51,6 +55,11 @@ class Settings(BaseSettings):
     diarization_provider: str = "disabled"
     diarization_model: str = "pyannote/speaker-diarization-3.1"
     hf_token: str = ""
+    pyannoteai_api_key: str = ""
+    pyannoteai_base_url: str = "https://api.pyannote.ai/v1"
+    pyannoteai_model: str = "precision-2"
+    pyannoteai_poll_interval_seconds: float = 3.0
+    pyannoteai_poll_timeout_seconds: float = 90.0
 
     email_provider: str = "mock"
     smtp_host: str = ""

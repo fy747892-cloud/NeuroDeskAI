@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.files.models import DocumentAnalysisResult, DocumentText, File
@@ -49,17 +49,37 @@ class FileRepository:
         )
         return result.scalar_one_or_none()
 
-    async def list_files(self, *, tenant_id: uuid.UUID, organization_id: uuid.UUID) -> list[File]:
-        result = await self._db.execute(
-            select(File)
-            .where(
-                File.tenant_id == tenant_id,
-                File.organization_id == organization_id,
-                File.is_deleted.is_(False),
-            )
-            .order_by(File.created_at.desc())
+    async def list_files(
+        self,
+        *,
+        tenant_id: uuid.UUID,
+        organization_id: uuid.UUID,
+        search: str | None = None,
+        status: str | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> tuple[list[File], int]:
+        statement = select(File).where(
+            File.tenant_id == tenant_id,
+            File.organization_id == organization_id,
+            File.is_deleted.is_(False),
         )
-        return list(result.scalars().all())
+        if status is not None:
+            statement = statement.where(File.status == status)
+        if search is not None:
+            statement = statement.where(File.filename.ilike(f"%{search}%"))
+
+        total = (
+            await self._db.execute(select(func.count()).select_from(statement.subquery()))
+        ).scalar_one()
+
+        ordered_statement = statement.order_by(
+            File.created_at.desc(), File.id.desc()
+        ).offset(offset)
+        if limit is not None:
+            ordered_statement = ordered_statement.limit(limit)
+        result = await self._db.execute(ordered_statement)
+        return list(result.scalars().all()), total
 
     async def update_status(self, *, file: File, status: str) -> File:
         file.status = status

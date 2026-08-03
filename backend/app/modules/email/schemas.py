@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ConnectStartOut(BaseModel):
@@ -38,9 +38,17 @@ class EmailMessageOut(BaseModel):
     body: str | None
     received_at: datetime | None
     is_replied: bool
+    direction: str
+    contact_id: UUID | None
 
 
 class SyncSummaryOut(BaseModel):
     fetched: int
     created: int
     skipped: int
+
+
+class SendEmailIn(BaseModel):
+    contact_id: UUID
+    subject: str = Field(min_length=1, max_length=255)
+    body: str = Field(min_length=1, max_length=20_000)

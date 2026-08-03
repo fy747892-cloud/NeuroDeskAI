@@ -181,7 +181,9 @@ async def test_call_transcript_is_listed_as_text_file(client: AsyncClient):
     files_response = await client.get("/api/v1/files", headers=headers)
     assert files_response.status_code == 200
     transcript_file = next(
-        file for file in files_response.json() if "isim eklemek için düzenleyin" in file["filename"]
+        file
+        for file in files_response.json()["items"]
+        if "isim eklemek için düzenleyin" in file["filename"]
     )
     assert transcript_file["mime_type"] == TXT_MIME
     assert transcript_file["status"] == "ready"
@@ -396,7 +398,7 @@ async def test_download_url_and_delete_flow(client: AsyncClient):
     assert delete_response.status_code == 204
 
     list_response = await client.get("/api/v1/files", headers=headers)
-    assert file["id"] not in {item["id"] for item in list_response.json()}
+    assert file["id"] not in {item["id"] for item in list_response.json()["items"]}
 
     blocked_download = await client.get(f"/api/v1/files/{file['id']}/download-url", headers=headers)
     assert blocked_download.status_code == 404
@@ -414,7 +416,7 @@ async def test_files_are_tenant_scoped(client: AsyncClient):
     )
 
     list_response = await client.get("/api/v1/files", headers=first_headers)
-    file_ids = {item["id"] for item in list_response.json()}
+    file_ids = {item["id"] for item in list_response.json()["items"]}
     assert file_ids == {first_file["id"]}
 
     cross_tenant_response = await client.get(

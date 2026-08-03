@@ -27,6 +27,65 @@ async def _create_contact(client: AsyncClient, headers: dict[str, str]) -> dict:
     return response.json()
 
 
+async def _create_deal(client: AsyncClient, headers: dict[str, str], **overrides) -> dict:
+    body = {"title": "Deal", "value": 1000, "currency": "TRY", "stage": "lead"}
+    body.update(overrides)
+    response = await client.post("/api/v1/deals", headers=headers, json=body)
+    assert response.status_code == 201
+    return response.json()
+
+
+async def test_pipeline_report_groups_by_stage_currency_and_month(client: AsyncClient):
+    headers = await _auth_headers(client, "deal-pipeline-report@example.com")
+
+    await _create_deal(client, headers, title="Lead A", value=1000, currency="TRY", stage="lead")
+    await _create_deal(client, headers, title="Lead B", value=500, currency="TRY", stage="lead")
+    await _create_deal(
+        client,
+        headers,
+        title="Negotiation USD",
+        value=200,
+        currency="USD",
+        stage="negotiation",
+        expected_close_date="2026-09-15T00:00:00Z",
+    )
+    await _create_deal(
+        client,
+        headers,
+        title="Won deal",
+        value=999,
+        currency="TRY",
+        stage="won",
+        expected_close_date="2026-09-20T00:00:00Z",
+    )
+
+    response = await client.get("/api/v1/deals/pipeline-report", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+
+    assert set(body["open_stages"]) == {"lead", "proposal_sent", "negotiation", "invoiced"}
+
+    lead_try = next(
+        row for row in body["by_stage"] if row["stage"] == "lead" and row["currency"] == "TRY"
+    )
+    assert lead_try["total_value"] == 1500
+    assert lead_try["deal_count"] == 2
+
+    negotiation_usd = next(
+        row for row in body["by_stage"] if row["stage"] == "negotiation" and row["currency"] == "USD"
+    )
+    assert negotiation_usd["total_value"] == 200
+    assert negotiation_usd["deal_count"] == 1
+
+    # "won" is a terminal stage, not in open_stages, so it must not appear in the
+    # expected-close-month forecast even though it has an expected_close_date.
+    assert all(row["currency"] != "TRY" or row["total_value"] != 999 for row in body["by_expected_month"])
+
+    september_usd = next(row for row in body["by_expected_month"] if row["month"] == "2026-09")
+    assert september_usd["currency"] == "USD"
+    assert september_usd["total_value"] == 200
+
+
 async def test_deal_crud_and_soft_delete(client: AsyncClient):
     headers = await _auth_headers(client, "deal-crud@example.com")
     contact = await _create_contact(client, headers)

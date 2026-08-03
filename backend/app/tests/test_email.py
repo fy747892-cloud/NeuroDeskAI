@@ -3,7 +3,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.crypto import decrypt_token
-from app.modules.email.models import EmailToken
+from app.modules.email.models import EmailAccount, EmailToken
 from app.modules.organizations.models import OrganizationMember
 
 
@@ -44,12 +44,12 @@ async def _connect(client: AsyncClient, headers: dict[str, str], provider: str =
     return await _complete_connect(client, start["state"], provider=provider)
 
 
-async def test_connect_returns_minimal_scope_authorize_url_and_state(client: AsyncClient):
+async def test_connect_returns_authorize_url_with_send_scope_and_state(client: AsyncClient):
     headers = await _auth_headers(client, "email-connect@example.com")
     start = await _start_connect(client, headers)
 
     assert "gmail.metadata" in start["authorize_url"]
-    assert "gmail.send" not in start["authorize_url"]
+    assert "gmail.send" in start["authorize_url"]
     assert "gmail.modify" not in start["authorize_url"]
     assert start["state"]
 
@@ -122,7 +122,10 @@ async def test_connect_records_consent(client: AsyncClient):
 
     assert account["status"] == "connected"
     assert account["consent_granted_at"] is not None
-    assert account["consent_scope"] == "https://www.googleapis.com/auth/gmail.metadata openid email"
+    assert account["consent_scope"] == (
+        "https://www.googleapis.com/auth/gmail.metadata "
+        "https://www.googleapis.com/auth/gmail.send openid email"
+    )
 
 
 async def test_revoke_stops_further_sync_and_deletes_tokens(
@@ -346,3 +349,94 @@ async def test_email_sync_rate_limits_are_isolated_per_provider(client: AsyncCli
         f"/api/v1/email/accounts/{outlook_account['id']}/sync", headers=headers
     )
     assert outlook_response.status_code == 200
+
+
+async def _create_contact(client: AsyncClient, headers: dict[str, str], **overrides) -> dict:
+    body = {"full_name": "Ada Lovelace", "email": "ada@example.com"}
+    body.update(overrides)
+    response = await client.post("/api/v1/contacts", headers=headers, json=body)
+    assert response.status_code == 201
+    return response.json()
+
+
+async def test_send_email_creates_outbound_message_and_timeline_event(client: AsyncClient):
+    headers = await _auth_headers(client, "email-send@example.com")
+    account = await _connect(client, headers)
+    contact = await _create_contact(client, headers)
+
+    response = await client.post(
+        f"/api/v1/email/accounts/{account['id']}/send",
+        headers=headers,
+        json={"contact_id": contact["id"], "subject": "Merhaba", "body": "Nasılsınız?"},
+    )
+    assert response.status_code == 200
+    message = response.json()
+    assert message["direction"] == "outbound"
+    assert message["contact_id"] == contact["id"]
+    assert message["subject"] == "Merhaba"
+
+    timeline_response = await client.get(
+        f"/api/v1/contacts/{contact['id']}/timeline", headers=headers
+    )
+    assert timeline_response.status_code == 200
+    events = timeline_response.json()
+    assert any(event["event_type"] == "email_sent" for event in events)
+
+
+async def test_send_email_rejects_account_without_send_scope(
+    client: AsyncClient, db_session: AsyncSession
+):
+    headers = await _auth_headers(client, "email-send-no-scope@example.com")
+    account = await _connect(client, headers)
+    contact = await _create_contact(client, headers)
+
+    # Simulate an account connected before the send scope was added.
+    old_scope = "https://www.googleapis.com/auth/gmail.metadata openid email"
+    await db_session.execute(
+        update(EmailToken).where(EmailToken.email_account_id == account["id"]).values(scope=old_scope)
+    )
+    await db_session.execute(
+        update(EmailAccount).where(EmailAccount.id == account["id"]).values(consent_scope=old_scope)
+    )
+    await db_session.commit()
+
+    response = await client.post(
+        f"/api/v1/email/accounts/{account['id']}/send",
+        headers=headers,
+        json={"contact_id": contact["id"], "subject": "Merhaba", "body": "Nasılsınız?"},
+    )
+    assert response.status_code == 422
+
+
+async def test_send_email_requires_contact_with_email(client: AsyncClient):
+    headers = await _auth_headers(client, "email-send-no-email@example.com")
+    account = await _connect(client, headers)
+    contact = await _create_contact(client, headers, email=None)
+
+    response = await client.post(
+        f"/api/v1/email/accounts/{account['id']}/send",
+        headers=headers,
+        json={"contact_id": contact["id"], "subject": "Merhaba", "body": "Nasılsınız?"},
+    )
+    assert response.status_code == 422
+
+
+async def test_send_email_is_rate_limited(client: AsyncClient):
+    headers = await _auth_headers(client, "email-send-rate-limit@example.com")
+    account = await _connect(client, headers)
+    contact = await _create_contact(client, headers)
+
+    for _ in range(10):
+        response = await client.post(
+            f"/api/v1/email/accounts/{account['id']}/send",
+            headers=headers,
+            json={"contact_id": contact["id"], "subject": "Merhaba", "body": "Nasılsınız?"},
+        )
+        assert response.status_code == 200
+
+    limited_response = await client.post(
+        f"/api/v1/email/accounts/{account['id']}/send",
+        headers=headers,
+        json={"contact_id": contact["id"], "subject": "Merhaba", "body": "Nasılsınız?"},
+    )
+    assert limited_response.status_code == 429

@@ -190,7 +190,7 @@ class ChatService:
     ) -> tuple[Contact | None, list[Contact]]:
         if not contact_hint:
             return None, []
-        contacts = await self._contacts.list_contacts(
+        contacts, _ = await self._contacts.list_contacts(
             tenant_id=tenant_id, organization_id=organization_id, search=contact_hint
         )
         if len(contacts) == 1:

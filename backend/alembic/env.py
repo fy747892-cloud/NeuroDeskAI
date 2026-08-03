@@ -28,7 +28,7 @@ from app.modules.appointments.models import Appointment  # noqa: F401
 from app.modules.audit.models import AuditLog  # noqa: F401
 from app.modules.auth.models import RefreshToken, UserSession  # noqa: F401
 from app.modules.billing.models import Plan, Subscription, UsageQuota, UsageRecord  # noqa: F401
-from app.modules.calendar.models import CalendarAccount  # noqa: F401
+from app.modules.calendar.models import CalendarAccount, CalendarToken  # noqa: F401
 from app.modules.contacts.models import Contact, ContactNote, ContactTimelineEvent  # noqa: F401
 from app.modules.conversations.models import (  # noqa: F401
     Call,
@@ -46,6 +46,7 @@ from app.modules.organizations.models import Organization, OrganizationMember, T
 from app.modules.search.models import Embedding  # noqa: F401
 from app.modules.tasks.models import Task  # noqa: F401
 from app.modules.users.models import User, UserProfile  # noqa: F401
+from app.modules.whatsapp.models import WhatsAppMessage  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
