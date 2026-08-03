@@ -52,6 +52,11 @@ class Settings(BaseSettings):
     diarization_provider: str = "disabled"
     diarization_model: str = "pyannote/speaker-diarization-3.1"
     hf_token: str = ""
+    pyannoteai_api_key: str = ""
+    pyannoteai_base_url: str = "https://api.pyannote.ai/v1"
+    pyannoteai_model: str = "precision-2"
+    pyannoteai_poll_interval_seconds: float = 3.0
+    pyannoteai_poll_timeout_seconds: float = 90.0
 
     email_provider: str = "mock"
     smtp_host: str = ""
