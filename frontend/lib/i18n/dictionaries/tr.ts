@@ -786,6 +786,8 @@ export const tr: TranslationDictionary = {
     markRepliedButton: "Yanıtlandı Olarak İşaretle",
     markRepliedError: "İşaretlenemedi.",
     repliedBadge: "Yanıtlandı",
+    openedBadge: "Açıldı",
+    clickedBadge: "{{count}} tıklama",
     loadError: "E-posta hesapları alınamadı.",
     searchPlaceholder: "Konu veya gönderende ara...",
   },

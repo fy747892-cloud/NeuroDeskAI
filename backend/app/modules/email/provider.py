@@ -1,6 +1,7 @@
 import base64
 import secrets
 from datetime import datetime, timedelta, timezone
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Protocol
 from urllib.parse import urlencode
@@ -180,7 +181,7 @@ class MockGmailProvider:
         ]
 
     async def send_message(
-        self, *, access_token: str, to: str, subject: str, body_text: str
+        self, *, access_token: str, to: str, subject: str, body_text: str, body_html: str | None = None
     ) -> dict:
         if "[mock-fail]" in body_text:
             raise RuntimeError("Mock Gmail provider failed to send message.")
@@ -235,9 +236,14 @@ class GmailProvider:
             return results
 
     async def send_message(
-        self, *, access_token: str, to: str, subject: str, body_text: str
+        self, *, access_token: str, to: str, subject: str, body_text: str, body_html: str | None = None
     ) -> dict:
-        message = MIMEText(body_text)
+        if body_html is not None:
+            message: MIMEText | MIMEMultipart = MIMEMultipart("alternative")
+            message.attach(MIMEText(body_text, "plain"))
+            message.attach(MIMEText(body_html, "html"))
+        else:
+            message = MIMEText(body_text)
         message["to"] = to
         message["subject"] = subject
         raw = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii")
@@ -393,7 +399,7 @@ class MockOutlookMailProvider:
         ]
 
     async def send_message(
-        self, *, access_token: str, to: str, subject: str, body_text: str
+        self, *, access_token: str, to: str, subject: str, body_text: str, body_html: str | None = None
     ) -> dict:
         raise RuntimeError("Sending is not yet supported for Outlook accounts.")
 
@@ -437,7 +443,7 @@ class OutlookMailProvider:
         return results
 
     async def send_message(
-        self, *, access_token: str, to: str, subject: str, body_text: str
+        self, *, access_token: str, to: str, subject: str, body_text: str, body_html: str | None = None
     ) -> dict:
         raise RuntimeError("Sending is not yet supported for Outlook accounts.")
 
@@ -452,7 +458,7 @@ class MailProvider(Protocol):
     async def list_message_metadata(self, *, access_token: str, max_results: int = 10) -> list[dict]: ...
 
     async def send_message(
-        self, *, access_token: str, to: str, subject: str, body_text: str
+        self, *, access_token: str, to: str, subject: str, body_text: str, body_html: str | None = None
     ) -> dict: ...
 
 

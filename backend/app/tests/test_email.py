@@ -1,9 +1,12 @@
+import uuid
+
 from httpx import AsyncClient
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.crypto import decrypt_token
 from app.modules.email.models import EmailAccount, EmailToken
+from app.modules.email.tracking import build_html_body
 from app.modules.organizations.models import OrganizationMember
 
 
@@ -440,3 +443,118 @@ async def test_send_email_is_rate_limited(client: AsyncClient):
         json={"contact_id": contact["id"], "subject": "Merhaba", "body": "Nasılsınız?"},
     )
     assert limited_response.status_code == 429
+
+
+async def _find_message(client: AsyncClient, headers: dict[str, str], account_id: str, message_id: str) -> dict:
+    response = await client.get(f"/api/v1/email/accounts/{account_id}/messages", headers=headers)
+    assert response.status_code == 200
+    return next(message for message in response.json() if message["id"] == message_id)
+
+
+async def test_track_pixel_records_open(client: AsyncClient):
+    headers = await _auth_headers(client, "email-track-open@example.com")
+    account = await _connect(client, headers)
+    contact = await _create_contact(client, headers)
+
+    send_response = await client.post(
+        f"/api/v1/email/accounts/{account['id']}/send",
+        headers=headers,
+        json={"contact_id": contact["id"], "subject": "Merhaba", "body": "Nasılsınız?"},
+    )
+    assert send_response.status_code == 200
+    message = send_response.json()
+    assert message["opened_at"] is None
+    assert message["open_count"] == 0
+
+    pixel_response = await client.get(f"/api/v1/email/track/{message['id']}/pixel.png")
+    assert pixel_response.status_code == 200
+    assert pixel_response.headers["content-type"] == "image/png"
+    assert pixel_response.content.startswith(b"\x89PNG\r\n\x1a\n")
+
+    # Opening twice should increment the count but keep the first opened_at.
+    await client.get(f"/api/v1/email/track/{message['id']}/pixel.png")
+
+    updated = await _find_message(client, headers, account["id"], message["id"])
+    assert updated["opened_at"] is not None
+    assert updated["open_count"] == 2
+
+
+async def test_track_click_records_click_and_redirects(client: AsyncClient):
+    headers = await _auth_headers(client, "email-track-click@example.com")
+    account = await _connect(client, headers)
+    contact = await _create_contact(client, headers)
+
+    send_response = await client.post(
+        f"/api/v1/email/accounts/{account['id']}/send",
+        headers=headers,
+        json={"contact_id": contact["id"], "subject": "Merhaba", "body": "Nasılsınız?"},
+    )
+    message = send_response.json()
+
+    click_response = await client.get(
+        f"/api/v1/email/track/{message['id']}/click",
+        params={"url": "https://example.com/pricing"},
+        follow_redirects=False,
+    )
+    assert click_response.status_code == 302
+    assert click_response.headers["location"] == "https://example.com/pricing"
+
+    updated = await _find_message(client, headers, account["id"], message["id"])
+    assert updated["clicked_at"] is not None
+    assert updated["click_count"] == 1
+
+
+async def test_track_click_rejects_unsafe_url_scheme(client: AsyncClient):
+    headers = await _auth_headers(client, "email-track-unsafe-scheme@example.com")
+    account = await _connect(client, headers)
+    contact = await _create_contact(client, headers)
+
+    send_response = await client.post(
+        f"/api/v1/email/accounts/{account['id']}/send",
+        headers=headers,
+        json={"contact_id": contact["id"], "subject": "Merhaba", "body": "Nasılsınız?"},
+    )
+    message = send_response.json()
+
+    click_response = await client.get(
+        f"/api/v1/email/track/{message['id']}/click",
+        params={"url": "javascript:alert(1)"},
+        follow_redirects=False,
+    )
+    assert click_response.status_code == 302
+    assert not click_response.headers["location"].startswith("javascript:")
+
+
+async def test_track_endpoints_do_not_error_on_unknown_message_id(client: AsyncClient):
+    random_id = "00000000-0000-0000-0000-000000000000"
+
+    pixel_response = await client.get(f"/api/v1/email/track/{random_id}/pixel.png")
+    assert pixel_response.status_code == 200
+
+    click_response = await client.get(
+        f"/api/v1/email/track/{random_id}/click",
+        params={"url": "https://example.com"},
+        follow_redirects=False,
+    )
+    assert click_response.status_code == 302
+
+
+def test_build_html_body_embeds_pixel_and_wraps_links():
+    message_id = uuid.uuid4()
+
+    html = build_html_body(message_id=message_id, plain_text="Hi, see https://example.com/x?a=1&b=2 for details.")
+
+    assert f"/api/v1/email/track/{message_id}/pixel.png" in html
+    assert f"/api/v1/email/track/{message_id}/click?url=" in html
+    assert ">https://example.com/x?a=1&amp;b=2<" in html
+    # The real target URL must be present (URL-encoded) inside the tracked href.
+    assert "example.com%2Fx%3Fa%3D1%26b%3D2" in html
+
+
+def test_build_html_body_escapes_plain_text():
+    message_id = uuid.uuid4()
+
+    html = build_html_body(message_id=message_id, plain_text="<script>alert(1)</script>")
+
+    assert "<script>" not in html
+    assert "&lt;script&gt;" in html

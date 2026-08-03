@@ -17,6 +17,7 @@ from app.modules.email.repository import (
     EmailMessageRepository,
     EmailTokenRepository,
 )
+from app.modules.email.tracking import build_html_body
 
 
 class EmailIntegrationService:
@@ -218,16 +219,27 @@ class EmailIntegrationService:
             if token_row is None:
                 raise ValidationAppError("This account has no stored access token.")
 
+        # Generated before sending so the open/click tracking URLs embedded in the
+        # HTML body can reference the message's id — it's created in the DB below,
+        # only after the send succeeds, but the id itself is decided up front.
+        message_id = uuid.uuid4()
+        html_body = build_html_body(message_id=message_id, plain_text=body)
+
         access_token = decrypt_token(token_row.access_token_encrypted)
         mail_provider = get_mail_provider(account.provider)
         try:
             sent = await mail_provider.send_message(
-                access_token=access_token, to=contact.email, subject=subject, body_text=body
+                access_token=access_token,
+                to=contact.email,
+                subject=subject,
+                body_text=body,
+                body_html=html_body,
             )
         except httpx.HTTPStatusError as exc:
             raise ProviderError(f"Mail provider request failed: {exc}") from exc
 
         message = await self._messages.create(
+            id=message_id,
             tenant_id=account.tenant_id,
             organization_id=account.organization_id,
             email_account_id=account.id,

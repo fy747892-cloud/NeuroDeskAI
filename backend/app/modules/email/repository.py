@@ -181,6 +181,33 @@ class EmailMessageRepository:
         await self._db.flush()
         return message
 
+    async def get_by_id_only(self, *, message_id: uuid.UUID) -> EmailMessageMetadata | None:
+        """Tenant-unscoped lookup — used only by the public open/click tracking
+        endpoints, which are hit by the email recipient's client and have no
+        tenant/organization context to scope by."""
+        result = await self._db.execute(
+            select(EmailMessageMetadata).where(EmailMessageMetadata.id == message_id)
+        )
+        return result.scalar_one_or_none()
+
+    async def record_open(self, *, message_id: uuid.UUID) -> None:
+        message = await self.get_by_id_only(message_id=message_id)
+        if message is None:
+            return
+        if message.opened_at is None:
+            message.opened_at = datetime.now(timezone.utc)
+        message.open_count += 1
+        await self._db.flush()
+
+    async def record_click(self, *, message_id: uuid.UUID) -> None:
+        message = await self.get_by_id_only(message_id=message_id)
+        if message is None:
+            return
+        if message.clicked_at is None:
+            message.clicked_at = datetime.now(timezone.utc)
+        message.click_count += 1
+        await self._db.flush()
+
     async def count_unreplied_since(
         self,
         *,
@@ -222,8 +249,10 @@ class EmailMessageRepository:
         received_at: datetime | None,
         direction: str = "inbound",
         contact_id: uuid.UUID | None = None,
+        id: uuid.UUID | None = None,
     ) -> EmailMessageMetadata:
         message = EmailMessageMetadata(
+            **({"id": id} if id is not None else {}),
             tenant_id=tenant_id,
             organization_id=organization_id,
             email_account_id=email_account_id,

@@ -786,6 +786,8 @@ export const en: TranslationDictionary = {
     markRepliedButton: "Mark as Replied",
     markRepliedError: "Could not mark as replied.",
     repliedBadge: "Replied",
+    openedBadge: "Opened",
+    clickedBadge: "{{count}} clicks",
     loadError: "Could not load email accounts.",
     searchPlaceholder: "Search subject or sender...",
   },

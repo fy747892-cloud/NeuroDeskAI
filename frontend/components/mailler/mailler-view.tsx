@@ -260,11 +260,25 @@ function MessageCard({
           </p>
           <p className="text-body-sm text-on-surface-variant truncate mt-0.5">{message.from_address}</p>
         </div>
-        {message.is_replied ? (
-          <span className="px-2 py-0.5 rounded-full bg-success-container text-on-success-container text-[11px] font-bold shrink-0">
-            {t("mailler.repliedBadge")}
-          </span>
-        ) : null}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {message.opened_at ? (
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-container/10 text-primary text-[11px] font-bold">
+              <span className="material-symbols-outlined text-[13px]">visibility</span>
+              {t("mailler.openedBadge")}
+            </span>
+          ) : null}
+          {message.click_count > 0 ? (
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-container/10 text-primary text-[11px] font-bold">
+              <span className="material-symbols-outlined text-[13px]">ads_click</span>
+              {t("mailler.clickedBadge", { count: message.click_count })}
+            </span>
+          ) : null}
+          {message.is_replied ? (
+            <span className="px-2 py-0.5 rounded-full bg-success-container text-on-success-container text-[11px] font-bold">
+              {t("mailler.repliedBadge")}
+            </span>
+          ) : null}
+        </div>
       </div>
       {message.snippet ? (
         <p className="text-body-sm text-on-surface-variant mt-2 line-clamp-2">{message.snippet}</p>

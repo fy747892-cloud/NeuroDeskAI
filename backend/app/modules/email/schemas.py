@@ -40,6 +40,10 @@ class EmailMessageOut(BaseModel):
     is_replied: bool
     direction: str
     contact_id: UUID | None
+    opened_at: datetime | None
+    open_count: int
+    clicked_at: datetime | None
+    click_count: int
 
 
 class SyncSummaryOut(BaseModel):

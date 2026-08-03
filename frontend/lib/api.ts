@@ -465,6 +465,10 @@ export type EmailMessage = {
   is_replied: boolean;
   direction: string;
   contact_id: string | null;
+  opened_at: string | null;
+  open_count: number;
+  clicked_at: string | null;
+  click_count: number;
 };
 
 export type EmailSyncSummary = {

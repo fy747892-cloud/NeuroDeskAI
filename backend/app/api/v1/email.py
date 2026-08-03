@@ -1,7 +1,7 @@
 import uuid
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 from fastapi.responses import RedirectResponse
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,6 +25,7 @@ from app.modules.email.schemas import (
     SyncSummaryOut,
 )
 from app.modules.email.service import EmailIntegrationService
+from app.modules.email.tracking import TRACKING_PIXEL_PNG
 from app.modules.users.models import User
 
 router = APIRouter(prefix="/email", tags=["email"])
@@ -32,6 +33,27 @@ router = APIRouter(prefix="/email", tags=["email"])
 
 def _wants_html(request: Request) -> bool:
     return "text/html" in request.headers.get("accept", "")
+
+
+# --- Public tracking endpoints (no auth: hit by the email recipient's client,
+# not by an authenticated NeuroDeskAI user) ---
+
+
+@router.get("/track/{message_id}/pixel.png")
+async def track_email_open(message_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -> Response:
+    await EmailMessageRepository(db).record_open(message_id=message_id)
+    await db.commit()
+    return Response(content=TRACKING_PIXEL_PNG, media_type="image/png")
+
+
+@router.get("/track/{message_id}/click")
+async def track_email_click(
+    message_id: uuid.UUID, url: str = Query(...), db: AsyncSession = Depends(get_db)
+) -> RedirectResponse:
+    await EmailMessageRepository(db).record_click(message_id=message_id)
+    await db.commit()
+    destination = url if urlparse(url).scheme in {"http", "https"} else settings.frontend_base_url
+    return RedirectResponse(destination, status_code=302)
 
 
 async def _start_connect(
