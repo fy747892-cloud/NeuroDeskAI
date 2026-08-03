@@ -105,7 +105,10 @@ async def list_files(
         limit=pagination.page_size,
         offset=pagination.offset,
     )
-    return Page.create(items, total, pagination.page, pagination.page_size)
+    # response_model=Page[FileOut] performs the actual ORM->schema conversion at
+    # request time; Page[File] can't be used as a static annotation here since
+    # instantiating a Pydantic generic with a non-Pydantic ORM class crashes at import.
+    return Page.create(items, total, pagination.page, pagination.page_size)  # type: ignore[arg-type]
 
 
 @router.get("/{file_id}", response_model=FileOut)

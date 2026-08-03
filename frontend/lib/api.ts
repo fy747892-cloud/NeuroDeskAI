@@ -463,6 +463,8 @@ export type EmailMessage = {
   snippet: string | null;
   received_at: string | null;
   is_replied: boolean;
+  direction: string;
+  contact_id: string | null;
 };
 
 export type EmailSyncSummary = {
@@ -1750,6 +1752,24 @@ export async function syncEmailAccount(
 ): Promise<EmailSyncSummary> {
   return request<EmailSyncSummary>(`/api/v1/email/accounts/${accountId}/sync`, {
     method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function sendEmailToContact(
+  accessToken: string,
+  accountId: string,
+  payload: { contactId: string; subject: string; body: string },
+): Promise<EmailMessage> {
+  return request<EmailMessage>(`/api/v1/email/accounts/${accountId}/send`, {
+    method: "POST",
+    body: JSON.stringify({
+      contact_id: payload.contactId,
+      subject: payload.subject,
+      body: payload.body,
+    }),
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },

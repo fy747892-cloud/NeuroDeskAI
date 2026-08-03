@@ -14,12 +14,14 @@ from app.core.rate_limit import RateLimiter
 from app.db.redis import get_redis
 from app.db.session import get_db
 from app.modules.audit.repository import AuditRepository
+from app.modules.contacts.repository import ContactRepository
 from app.modules.email.models import EmailAccount, EmailMessageMetadata
 from app.modules.email.repository import EmailAccountRepository, EmailMessageRepository
 from app.modules.email.schemas import (
     ConnectStartOut,
     EmailAccountOut,
     EmailMessageOut,
+    SendEmailIn,
     SyncSummaryOut,
 )
 from app.modules.email.service import EmailIntegrationService
@@ -224,6 +226,49 @@ async def sync_email_account(
     )
     await db.commit()
     return SyncSummaryOut(**summary)
+
+
+@router.post("/accounts/{account_id}/send", response_model=EmailMessageOut)
+async def send_email(
+    account_id: uuid.UUID,
+    body: SendEmailIn,
+    request: Request,
+    current_user: User = Depends(require_permission(Permission.EMAIL_CONNECT)),
+    db: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+) -> EmailMessageMetadata:
+    if current_user.organization_id is None:
+        raise NotFoundError("Current organization not found.")
+    account = await _get_current_account(db, current_user, account_id)
+
+    await RateLimiter(redis).check(
+        key=f"email_send:{current_user.tenant_id}:{current_user.id}", limit=10, window_seconds=3600
+    )
+
+    contact = await ContactRepository(db).get_by_id(
+        tenant_id=current_user.tenant_id,
+        organization_id=current_user.organization_id,
+        contact_id=body.contact_id,
+    )
+    if contact is None:
+        raise NotFoundError("Contact not found.")
+
+    message = await EmailIntegrationService(db, redis).send_message(
+        account=account, contact=contact, subject=body.subject, body=body.body
+    )
+    await AuditRepository(db).record(
+        tenant_id=current_user.tenant_id,
+        actor_id=current_user.id,
+        action="email.sent",
+        entity_type="email_account",
+        entity_id=account.id,
+        request_id=request.headers.get("x-request-id"),
+        ip_address=request.client.host if request.client else None,
+        user_agent=request.headers.get("user-agent"),
+        metadata={"contact_id": str(contact.id), "subject": body.subject},
+    )
+    await db.commit()
+    return message
 
 
 @router.post("/accounts/{account_id}/refresh-token", response_model=EmailAccountOut)

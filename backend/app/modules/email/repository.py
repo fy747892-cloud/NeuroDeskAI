@@ -220,6 +220,8 @@ class EmailMessageRepository:
         snippet: str | None,
         body: str | None,
         received_at: datetime | None,
+        direction: str = "inbound",
+        contact_id: uuid.UUID | None = None,
     ) -> EmailMessageMetadata:
         message = EmailMessageMetadata(
             tenant_id=tenant_id,
@@ -232,6 +234,8 @@ class EmailMessageRepository:
             snippet=snippet,
             body=body,
             received_at=received_at,
+            direction=direction,
+            contact_id=contact_id,
         )
         self._db.add(message)
         await self._db.flush()

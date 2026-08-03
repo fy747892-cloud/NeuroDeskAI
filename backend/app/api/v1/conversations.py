@@ -38,7 +38,10 @@ async def list_conversations(
         limit=pagination.page_size,
         offset=pagination.offset,
     )
-    return Page.create(items, total, pagination.page, pagination.page_size)
+    # response_model=Page[ConversationOut] performs the actual ORM->schema conversion
+    # at request time; Page[Conversation] can't be used as a static annotation here
+    # since instantiating a Pydantic generic with a non-Pydantic ORM class crashes at import.
+    return Page.create(items, total, pagination.page, pagination.page_size)  # type: ignore[arg-type]
 
 
 @router.post("", response_model=ConversationDetailOut, status_code=status.HTTP_201_CREATED)

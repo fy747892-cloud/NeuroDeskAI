@@ -12,10 +12,13 @@ import {
   Deal,
   DEAL_STAGES,
   deleteContact,
+  EmailAccount,
   getContact,
   getContactMemory,
   listDeals,
+  listEmailAccounts,
   listWhatsAppMessagesForContact,
+  sendEmailToContact,
   sendManualWhatsAppMessage,
   updateContact,
   WhatsAppMessage,
@@ -36,6 +39,7 @@ const EVENT_ICON: Record<string, string> = {
   ai_insight: "auto_awesome",
   note: "sticky_note_2",
   whatsapp_draft_ready: "chat",
+  email_sent: "mail",
 };
 
 const EVENT_LABEL_KEY: Record<string, string> = {
@@ -43,6 +47,7 @@ const EVENT_LABEL_KEY: Record<string, string> = {
   email: "contactDetail.eventType.email",
   appointment: "contactDetail.eventType.appointment",
   task: "contactDetail.eventType.task",
+  email_sent: "contactDetail.eventType.emailSent",
 };
 
 export function ContactDetailView({ contactId }: { contactId: string }) {
@@ -66,23 +71,31 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
   const [isComposingWhatsApp, setComposingWhatsApp] = useState(false);
   const [whatsAppBody, setWhatsAppBody] = useState("");
   const [isSendingWhatsApp, setSendingWhatsApp] = useState(false);
+  const [emailAccounts, setEmailAccounts] = useState<EmailAccount[]>([]);
+  const [isComposingEmail, setComposingEmail] = useState(false);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [isSendingEmail, setSendingEmail] = useState(false);
 
   const load = useCallback(async () => {
     if (!tokens?.accessToken) return;
     setLoading(true);
     setError(null);
     try {
-      const [contactDetail, contactMemory, allDeals, whatsAppMessages] = await Promise.all([
-        getContact(tokens.accessToken, contactId),
-        getContactMemory(tokens.accessToken, contactId),
-        listDeals(tokens.accessToken),
-        listWhatsAppMessagesForContact(tokens.accessToken, contactId),
-      ]);
+      const [contactDetail, contactMemory, allDeals, whatsAppMessages, connectedEmailAccounts] =
+        await Promise.all([
+          getContact(tokens.accessToken, contactId),
+          getContactMemory(tokens.accessToken, contactId),
+          listDeals(tokens.accessToken),
+          listWhatsAppMessagesForContact(tokens.accessToken, contactId),
+          listEmailAccounts(tokens.accessToken),
+        ]);
       setContact(contactDetail);
       setNotes(contactDetail.notes);
       setMemory(contactMemory);
       setDeals(allDeals.filter((deal) => deal.contact_id === contactId));
       setWhatsAppHistory(whatsAppMessages);
+      setEmailAccounts(connectedEmailAccounts.filter((account) => account.status === "connected"));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : t("contactDetail.loadError"));
     } finally {
@@ -127,6 +140,29 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
       setError(sendError instanceof Error ? sendError.message : t("contactDetail.whatsapp.sendError"));
     } finally {
       setSendingWhatsApp(false);
+    }
+  }
+
+  async function handleSendEmail(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tokens?.accessToken || !emailSubject.trim() || !emailBody.trim() || emailAccounts.length === 0) return;
+    setSendingEmail(true);
+    setError(null);
+    try {
+      await sendEmailToContact(tokens.accessToken, emailAccounts[0].id, {
+        contactId,
+        subject: emailSubject.trim(),
+        body: emailBody.trim(),
+      });
+      setEmailSubject("");
+      setEmailBody("");
+      setComposingEmail(false);
+      showToast(t("contactDetail.email.sentToast"), "success");
+      load();
+    } catch (sendError) {
+      setError(sendError instanceof Error ? sendError.message : t("contactDetail.email.sendError"));
+    } finally {
+      setSendingEmail(false);
     }
   }
 
@@ -484,6 +520,62 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
                   </a>
                 ))}
               </div>
+            )}
+          </div>
+
+          <div className="bg-surface-container-lowest border border-outline-variant p-lg rounded-2xl">
+            <h4 className="font-label-sm text-label-sm uppercase tracking-widest text-outline mb-md">
+              {t("contactDetail.email.title")}
+            </h4>
+            {!contact.email ? (
+              <EmptyState icon="mail" title={t("contactDetail.email.noEmail")} />
+            ) : emailAccounts.length === 0 ? (
+              <EmptyState icon="mail" title={t("contactDetail.email.noAccount")} />
+            ) : isComposingEmail ? (
+              <form onSubmit={handleSendEmail} className="space-y-2">
+                <input
+                  className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  placeholder={t("contactDetail.email.subjectPlaceholder")}
+                  value={emailSubject}
+                />
+                <textarea
+                  className="w-full bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                  onChange={(e) => setEmailBody(e.target.value)}
+                  placeholder={t("contactDetail.email.bodyPlaceholder")}
+                  rows={3}
+                  value={emailBody}
+                />
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={isSendingEmail || !emailSubject.trim() || !emailBody.trim()}
+                    className="flex-1 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
+                  >
+                    {isSendingEmail ? t("common.loading") : t("contactDetail.email.send")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setComposingEmail(false);
+                      setEmailSubject("");
+                      setEmailBody("");
+                    }}
+                    className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
+                  >
+                    {t("common.cancel")}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setComposingEmail(true)}
+                className="w-full border border-outline-variant text-on-surface-variant py-2 rounded-lg font-label-sm flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
+              >
+                <span className="material-symbols-outlined text-[16px]">mail</span>
+                {t("contactDetail.email.button")}
+              </button>
             )}
           </div>
         </div>
