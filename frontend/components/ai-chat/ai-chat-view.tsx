@@ -496,8 +496,16 @@ function VoiceOverlay({
   const [isListening, setListening] = useState(false);
   const [isSpeaking, setSpeaking] = useState(false);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const silenceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isSpeechSupported = useMemo(() => getSpeechRecognitionCtor() !== null, []);
   const canSpeakResponses = useMemo(() => isSpeechSynthesisSupported(), []);
+
+  function clearSilenceTimeout() {
+    if (silenceTimeoutRef.current) {
+      clearTimeout(silenceTimeoutRef.current);
+      silenceTimeoutRef.current = null;
+    }
+  }
 
   const submitTranscript = useCallback(
     async (text: string) => {
@@ -531,6 +539,7 @@ function VoiceOverlay({
   }
 
   function stopListening() {
+    clearSilenceTimeout();
     recognitionRef.current?.stop();
   }
 
@@ -551,7 +560,7 @@ function VoiceOverlay({
 
     const recognition = new Ctor();
     recognition.lang = language === "tr" ? "tr-TR" : "en-US";
-    recognition.continuous = false;
+    recognition.continuous = true;
     recognition.interimResults = true;
     recognition.onresult = (event: any) => {
       if (recognitionRef.current !== recognition) return;
@@ -560,15 +569,23 @@ function VoiceOverlay({
         combined += event.results[i][0].transcript;
       }
       setTranscript(combined);
+      clearSilenceTimeout();
+      silenceTimeoutRef.current = setTimeout(() => {
+        if (recognitionRef.current === recognition) {
+          recognition.stop();
+        }
+      }, 1600);
     };
     recognition.onerror = (event: any) => {
       if (recognitionRef.current !== recognition) return;
+      clearSilenceTimeout();
       if (event?.error === "aborted") return;
       setError(t("aiChat.errors.voiceRecognitionFailed"));
       setListening(false);
     };
     recognition.onend = () => {
       if (recognitionRef.current !== recognition) return;
+      clearSilenceTimeout();
       setListening(false);
       recognitionRef.current = null;
       setTranscript((current) => {
@@ -603,6 +620,7 @@ function VoiceOverlay({
       startListening();
     }
     return () => {
+      clearSilenceTimeout();
       recognitionRef.current?.stop();
       if (isSpeechSynthesisSupported()) {
         window.speechSynthesis.cancel();
