@@ -749,6 +749,9 @@ export const tr: TranslationDictionary = {
     noDataInRange: 'Bu aralıkta veri yok. "Bugünü Hesapla" ile üretebilirsin.',
     chartTooltip: "{{date}}: {{completed}} tamamlanan / {{created}} oluşturulan",
     callChartTooltip: "{{date}}: {{count}} çağrı, {{analyzed}} analiz edildi",
+    dealsPipelineValue: "Fırsat Pipeline Değeri",
+    dealsForecastByMonth: "Beklenen Kapanış Ayına Göre",
+    dealsForecastCount: "{{count}} fırsat",
   },
   mailler: {
     title: "Mailler",

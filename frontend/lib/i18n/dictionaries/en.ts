@@ -749,6 +749,9 @@ export const en: TranslationDictionary = {
     noDataInRange: 'No data in this range. Generate some with "Compute Today".',
     chartTooltip: "{{date}}: {{completed}} completed / {{created}} created",
     callChartTooltip: "{{date}}: {{count}} calls, {{analyzed}} analyzed",
+    dealsPipelineValue: "Deal Pipeline Value",
+    dealsForecastByMonth: "Forecast by Expected Close Month",
+    dealsForecastCount: "{{count}} deals",
   },
   mailler: {
     title: "Mail",

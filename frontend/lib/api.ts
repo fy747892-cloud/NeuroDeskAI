@@ -405,6 +405,27 @@ export type CallMetric = {
   analyzed_count: number;
 };
 
+export type DealStageBreakdown = {
+  stage: string;
+  currency: string;
+  total_value: number;
+  deal_count: number;
+};
+
+export type DealForecastMonth = {
+  month: string;
+  currency: string;
+  total_value: number;
+  deal_count: number;
+};
+
+export type DealPipelineReport = {
+  by_stage: DealStageBreakdown[];
+  by_expected_month: DealForecastMonth[];
+  open_stages: string[];
+  generated_at: string;
+};
+
 export type AppointmentMetric = {
   date: string;
   completed_count: number;
@@ -1614,6 +1635,15 @@ export async function getTaskAnalytics(accessToken: string): Promise<TaskMetric[
 
 export async function getCallAnalytics(accessToken: string): Promise<CallMetric[]> {
   return request<CallMetric[]>("/api/v1/analytics/calls", {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getDealsPipelineReport(accessToken: string): Promise<DealPipelineReport> {
+  return request<DealPipelineReport>("/api/v1/deals/pipeline-report", {
     cache: "no-store",
     headers: {
       Authorization: `Bearer ${accessToken}`,

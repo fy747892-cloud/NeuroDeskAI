@@ -175,3 +175,45 @@ class DealRepository:
             )
         )
         return result.scalar_one()
+
+    async def pipeline_by_stage(
+        self, *, tenant_id: uuid.UUID, organization_id: uuid.UUID
+    ) -> list[tuple[str, str, float, int]]:
+        result = await self._db.execute(
+            select(
+                Deal.stage,
+                Deal.currency,
+                func.coalesce(func.sum(Deal.value), 0.0),
+                func.count(Deal.id),
+            )
+            .where(
+                Deal.tenant_id == tenant_id,
+                Deal.organization_id == organization_id,
+                Deal.is_deleted.is_(False),
+            )
+            .group_by(Deal.stage, Deal.currency)
+        )
+        return [(stage, currency, float(total), count) for stage, currency, total, count in result.all()]
+
+    async def pipeline_by_expected_month(
+        self, *, tenant_id: uuid.UUID, organization_id: uuid.UUID
+    ) -> list[tuple[str, str, float, int]]:
+        month = func.to_char(Deal.expected_close_date, "YYYY-MM")
+        result = await self._db.execute(
+            select(
+                month,
+                Deal.currency,
+                func.coalesce(func.sum(Deal.value), 0.0),
+                func.count(Deal.id),
+            )
+            .where(
+                Deal.tenant_id == tenant_id,
+                Deal.organization_id == organization_id,
+                Deal.is_deleted.is_(False),
+                Deal.stage.in_(OPEN_STAGES),
+                Deal.expected_close_date.is_not(None),
+            )
+            .group_by(month, Deal.currency)
+            .order_by(month)
+        )
+        return [(m, currency, float(total), count) for m, currency, total, count in result.all()]

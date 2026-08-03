@@ -9,7 +9,18 @@ import {
   useRef,
   useState,
 } from "react";
-import { Contact, createDeal, Deal, DEAL_STAGES, deleteDeal, listContacts, listDeals, updateDeal } from "@/lib/api";
+import {
+  Contact,
+  createDeal,
+  Deal,
+  DEAL_STAGES,
+  DealPipelineReport,
+  deleteDeal,
+  getDealsPipelineReport,
+  listContacts,
+  listDeals,
+  updateDeal,
+} from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast";
@@ -44,6 +55,7 @@ export function DealsView() {
   const { showToast } = useToast();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [pipelineReport, setPipelineReport] = useState<DealPipelineReport | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setLoading] = useState(true);
   const [isCreating, setCreating] = useState(false);
@@ -77,12 +89,14 @@ export function DealsView() {
     setLoading(true);
     setError(null);
     try {
-      const [nextDeals, contactsPage] = await Promise.all([
+      const [nextDeals, contactsPage, nextPipelineReport] = await Promise.all([
         listDeals(tokens.accessToken),
         listContacts(tokens.accessToken, { pageSize: 100 }),
+        getDealsPipelineReport(tokens.accessToken),
       ]);
       setDeals(nextDeals);
       setContacts(contactsPage.items);
+      setPipelineReport(nextPipelineReport);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : t("deals.loadError"));
     } finally {
@@ -142,10 +156,18 @@ export function DealsView() {
 
   const summary = useMemo(() => {
     const openDeals = deals.filter((deal) => OPEN_STAGES.has(deal.stage));
-    const totalValue = openDeals.reduce((sum, deal) => sum + (deal.value ?? 0), 0);
-    const currency = openDeals[0]?.currency ?? "TRY";
-    return { openCount: openDeals.length, totalValue, currency, totalCount: deals.length };
-  }, [deals]);
+    const openStages = new Set(pipelineReport?.open_stages ?? Array.from(OPEN_STAGES));
+    const totalsByCurrency = new Map<string, number>();
+    for (const row of pipelineReport?.by_stage ?? []) {
+      if (!openStages.has(row.stage)) continue;
+      totalsByCurrency.set(row.currency, (totalsByCurrency.get(row.currency) ?? 0) + row.total_value);
+    }
+    return {
+      openCount: openDeals.length,
+      totalCount: deals.length,
+      totalsByCurrency: Array.from(totalsByCurrency.entries()),
+    };
+  }, [deals, pipelineReport]);
 
   async function handleStageChange(deal: Deal, stage: string) {
     if (!tokens?.accessToken || stage === deal.stage) return;
@@ -361,8 +383,13 @@ export function DealsView() {
             </span>
           </h2>
           <p className="text-on-surface-variant font-body-md">
-            {t("deals.totalPipelineValue")}: {formatMoney(summary.totalValue, summary.currency, language)} ·{" "}
-            {t("deals.openDealsCount", { count: summary.openCount })}
+            {t("deals.totalPipelineValue")}:{" "}
+            {summary.totalsByCurrency.length > 0
+              ? summary.totalsByCurrency
+                  .map(([currency, total]) => formatMoney(total, currency, language))
+                  .join(" + ")
+              : formatMoney(0, "TRY", language)}{" "}
+            · {t("deals.openDealsCount", { count: summary.openCount })}
           </p>
         </div>
         <div className="flex items-center gap-3">

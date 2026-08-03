@@ -7,9 +7,12 @@ import {
   AnalyticsOverview,
   AuditLog,
   CallMetric,
+  DealPipelineReport,
+  DealStageBreakdown,
   getAiAnalytics,
   getAnalyticsOverview,
   getCallAnalytics,
+  getDealsPipelineReport,
   getTaskAnalytics,
   listApprovals,
   listAuditLogs,
@@ -31,6 +34,7 @@ export function AnalyticsView() {
   const [taskMetrics, setTaskMetrics] = useState<TaskMetric[]>([]);
   const [callMetrics, setCallMetrics] = useState<CallMetric[]>([]);
   const [aiMetrics, setAiMetrics] = useState<AIMetric[]>([]);
+  const [dealsPipeline, setDealsPipeline] = useState<DealPipelineReport | null>(null);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [approvals, setApprovals] = useState<AIActionApproval[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -50,19 +54,28 @@ export function AnalyticsView() {
       const previousFrom = new Date(previousTo);
       previousFrom.setDate(previousTo.getDate() - (RANGE_DAYS - 1));
 
-      const [current, prior, nextTaskMetrics, nextCallMetrics, nextAiMetrics, nextAuditLogs, nextApprovals] =
-        await Promise.all([
-          getAnalyticsOverview(tokens.accessToken, { dateFrom: toDateKey(currentFrom), dateTo: toDateKey(today) }),
-          getAnalyticsOverview(tokens.accessToken, {
-            dateFrom: toDateKey(previousFrom),
-            dateTo: toDateKey(previousTo),
-          }),
-          getTaskAnalytics(tokens.accessToken),
-          getCallAnalytics(tokens.accessToken),
-          getAiAnalytics(tokens.accessToken),
-          listAuditLogs(tokens.accessToken, 8),
-          listApprovals(tokens.accessToken),
-        ]);
+      const [
+        current,
+        prior,
+        nextTaskMetrics,
+        nextCallMetrics,
+        nextAiMetrics,
+        nextAuditLogs,
+        nextApprovals,
+        nextDealsPipeline,
+      ] = await Promise.all([
+        getAnalyticsOverview(tokens.accessToken, { dateFrom: toDateKey(currentFrom), dateTo: toDateKey(today) }),
+        getAnalyticsOverview(tokens.accessToken, {
+          dateFrom: toDateKey(previousFrom),
+          dateTo: toDateKey(previousTo),
+        }),
+        getTaskAnalytics(tokens.accessToken),
+        getCallAnalytics(tokens.accessToken),
+        getAiAnalytics(tokens.accessToken),
+        listAuditLogs(tokens.accessToken, 8),
+        listApprovals(tokens.accessToken),
+        getDealsPipelineReport(tokens.accessToken),
+      ]);
       setOverview(current);
       setPreviousOverview(prior);
       setTaskMetrics(nextTaskMetrics);
@@ -70,6 +83,7 @@ export function AnalyticsView() {
       setAiMetrics(nextAiMetrics);
       setAuditLogs(nextAuditLogs);
       setApprovals(nextApprovals);
+      setDealsPipeline(nextDealsPipeline);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : t("analytics.errors.loadFailed"));
     } finally {
@@ -109,6 +123,18 @@ export function AnalyticsView() {
 
   const callDelta = computeDelta(overview?.calls_total, previousOverview?.calls_total);
   const taskDelta = computeDelta(overview?.tasks_completed, previousOverview?.tasks_completed);
+
+  const dealsByCurrency = useMemo(() => {
+    const openStages = new Set(dealsPipeline?.open_stages ?? []);
+    const grouped = new Map<string, DealStageBreakdown[]>();
+    for (const row of dealsPipeline?.by_stage ?? []) {
+      if (!openStages.has(row.stage)) continue;
+      const rows = grouped.get(row.currency) ?? [];
+      rows.push(row);
+      grouped.set(row.currency, rows);
+    }
+    return Array.from(grouped.entries());
+  }, [dealsPipeline]);
 
   return (
     <div className="px-xl py-lg space-y-lg max-w-7xl mx-auto w-full">
@@ -207,6 +233,52 @@ export function AnalyticsView() {
             <h4 className="font-headline-md text-headline-md">{t("analytics.callVolume")}</h4>
           </div>
           <CallBarChart metrics={callMetrics} t={t} language={language} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-lg">
+        <div className="glass-card p-xl rounded-xl flex flex-col min-h-[320px]">
+          <h4 className="font-headline-md text-headline-md mb-xl">{t("analytics.dealsPipelineValue")}</h4>
+          {dealsByCurrency.length === 0 ? (
+            <p className="flex-1 flex items-center justify-center text-body-sm text-on-surface-variant">
+              {t("analytics.noDataInRange")}
+            </p>
+          ) : (
+            <div className="flex-1 flex flex-col gap-lg">
+              {dealsByCurrency.map(([currency, rows]) => (
+                <div key={currency}>
+                  <p className="text-body-sm text-outline mb-2">{currency}</p>
+                  <PipelineStageBarChart rows={rows} t={t} language={language} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="glass-card p-xl rounded-xl flex flex-col min-h-[320px]">
+          <h4 className="font-headline-md text-headline-md mb-xl">{t("analytics.dealsForecastByMonth")}</h4>
+          {(dealsPipeline?.by_expected_month.length ?? 0) === 0 ? (
+            <p className="flex-1 flex items-center justify-center text-body-sm text-on-surface-variant">
+              {t("analytics.noDataInRange")}
+            </p>
+          ) : (
+            <div className="flex-1 space-y-2 overflow-y-auto custom-scrollbar">
+              {dealsPipeline?.by_expected_month.map((row) => (
+                <div
+                  key={`${row.month}-${row.currency}`}
+                  className="flex items-center justify-between px-3 py-2 bg-surface-container-low rounded-lg"
+                >
+                  <span className="text-body-sm text-on-surface">{row.month}</span>
+                  <span className="text-body-sm font-semibold text-on-surface">
+                    {formatMoney(row.total_value, row.currency, language)}
+                  </span>
+                  <span className="text-[11px] text-outline">
+                    {t("analytics.dealsForecastCount", { count: row.deal_count })}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -453,6 +525,52 @@ function CallBarChart({
       <div className="flex justify-between mt-2 text-[10px] text-outline uppercase tracking-widest font-bold">
         {metrics.map((item) => (
           <span key={item.date}>{formatShortDate(item.date, language)}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const STAGE_LABEL_KEY: Record<string, string> = {
+  lead: "deals.stage.lead",
+  proposal_sent: "deals.stage.proposalSent",
+  negotiation: "deals.stage.negotiation",
+  invoiced: "deals.stage.invoiced",
+  won: "deals.stage.won",
+  lost: "deals.stage.lost",
+};
+
+function PipelineStageBarChart({
+  rows,
+  t,
+  language,
+}: {
+  rows: DealStageBreakdown[];
+  t: (path: string, vars?: Record<string, string | number>) => string;
+  language: Language;
+}) {
+  const maxValue = Math.max(1, ...rows.map((row) => row.total_value));
+
+  return (
+    <div className="flex flex-col">
+      <div className="flex items-end justify-between gap-3 px-2 h-32">
+        {rows.map((row) => (
+          <div key={row.stage} className="flex flex-col items-center gap-2 w-full group h-full">
+            <div className="w-full bg-surface-container-high rounded-t-lg relative flex flex-col justify-end overflow-hidden h-full">
+              <div
+                className="w-full bg-primary group-hover:brightness-110 transition-all duration-300"
+                style={{ height: `${Math.max(4, (row.total_value / maxValue) * 100)}%` }}
+                title={formatMoney(row.total_value, row.currency, language)}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="flex justify-between mt-2 text-[10px] text-outline uppercase tracking-widest font-bold">
+        {rows.map((row) => (
+          <span key={row.stage} className="text-center flex-1 truncate">
+            {t(STAGE_LABEL_KEY[row.stage] ?? row.stage)}
+          </span>
         ))}
       </div>
     </div>
