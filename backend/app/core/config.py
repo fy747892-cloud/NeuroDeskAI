@@ -8,6 +8,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=(".env", "backend/.env"), extra="ignore")
 
     env: str = "local"
+    scheduler_enabled: bool = False
 
     database_url: str
     database_ssl_mode: str = "disable"

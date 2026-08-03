@@ -57,6 +57,17 @@ class EmailAccountRepository:
         )
         return list(result.scalars().all())
 
+    async def list_all_connected(self) -> list[EmailAccount]:
+        result = await self._db.execute(
+            select(EmailAccount)
+            .where(
+                EmailAccount.status == "connected",
+                EmailAccount.is_deleted.is_(False),
+            )
+            .order_by(EmailAccount.created_at.desc())
+        )
+        return list(result.scalars().all())
+
     async def create(
         self,
         *,
