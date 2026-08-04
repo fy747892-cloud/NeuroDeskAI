@@ -29,6 +29,7 @@ import { useToast } from "@/lib/toast";
 import { Skeleton } from "@/components/shell/skeleton";
 import { EmptyState } from "@/components/shell/empty-state";
 import { CustomFieldsForm } from "@/components/shell/custom-fields-form";
+import { DealDetailModal } from "@/components/deals/deal-detail-modal";
 import { formatMoney } from "@/lib/format";
 import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
 
@@ -88,6 +89,7 @@ export function DealsView() {
   });
   const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([]);
   const [newDealCustomFields, setNewDealCustomFields] = useState<Record<string, unknown>>({});
+  const [detailDeal, setDetailDeal] = useState<Deal | null>(null);
 
   const loadData = useCallback(async () => {
     if (!tokens?.accessToken) return;
@@ -670,7 +672,10 @@ export function DealsView() {
                           </span>
                         </div>
                       </div>
-                      <h4 className="font-headline-md text-body-lg text-on-surface leading-tight mb-1 truncate">
+                      <h4
+                        className="font-headline-md text-body-lg text-on-surface leading-tight mb-1 truncate cursor-pointer hover:underline"
+                        onClick={() => setDetailDeal(deal)}
+                      >
                         {deal.title}
                       </h4>
                       {contact ? (
@@ -706,6 +711,19 @@ export function DealsView() {
           ))}
         </div>
       </div>
+
+      {detailDeal ? (
+        <DealDetailModal
+          deal={detailDeal}
+          contacts={contacts}
+          customFieldDefs={customFieldDefs}
+          onClose={() => setDetailDeal(null)}
+          onUpdated={(updated) => {
+            setDeals((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+            setDetailDeal(updated);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

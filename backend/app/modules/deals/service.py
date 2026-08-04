@@ -8,8 +8,8 @@ from app.modules.ai.repository import AIRepository
 from app.modules.contacts.repository import ContactRepository
 from app.modules.custom_fields.repository import CustomFieldRepository
 from app.modules.custom_fields.validation import validate_custom_field_values
-from app.modules.deals.models import Deal
-from app.modules.deals.repository import DealRepository
+from app.modules.deals.models import Deal, DealLineItem
+from app.modules.deals.repository import DealLineItemRepository, DealRepository
 
 VALID_STAGES = {"lead", "proposal_sent", "negotiation", "invoiced", "won", "lost"}
 
@@ -18,6 +18,7 @@ class DealService:
     def __init__(self, db: AsyncSession):
         self._db = db
         self._deals = DealRepository(db)
+        self._line_items = DealLineItemRepository(db)
         self._ai = AIRepository(db)
         self._contacts = ContactRepository(db)
         self._custom_fields = CustomFieldRepository(db)
@@ -150,6 +151,62 @@ class DealService:
 
     async def delete_deal(self, *, deal: Deal) -> None:
         await self._deals.soft_delete_deal(deal=deal)
+
+    async def list_line_items(self, *, deal: Deal) -> list[DealLineItem]:
+        return await self._line_items.list_for_deal(
+            tenant_id=deal.tenant_id, organization_id=deal.organization_id, deal_id=deal.id
+        )
+
+    async def add_line_item(
+        self,
+        *,
+        deal: Deal,
+        product_name: str,
+        quantity: float,
+        unit_price: float,
+        display_order: int,
+    ) -> DealLineItem:
+        item = await self._line_items.create(
+            tenant_id=deal.tenant_id,
+            organization_id=deal.organization_id,
+            deal_id=deal.id,
+            product_name=product_name,
+            quantity=quantity,
+            unit_price=unit_price,
+            display_order=display_order,
+        )
+        await self._sync_deal_value(deal=deal)
+        return item
+
+    async def update_line_item(
+        self,
+        *,
+        deal: Deal,
+        item: DealLineItem,
+        product_name: str | None = None,
+        quantity: float | None = None,
+        unit_price: float | None = None,
+        display_order: int | None = None,
+    ) -> DealLineItem:
+        item = await self._line_items.update(
+            item=item,
+            product_name=product_name,
+            quantity=quantity,
+            unit_price=unit_price,
+            display_order=display_order,
+        )
+        await self._sync_deal_value(deal=deal)
+        return item
+
+    async def delete_line_item(self, *, deal: Deal, item: DealLineItem) -> None:
+        await self._line_items.soft_delete(item=item)
+        await self._sync_deal_value(deal=deal)
+
+    async def _sync_deal_value(self, *, deal: Deal) -> None:
+        deal.value = await self._line_items.sum_for_deal(
+            tenant_id=deal.tenant_id, organization_id=deal.organization_id, deal_id=deal.id
+        )
+        await self._db.flush()
 
     def _validate_stage(self, stage: str) -> None:
         if stage not in VALID_STAGES:

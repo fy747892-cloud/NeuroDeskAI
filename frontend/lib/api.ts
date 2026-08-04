@@ -308,6 +308,26 @@ export type DealCreatePayload = {
 
 export type DealUpdatePayload = Partial<DealCreatePayload>;
 
+export type DealLineItem = {
+  id: string;
+  deal_id: string;
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  line_total: number;
+  display_order: number;
+  created_at: string;
+};
+
+export type DealLineItemCreatePayload = {
+  product_name: string;
+  quantity?: number;
+  unit_price?: number;
+  display_order?: number;
+};
+
+export type DealLineItemUpdatePayload = Partial<DealLineItemCreatePayload>;
+
 export type CustomFieldEntityType = "contact" | "deal";
 export type CustomFieldType = "text" | "number" | "date" | "boolean" | "select";
 
@@ -1402,6 +1422,56 @@ export async function updateDeal(
       Authorization: `Bearer ${accessToken}`,
     },
   });
+}
+
+export async function listDealLineItems(accessToken: string, dealId: string): Promise<DealLineItem[]> {
+  return request<DealLineItem[]>(`/api/v1/deals/${dealId}/line-items`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function createDealLineItem(
+  accessToken: string,
+  dealId: string,
+  payload: DealLineItemCreatePayload,
+): Promise<DealLineItem> {
+  return request<DealLineItem>(`/api/v1/deals/${dealId}/line-items`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function updateDealLineItem(
+  accessToken: string,
+  dealId: string,
+  itemId: string,
+  payload: DealLineItemUpdatePayload,
+): Promise<DealLineItem> {
+  return request<DealLineItem>(`/api/v1/deals/${dealId}/line-items/${itemId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function deleteDealLineItem(accessToken: string, dealId: string, itemId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/deals/${dealId}/line-items/${itemId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
 }
 
 export async function listCustomFieldDefinitions(

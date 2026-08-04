@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.modules.deals.models import Deal
+from app.modules.deals.models import Deal, DealLineItem
 
 OPEN_STAGES = ("lead", "proposal_sent", "negotiation", "invoiced")
 
@@ -222,3 +222,104 @@ class DealRepository:
             .order_by(month)
         )
         return [(m, currency, float(total), count) for m, currency, total, count in result.all()]
+
+
+class DealLineItemRepository:
+    def __init__(self, db: AsyncSession):
+        self._db = db
+
+    async def create(
+        self,
+        *,
+        tenant_id: uuid.UUID,
+        organization_id: uuid.UUID,
+        deal_id: uuid.UUID,
+        product_name: str,
+        quantity: float,
+        unit_price: float,
+        display_order: int,
+    ) -> DealLineItem:
+        item = DealLineItem(
+            tenant_id=tenant_id,
+            organization_id=organization_id,
+            deal_id=deal_id,
+            product_name=product_name,
+            quantity=quantity,
+            unit_price=unit_price,
+            display_order=display_order,
+        )
+        self._db.add(item)
+        await self._db.flush()
+        return item
+
+    async def list_for_deal(
+        self, *, tenant_id: uuid.UUID, organization_id: uuid.UUID, deal_id: uuid.UUID
+    ) -> list[DealLineItem]:
+        result = await self._db.execute(
+            select(DealLineItem)
+            .where(
+                DealLineItem.tenant_id == tenant_id,
+                DealLineItem.organization_id == organization_id,
+                DealLineItem.deal_id == deal_id,
+                DealLineItem.is_deleted.is_(False),
+            )
+            .order_by(DealLineItem.display_order.asc(), DealLineItem.created_at.asc())
+        )
+        return list(result.scalars().all())
+
+    async def get_by_id(
+        self,
+        *,
+        tenant_id: uuid.UUID,
+        organization_id: uuid.UUID,
+        deal_id: uuid.UUID,
+        item_id: uuid.UUID,
+    ) -> DealLineItem | None:
+        result = await self._db.execute(
+            select(DealLineItem).where(
+                DealLineItem.tenant_id == tenant_id,
+                DealLineItem.organization_id == organization_id,
+                DealLineItem.deal_id == deal_id,
+                DealLineItem.id == item_id,
+                DealLineItem.is_deleted.is_(False),
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def update(
+        self,
+        *,
+        item: DealLineItem,
+        product_name: str | None = None,
+        quantity: float | None = None,
+        unit_price: float | None = None,
+        display_order: int | None = None,
+    ) -> DealLineItem:
+        if product_name is not None:
+            item.product_name = product_name
+        if quantity is not None:
+            item.quantity = quantity
+        if unit_price is not None:
+            item.unit_price = unit_price
+        if display_order is not None:
+            item.display_order = display_order
+        await self._db.flush()
+        return item
+
+    async def soft_delete(self, *, item: DealLineItem) -> None:
+        item.is_deleted = True
+        item.deleted_at = datetime.now(timezone.utc)
+        await self._db.flush()
+
+    async def sum_for_deal(
+        self, *, tenant_id: uuid.UUID, organization_id: uuid.UUID, deal_id: uuid.UUID
+    ) -> float:
+        result = await self._db.execute(
+            select(func.coalesce(func.sum(DealLineItem.quantity * DealLineItem.unit_price), 0.0)).where(
+                DealLineItem.tenant_id == tenant_id,
+                DealLineItem.organization_id == organization_id,
+                DealLineItem.deal_id == deal_id,
+                DealLineItem.is_deleted.is_(False),
+            )
+        )
+        return float(result.scalar_one() or 0.0)
