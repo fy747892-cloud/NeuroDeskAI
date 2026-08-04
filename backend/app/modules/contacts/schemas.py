@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -18,6 +19,7 @@ class ContactOut(BaseModel):
     title: str | None
     tags: list[str]
     status: str
+    custom_fields: dict[str, Any]
     created_at: datetime
 
 
@@ -55,6 +57,7 @@ class ContactCreate(BaseModel):
     company: str | None = Field(default=None, max_length=255)
     title: str | None = Field(default=None, max_length=255)
     tags: list[str] = Field(default_factory=list, max_length=20)
+    custom_fields: dict[str, Any] | None = None
 
 
 class ContactUpdate(BaseModel):
@@ -65,6 +68,7 @@ class ContactUpdate(BaseModel):
     title: str | None = Field(default=None, max_length=255)
     tags: list[str] | None = Field(default=None, max_length=20)
     status: str | None = Field(default=None, min_length=1, max_length=50)
+    custom_fields: dict[str, Any] | None = None
 
 
 class ContactNoteCreate(BaseModel):

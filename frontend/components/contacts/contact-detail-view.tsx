@@ -9,6 +9,7 @@ import {
   ContactMemory,
   ContactNote,
   ContactTimelineEvent,
+  CustomFieldDefinition,
   Deal,
   DEAL_STAGES,
   deleteContact,
@@ -16,6 +17,7 @@ import {
   getContact,
   getContactMemory,
   listDeals,
+  listCustomFieldDefinitions,
   listEmailAccounts,
   listWhatsAppMessagesForContact,
   sendEmailToContact,
@@ -28,6 +30,7 @@ import { useLanguage } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast";
 import { formatDate, formatDateTime, formatMoney, getInitials } from "@/lib/format";
 import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
+import { CustomFieldsForm } from "@/components/shell/custom-fields-form";
 import { EmptyState } from "@/components/shell/empty-state";
 
 const EVENT_ICON: Record<string, string> = {
@@ -67,6 +70,8 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
   const [isEditingContact, setEditingContact] = useState(false);
   const [editForm, setEditForm] = useState({ fullName: "", email: "", phone: "", company: "", title: "" });
   const [isSavingContact, setSavingContact] = useState(false);
+  const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([]);
+  const [editCustomFields, setEditCustomFields] = useState<Record<string, unknown>>({});
   const [whatsAppHistory, setWhatsAppHistory] = useState<WhatsAppMessage[]>([]);
   const [isComposingWhatsApp, setComposingWhatsApp] = useState(false);
   const [whatsAppBody, setWhatsAppBody] = useState("");
@@ -106,6 +111,13 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (!tokens?.accessToken) return;
+    listCustomFieldDefinitions(tokens.accessToken, "contact")
+      .then(setCustomFieldDefs)
+      .catch(() => setCustomFieldDefs([]));
+  }, [tokens?.accessToken]);
 
   async function handleAddNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -175,6 +187,7 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
       company: contact.company ?? "",
       title: contact.title ?? "",
     });
+    setEditCustomFields(contact.custom_fields ?? {});
     setEditingContact(true);
     setError(null);
   }
@@ -191,6 +204,7 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
         phone: editForm.phone.trim() || null,
         company: editForm.company.trim() || null,
         title: editForm.title.trim() || null,
+        custom_fields: editCustomFields,
       });
       setContact((current) => (current ? { ...current, ...updated } : current));
       setEditingContact(false);
@@ -331,6 +345,13 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
                   placeholder={t("contacts.titleRolePlaceholder")}
                   value={editForm.title}
                 />
+                <CustomFieldsForm
+                  definitions={customFieldDefs}
+                  values={editCustomFields}
+                  onChange={(key, value) =>
+                    setEditCustomFields((current) => ({ ...current, [key]: value }))
+                  }
+                />
                 <div className="flex gap-2">
                   <button
                     type="submit"
@@ -377,6 +398,19 @@ export function ContactDetailView({ contactId }: { contactId: string }) {
                       {formatDate(contact.created_at, language)}
                     </span>
                   </div>
+                  {customFieldDefs
+                    .filter((definition) => {
+                      const value = contact.custom_fields?.[definition.field_key];
+                      return value !== undefined && value !== null && value !== "";
+                    })
+                    .map((definition) => (
+                      <div key={definition.id} className="flex items-center gap-3">
+                        <span className="material-symbols-outlined text-outline">label</span>
+                        <span className="text-body-md">
+                          {definition.label}: {String(contact.custom_fields[definition.field_key])}
+                        </span>
+                      </div>
+                    ))}
                 </div>
                 <div className="w-full flex gap-2 mt-xl">
                   {contact.email ? (

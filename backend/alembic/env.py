@@ -36,9 +36,11 @@ from app.modules.conversations.models import (  # noqa: F401
     Conversation,
     ConversationParticipant,
 )
-from app.modules.deals.models import Deal  # noqa: F401
+from app.modules.custom_fields.models import CustomFieldDefinition  # noqa: F401
+from app.modules.deals.models import Deal, DealLineItem  # noqa: F401
 from app.modules.email.models import EmailAccount, EmailMessageMetadata, EmailToken  # noqa: F401
 from app.modules.files.models import DocumentAnalysisResult, DocumentText, File  # noqa: F401
+from app.modules.lead_forms.models import LeadForm  # noqa: F401
 from app.modules.notifications.models import Notification  # noqa: F401
 from app.modules.observability.models import ClientErrorReport  # noqa: F401
 from app.modules.feedback.models import Feedback  # noqa: F401

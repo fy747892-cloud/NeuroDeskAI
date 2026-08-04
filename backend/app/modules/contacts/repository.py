@@ -23,6 +23,7 @@ class ContactRepository:
         company: str | None = None,
         title: str | None = None,
         tags: list[str] | None = None,
+        custom_fields: dict | None = None,
     ) -> Contact:
         contact = Contact(
             tenant_id=tenant_id,
@@ -35,6 +36,7 @@ class ContactRepository:
             title=title,
             tags=tags or [],
             status="active",
+            custom_fields=custom_fields or {},
         )
         self._db.add(contact)
         await self._db.flush()
@@ -97,6 +99,23 @@ class ContactRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_by_email(
+        self,
+        *,
+        tenant_id: uuid.UUID,
+        organization_id: uuid.UUID,
+        email: str,
+    ) -> Contact | None:
+        result = await self._db.execute(
+            select(Contact).where(
+                Contact.tenant_id == tenant_id,
+                Contact.organization_id == organization_id,
+                func.lower(Contact.email) == email.lower(),
+                Contact.is_deleted.is_(False),
+            )
+        )
+        return result.scalars().first()
+
     async def update(
         self,
         *,
@@ -108,6 +127,7 @@ class ContactRepository:
         title: str | None = None,
         tags: list[str] | None = None,
         status: str | None = None,
+        custom_fields: dict | None = None,
     ) -> Contact:
         if full_name is not None:
             contact.full_name = full_name
@@ -123,6 +143,8 @@ class ContactRepository:
             contact.tags = tags
         if status is not None:
             contact.status = status
+        if custom_fields is not None:
+            contact.custom_fields = custom_fields
         await self._db.flush()
         return contact
 

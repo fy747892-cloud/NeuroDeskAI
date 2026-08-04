@@ -155,12 +155,15 @@ async def test_task_can_be_created_from_approved_ai_action(client: AsyncClient):
     assert body["source_type"] == "ai_action_approval"
     assert body["ai_action_approval_id"] == approval_id
 
+    # Materializing the same approval twice is idempotent (prevents duplicate
+    # tasks from a double-click/retry) — it returns the same task, not an error.
     duplicate_response = await client.post(
         "/api/v1/tasks/from-approval",
         headers=headers,
         json={"approval_id": approval_id},
     )
-    assert duplicate_response.status_code == 409
+    assert duplicate_response.status_code == 201
+    assert duplicate_response.json()["id"] == body["id"]
 
 
 async def test_unapproved_ai_action_cannot_create_task(client: AsyncClient):

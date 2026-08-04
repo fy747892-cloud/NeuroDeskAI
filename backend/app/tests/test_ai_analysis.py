@@ -229,9 +229,12 @@ async def test_deal_suggestion_can_be_approved_and_materialized(client: AsyncCli
     assert deal["source_type"] == "ai_action_approval"
     assert deal["ai_action_approval_id"] == deal_approval["id"]
 
+    # Materializing the same approval twice is idempotent (prevents duplicate
+    # deals from a double-click/retry) — it returns the same deal, not an error.
     duplicate_response = await client.post(
         "/api/v1/deals/from-approval",
         headers=headers,
         json={"approval_id": deal_approval["id"]},
     )
-    assert duplicate_response.status_code == 409
+    assert duplicate_response.status_code == 201
+    assert duplicate_response.json()["id"] == deal["id"]

@@ -179,3 +179,84 @@ async def test_viewer_cannot_create_deal(client: AsyncClient, db_session: AsyncS
         "/api/v1/deals", headers=headers, json={"title": "Viewer attempted deal"}
     )
     assert create_response.status_code == 403
+
+
+async def test_line_item_crud_syncs_deal_value(client: AsyncClient):
+    headers = await _auth_headers(client, "deal-line-items@example.com")
+    deal = await _create_deal(client, headers, title="Deal with items", value=None)
+
+    create_response = await client.post(
+        f"/api/v1/deals/{deal['id']}/line-items",
+        headers=headers,
+        json={"product_name": "Lisans", "quantity": 2, "unit_price": 100},
+    )
+    assert create_response.status_code == 201
+    item = create_response.json()
+    assert item["line_total"] == 200
+
+    second_response = await client.post(
+        f"/api/v1/deals/{deal['id']}/line-items",
+        headers=headers,
+        json={"product_name": "Kurulum", "quantity": 1, "unit_price": 50},
+    )
+    assert second_response.status_code == 201
+
+    deal_after_create = await client.get(f"/api/v1/deals/{deal['id']}", headers=headers)
+    assert deal_after_create.json()["value"] == 250
+
+    list_response = await client.get(f"/api/v1/deals/{deal['id']}/line-items", headers=headers)
+    assert list_response.status_code == 200
+    assert len(list_response.json()) == 2
+
+    update_response = await client.patch(
+        f"/api/v1/deals/{deal['id']}/line-items/{item['id']}",
+        headers=headers,
+        json={"quantity": 3},
+    )
+    assert update_response.status_code == 200
+    assert update_response.json()["line_total"] == 300
+
+    deal_after_update = await client.get(f"/api/v1/deals/{deal['id']}", headers=headers)
+    assert deal_after_update.json()["value"] == 350
+
+    delete_response = await client.delete(
+        f"/api/v1/deals/{deal['id']}/line-items/{item['id']}", headers=headers
+    )
+    assert delete_response.status_code == 204
+
+    deal_after_delete = await client.get(f"/api/v1/deals/{deal['id']}", headers=headers)
+    assert deal_after_delete.json()["value"] == 50
+
+    remaining_items = await client.get(f"/api/v1/deals/{deal['id']}/line-items", headers=headers)
+    assert len(remaining_items.json()) == 1
+
+
+async def test_viewer_cannot_create_line_item(client: AsyncClient, db_session: AsyncSession):
+    headers = await _auth_headers(client, "deal-line-item-viewer@example.com")
+    deal = await _create_deal(client, headers, title="Viewer line item deal")
+    me_response = await client.get("/api/v1/users/me", headers=headers)
+    user_id = me_response.json()["id"]
+
+    await db_session.execute(
+        update(OrganizationMember).where(OrganizationMember.user_id == user_id).values(role="viewer")
+    )
+    await db_session.flush()
+
+    create_response = await client.post(
+        f"/api/v1/deals/{deal['id']}/line-items",
+        headers=headers,
+        json={"product_name": "Blocked", "quantity": 1, "unit_price": 10},
+    )
+    assert create_response.status_code == 403
+
+
+async def test_line_item_not_found_returns_404(client: AsyncClient):
+    headers = await _auth_headers(client, "deal-line-item-404@example.com")
+    deal = await _create_deal(client, headers, title="Deal without items")
+
+    response = await client.patch(
+        f"/api/v1/deals/{deal['id']}/line-items/11111111-1111-1111-1111-111111111111",
+        headers=headers,
+        json={"quantity": 2},
+    )
+    assert response.status_code == 404

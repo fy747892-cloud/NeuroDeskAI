@@ -12,12 +12,14 @@ import {
 import {
   Contact,
   createDeal,
+  CustomFieldDefinition,
   Deal,
   DEAL_STAGES,
   DealPipelineReport,
   deleteDeal,
   getDealsPipelineReport,
   listContacts,
+  listCustomFieldDefinitions,
   listDeals,
   updateDeal,
 } from "@/lib/api";
@@ -26,6 +28,8 @@ import { useLanguage } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast";
 import { Skeleton } from "@/components/shell/skeleton";
 import { EmptyState } from "@/components/shell/empty-state";
+import { CustomFieldsForm } from "@/components/shell/custom-fields-form";
+import { DealDetailModal } from "@/components/deals/deal-detail-modal";
 import { formatMoney } from "@/lib/format";
 import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
 
@@ -83,6 +87,9 @@ export function DealsView() {
     contactId: "",
     expectedCloseDate: "",
   });
+  const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([]);
+  const [newDealCustomFields, setNewDealCustomFields] = useState<Record<string, unknown>>({});
+  const [detailDeal, setDetailDeal] = useState<Deal | null>(null);
 
   const loadData = useCallback(async () => {
     if (!tokens?.accessToken) return;
@@ -107,6 +114,13 @@ export function DealsView() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    if (!tokens?.accessToken) return;
+    listCustomFieldDefinitions(tokens.accessToken, "deal")
+      .then(setCustomFieldDefs)
+      .catch(() => setCustomFieldDefs([]));
+  }, [tokens?.accessToken]);
 
   const contactsById = useMemo(() => {
     const map = new Map<string, Contact>();
@@ -360,9 +374,11 @@ export function DealsView() {
         currency: newDeal.currency,
         contact_id: newDeal.contactId || null,
         expected_close_date: newDeal.expectedCloseDate ? new Date(newDeal.expectedCloseDate).toISOString() : null,
+        custom_fields: newDealCustomFields,
       });
       setDeals((current) => [created, ...current]);
       setNewDeal({ title: "", value: "", currency: "TRY", contactId: "", expectedCloseDate: "" });
+      setNewDealCustomFields({});
       showToast(t("deals.dealCreated"), "success");
       setShowForm(false);
     } catch (createError) {
@@ -503,6 +519,11 @@ export function DealsView() {
               </option>
             ))}
           </select>
+          <CustomFieldsForm
+            definitions={customFieldDefs}
+            values={newDealCustomFields}
+            onChange={(key, value) => setNewDealCustomFields((current) => ({ ...current, [key]: value }))}
+          />
           <div className="col-span-2 md:col-span-5 flex gap-2">
             <button
               type="submit"
@@ -513,7 +534,10 @@ export function DealsView() {
             </button>
             <button
               type="button"
-              onClick={() => setNewDeal({ title: "", value: "", currency: "TRY", contactId: "", expectedCloseDate: "" })}
+              onClick={() => {
+                setNewDeal({ title: "", value: "", currency: "TRY", contactId: "", expectedCloseDate: "" });
+                setNewDealCustomFields({});
+              }}
               className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
             >
               {t("common.clear")}
@@ -648,7 +672,10 @@ export function DealsView() {
                           </span>
                         </div>
                       </div>
-                      <h4 className="font-headline-md text-body-lg text-on-surface leading-tight mb-1 truncate">
+                      <h4
+                        className="font-headline-md text-body-lg text-on-surface leading-tight mb-1 truncate cursor-pointer hover:underline"
+                        onClick={() => setDetailDeal(deal)}
+                      >
                         {deal.title}
                       </h4>
                       {contact ? (
@@ -684,6 +711,19 @@ export function DealsView() {
           ))}
         </div>
       </div>
+
+      {detailDeal ? (
+        <DealDetailModal
+          deal={detailDeal}
+          contacts={contacts}
+          customFieldDefs={customFieldDefs}
+          onClose={() => setDetailDeal(null)}
+          onUpdated={(updated) => {
+            setDeals((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+            setDetailDeal(updated);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

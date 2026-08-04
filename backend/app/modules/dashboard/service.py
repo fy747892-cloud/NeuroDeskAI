@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.ai.repository import AIRepository
 from app.modules.analytics.repository import AICostLogRepository
 from app.modules.appointments.repository import AppointmentRepository
-from app.modules.billing.service import BillingService
+from app.modules.billing.service import AI_CHAT_REQUESTS_QUOTA_TYPE, BillingService
 from app.modules.conversations.repository import ConversationRepository
 from app.modules.dashboard.provider import get_digest_narrative_provider
 from app.modules.dashboard.schemas import DashboardOut, DashboardSummaryOut, DigestOut
@@ -135,7 +135,9 @@ class DashboardService:
             tenant_id=tenant_id, organization_id=organization_id
         )
 
-        await self._billing.enforce_ai_usage_guard(tenant_id=tenant_id)
+        await self._billing.enforce_ai_usage_guard(
+            tenant_id=tenant_id, quota_type=AI_CHAT_REQUESTS_QUOTA_TYPE
+        )
 
         start_time = time.monotonic()
         narrative = await self._narrative_provider.narrate(
@@ -157,7 +159,9 @@ class DashboardService:
             output_tokens=max(1, len(narrative) // 4),
             latency_ms=latency_ms,
         )
-        await self._billing.record_ai_usage(tenant_id=tenant_id, user_id=user_id)
+        await self._billing.record_ai_usage(
+            tenant_id=tenant_id, user_id=user_id, usage_type=AI_CHAT_REQUESTS_QUOTA_TYPE
+        )
 
         return DigestOut(
             period=period,

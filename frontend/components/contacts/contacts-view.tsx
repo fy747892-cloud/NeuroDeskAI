@@ -2,13 +2,21 @@
 
 import Link from "next/link";
 import { FormEvent, MouseEvent, useCallback, useEffect, useState } from "react";
-import { Contact, createContact, deleteContact, listContacts } from "@/lib/api";
+import {
+  Contact,
+  createContact,
+  CustomFieldDefinition,
+  deleteContact,
+  listContacts,
+  listCustomFieldDefinitions,
+} from "@/lib/api";
 import { useSession } from "@/lib/session";
 import { useLanguage } from "@/lib/i18n/context";
 import { useToast } from "@/lib/toast";
 import { Skeleton } from "@/components/shell/skeleton";
 import { EmptyState } from "@/components/shell/empty-state";
 import { Pagination } from "@/components/shell/pagination";
+import { CustomFieldsForm } from "@/components/shell/custom-fields-form";
 import { getInitials } from "@/lib/format";
 import { deferredExecute, UNDO_WINDOW_MS } from "@/lib/undo";
 
@@ -33,6 +41,8 @@ export function ContactsView() {
     company: "",
     title: "",
   });
+  const [customFieldDefs, setCustomFieldDefs] = useState<CustomFieldDefinition[]>([]);
+  const [newContactCustomFields, setNewContactCustomFields] = useState<Record<string, unknown>>({});
 
   const loadContacts = useCallback(async () => {
     if (!tokens?.accessToken) return;
@@ -55,6 +65,13 @@ export function ContactsView() {
   useEffect(() => {
     loadContacts();
   }, [loadContacts]);
+
+  useEffect(() => {
+    if (!tokens?.accessToken) return;
+    listCustomFieldDefinitions(tokens.accessToken, "contact")
+      .then(setCustomFieldDefs)
+      .catch(() => setCustomFieldDefs([]));
+  }, [tokens?.accessToken]);
 
   function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -122,9 +139,11 @@ export function ContactsView() {
         phone: newContact.phone.trim() || null,
         company: newContact.company.trim() || null,
         title: newContact.title.trim() || null,
+        custom_fields: newContactCustomFields,
       });
       setContacts((current) => [created, ...current]);
       setNewContact({ fullName: "", email: "", phone: "", company: "", title: "" });
+      setNewContactCustomFields({});
       showToast(t("contacts.contactCreated"), "success");
       setShowForm(false);
     } catch (createError) {
@@ -234,6 +253,13 @@ export function ContactsView() {
             placeholder={t("contacts.titleRolePlaceholder")}
             value={newContact.title}
           />
+          <CustomFieldsForm
+            definitions={customFieldDefs}
+            values={newContactCustomFields}
+            onChange={(key, value) =>
+              setNewContactCustomFields((current) => ({ ...current, [key]: value }))
+            }
+          />
           <div className="col-span-2 flex gap-2">
             <button
               type="submit"
@@ -244,7 +270,10 @@ export function ContactsView() {
             </button>
             <button
               type="button"
-              onClick={() => setNewContact({ fullName: "", email: "", phone: "", company: "", title: "" })}
+              onClick={() => {
+                setNewContact({ fullName: "", email: "", phone: "", company: "", title: "" });
+                setNewContactCustomFields({});
+              }}
               className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
             >
               {t("common.clear")}

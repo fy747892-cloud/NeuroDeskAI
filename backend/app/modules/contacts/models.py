@@ -27,6 +27,7 @@ class Contact(UUIDPKMixin, TimestampMixin, SoftDeleteMixin, Base):
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     tags: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=False, default=list)
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="active", index=True)
+    custom_fields: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
 
 class ContactNote(UUIDPKMixin, TimestampMixin, Base):

@@ -1,7 +1,8 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 
 class DealOut(BaseModel):
@@ -21,6 +22,7 @@ class DealOut(BaseModel):
     source_type: str
     source_id: UUID | None
     ai_action_approval_id: UUID | None
+    custom_fields: dict[str, Any]
     created_at: datetime
 
 
@@ -32,6 +34,7 @@ class DealCreate(BaseModel):
     stage: str = Field(default="lead", min_length=1, max_length=50)
     expected_close_date: datetime | None = None
     contact_id: UUID | None = None
+    custom_fields: dict[str, Any] | None = None
 
 
 class DealUpdate(BaseModel):
@@ -42,6 +45,7 @@ class DealUpdate(BaseModel):
     stage: str | None = Field(default=None, min_length=1, max_length=50)
     expected_close_date: datetime | None = None
     contact_id: UUID | None = None
+    custom_fields: dict[str, Any] | None = None
 
 
 class DealCreateFromApproval(BaseModel):
@@ -67,3 +71,34 @@ class DealPipelineReportOut(BaseModel):
     by_expected_month: list[DealForecastMonthOut]
     open_stages: list[str]
     generated_at: datetime
+
+
+class DealLineItemOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    deal_id: UUID
+    product_name: str
+    quantity: float
+    unit_price: float
+    display_order: int
+    created_at: datetime
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def line_total(self) -> float:
+        return self.quantity * self.unit_price
+
+
+class DealLineItemCreate(BaseModel):
+    product_name: str = Field(min_length=1, max_length=255)
+    quantity: float = Field(default=1, gt=0)
+    unit_price: float = Field(default=0, ge=0)
+    display_order: int = Field(default=0)
+
+
+class DealLineItemUpdate(BaseModel):
+    product_name: str | None = Field(default=None, min_length=1, max_length=255)
+    quantity: float | None = Field(default=None, gt=0)
+    unit_price: float | None = Field(default=None, ge=0)
+    display_order: int | None = None

@@ -186,7 +186,10 @@ async def test_digest_reflects_open_deals_count(client: AsyncClient):
 async def test_digest_shares_daily_ai_quota_with_chat(client: AsyncClient):
     headers = await _auth_headers(client, "digest-quota@example.com")
 
-    for index in range(4):
+    # Free plan's daily ai_chat_requests quota is 15 (PLAN_QUOTA_DEFAULTS in
+    # billing/service.py) — 14 chat calls + 1 digest fetch reaches the limit
+    # exactly, so the next digest fetch must be blocked.
+    for index in range(14):
         response = await client.post(
             "/api/v1/ai/chat", headers=headers, json={"message": f"chat message {index}"}
         )

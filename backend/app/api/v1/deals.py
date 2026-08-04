@@ -9,12 +9,15 @@ from app.core.errors import NotFoundError
 from app.core.permissions import Permission
 from app.db.session import get_db
 from app.modules.audit.repository import AuditRepository
-from app.modules.deals.models import Deal
-from app.modules.deals.repository import OPEN_STAGES, DealRepository
+from app.modules.deals.models import Deal, DealLineItem
+from app.modules.deals.repository import OPEN_STAGES, DealLineItemRepository, DealRepository
 from app.modules.deals.schemas import (
     DealCreate,
     DealCreateFromApproval,
     DealForecastMonthOut,
+    DealLineItemCreate,
+    DealLineItemOut,
+    DealLineItemUpdate,
     DealOut,
     DealPipelineReportOut,
     DealStageBreakdownOut,
@@ -90,6 +93,7 @@ async def create_deal(
         stage=body.stage,
         expected_close_date=body.expected_close_date,
         contact_id=body.contact_id,
+        custom_fields=body.custom_fields,
     )
     await _record_deal_audit(db, request, current_user, "deal.created", deal)
     await db.commit()
@@ -144,6 +148,7 @@ async def update_deal(
         stage=body.stage,
         expected_close_date=body.expected_close_date,
         contact_id=body.contact_id,
+        custom_fields=body.custom_fields,
     )
     await _record_deal_audit(db, request, current_user, "deal.updated", deal)
     await db.commit()
@@ -161,6 +166,92 @@ async def delete_deal(
     await DealService(db).delete_deal(deal=deal)
     await _record_deal_audit(db, request, current_user, "deal.deleted", deal)
     await db.commit()
+
+
+@router.get("/{deal_id}/line-items", response_model=list[DealLineItemOut])
+async def list_line_items(
+    deal_id: uuid.UUID,
+    current_user: User = Depends(require_permission(Permission.DEALS_READ)),
+    db: AsyncSession = Depends(get_db),
+) -> list[DealLineItem]:
+    deal = await _get_current_deal(db, current_user, deal_id)
+    return await DealService(db).list_line_items(deal=deal)
+
+
+@router.post(
+    "/{deal_id}/line-items", response_model=DealLineItemOut, status_code=status.HTTP_201_CREATED
+)
+async def create_line_item(
+    deal_id: uuid.UUID,
+    body: DealLineItemCreate,
+    request: Request,
+    current_user: User = Depends(require_permission(Permission.DEALS_MANAGE)),
+    db: AsyncSession = Depends(get_db),
+) -> DealLineItem:
+    deal = await _get_current_deal(db, current_user, deal_id)
+    item = await DealService(db).add_line_item(
+        deal=deal,
+        product_name=body.product_name,
+        quantity=body.quantity,
+        unit_price=body.unit_price,
+        display_order=body.display_order,
+    )
+    await _record_deal_audit(db, request, current_user, "deal.line_item_added", deal)
+    await db.commit()
+    return item
+
+
+@router.patch("/{deal_id}/line-items/{item_id}", response_model=DealLineItemOut)
+async def update_line_item(
+    deal_id: uuid.UUID,
+    item_id: uuid.UUID,
+    body: DealLineItemUpdate,
+    request: Request,
+    current_user: User = Depends(require_permission(Permission.DEALS_MANAGE)),
+    db: AsyncSession = Depends(get_db),
+) -> DealLineItem:
+    deal = await _get_current_deal(db, current_user, deal_id)
+    item = await _get_current_line_item(db, current_user, deal, item_id)
+    item = await DealService(db).update_line_item(
+        deal=deal,
+        item=item,
+        product_name=body.product_name,
+        quantity=body.quantity,
+        unit_price=body.unit_price,
+        display_order=body.display_order,
+    )
+    await _record_deal_audit(db, request, current_user, "deal.line_item_updated", deal)
+    await db.commit()
+    return item
+
+
+@router.delete("/{deal_id}/line-items/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_line_item(
+    deal_id: uuid.UUID,
+    item_id: uuid.UUID,
+    request: Request,
+    current_user: User = Depends(require_permission(Permission.DEALS_MANAGE)),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    deal = await _get_current_deal(db, current_user, deal_id)
+    item = await _get_current_line_item(db, current_user, deal, item_id)
+    await DealService(db).delete_line_item(deal=deal, item=item)
+    await _record_deal_audit(db, request, current_user, "deal.line_item_deleted", deal)
+    await db.commit()
+
+
+async def _get_current_line_item(
+    db: AsyncSession, current_user: User, deal: Deal, item_id: uuid.UUID
+) -> DealLineItem:
+    item = await DealLineItemRepository(db).get_by_id(
+        tenant_id=current_user.tenant_id,
+        organization_id=deal.organization_id,
+        deal_id=deal.id,
+        item_id=item_id,
+    )
+    if item is None:
+        raise NotFoundError("Deal line item not found.")
+    return item
 
 
 async def _get_current_deal(db: AsyncSession, current_user: User, deal_id: uuid.UUID) -> Deal:
