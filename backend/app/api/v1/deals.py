@@ -90,6 +90,7 @@ async def create_deal(
         stage=body.stage,
         expected_close_date=body.expected_close_date,
         contact_id=body.contact_id,
+        custom_fields=body.custom_fields,
     )
     await _record_deal_audit(db, request, current_user, "deal.created", deal)
     await db.commit()
@@ -144,6 +145,7 @@ async def update_deal(
         stage=body.stage,
         expected_close_date=body.expected_close_date,
         contact_id=body.contact_id,
+        custom_fields=body.custom_fields,
     )
     await _record_deal_audit(db, request, current_user, "deal.updated", deal)
     await db.commit()

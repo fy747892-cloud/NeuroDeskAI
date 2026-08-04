@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -21,6 +22,7 @@ class DealOut(BaseModel):
     source_type: str
     source_id: UUID | None
     ai_action_approval_id: UUID | None
+    custom_fields: dict[str, Any]
     created_at: datetime
 
 
@@ -32,6 +34,7 @@ class DealCreate(BaseModel):
     stage: str = Field(default="lead", min_length=1, max_length=50)
     expected_close_date: datetime | None = None
     contact_id: UUID | None = None
+    custom_fields: dict[str, Any] | None = None
 
 
 class DealUpdate(BaseModel):
@@ -42,6 +45,7 @@ class DealUpdate(BaseModel):
     stage: str | None = Field(default=None, min_length=1, max_length=50)
     expected_close_date: datetime | None = None
     contact_id: UUID | None = None
+    custom_fields: dict[str, Any] | None = None
 
 
 class DealCreateFromApproval(BaseModel):

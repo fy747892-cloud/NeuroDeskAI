@@ -84,6 +84,7 @@ async def create_contact(
         company=body.company,
         title=body.title,
         tags=body.tags,
+        custom_fields=body.custom_fields,
     )
     await AuditRepository(db).record(
         tenant_id=current_user.tenant_id,
@@ -139,6 +140,7 @@ async def update_contact(
         title=body.title,
         tags=body.tags,
         status=body.status,
+        custom_fields=body.custom_fields,
     )
     await AuditRepository(db).record(
         tenant_id=current_user.tenant_id,

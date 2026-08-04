@@ -29,6 +29,7 @@ class DealRepository:
         source_type: str = "manual",
         source_id: uuid.UUID | None = None,
         ai_action_approval_id: uuid.UUID | None = None,
+        custom_fields: dict | None = None,
     ) -> Deal:
         deal = Deal(
             tenant_id=tenant_id,
@@ -44,6 +45,7 @@ class DealRepository:
             source_type=source_type,
             source_id=source_id,
             ai_action_approval_id=ai_action_approval_id,
+            custom_fields=custom_fields or {},
         )
         self._db.add(deal)
         await self._db.flush()
@@ -114,6 +116,7 @@ class DealRepository:
         stage: str | None = None,
         expected_close_date: datetime | None = None,
         contact_id: uuid.UUID | None = None,
+        custom_fields: dict | None = None,
     ) -> Deal:
         if title is not None:
             deal.title = title
@@ -129,6 +132,8 @@ class DealRepository:
             deal.expected_close_date = expected_close_date
         if contact_id is not None:
             deal.contact_id = contact_id
+        if custom_fields is not None:
+            deal.custom_fields = custom_fields
         await self._db.flush()
         return deal
 

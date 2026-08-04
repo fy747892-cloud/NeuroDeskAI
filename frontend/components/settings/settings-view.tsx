@@ -9,7 +9,12 @@ import {
   CalendarAccount,
   connectGoogleCalendar,
   ConsentSettings,
+  createCustomFieldDefinition,
+  CustomFieldDefinition,
+  CustomFieldEntityType,
+  CustomFieldType,
   deleteAvatar,
+  deleteCustomFieldDefinition,
   deleteMyAccount,
   disableTotp,
   EmailAccount,
@@ -23,6 +28,7 @@ import {
   listAuditLogs,
   listBillingPlans,
   listCalendarAccounts,
+  listCustomFieldDefinitions,
   listEmailAccounts,
   listOrganizationMembers,
   listSessions,
@@ -127,6 +133,20 @@ export function SettingsView() {
   const [deleteAccountPassword, setDeleteAccountPassword] = useState("");
   const [isDeletingAccount, setDeletingAccount] = useState(false);
   const [canViewAuditLogs, setCanViewAuditLogs] = useState(false);
+  const [canManageCustomFields, setCanManageCustomFields] = useState(false);
+  const [customFieldEntityTab, setCustomFieldEntityTab] = useState<CustomFieldEntityType>("contact");
+  const [customFieldDefs, setCustomFieldDefs] = useState<
+    Record<CustomFieldEntityType, CustomFieldDefinition[]>
+  >({ contact: [], deal: [] });
+  const [isAddingCustomField, setAddingCustomField] = useState(false);
+  const [newCustomField, setNewCustomField] = useState({
+    label: "",
+    fieldType: "text" as CustomFieldType,
+    options: "",
+    isRequired: false,
+  });
+  const [isSavingCustomField, setSavingCustomField] = useState(false);
+  const [busyCustomFieldId, setBusyCustomFieldId] = useState<string | null>(null);
 
   const loadSettings = useCallback(async () => {
     if (!tokens?.accessToken) return;
@@ -176,6 +196,12 @@ export function SettingsView() {
       const canSeeAuditLogs = myRole === "owner" || myRole === "admin";
       setCanViewAuditLogs(canSeeAuditLogs);
       setAuditLogs(canSeeAuditLogs ? await listAuditLogs(tokens.accessToken, 10) : []);
+      setCanManageCustomFields(canSeeAuditLogs);
+      const [contactFields, dealFields] = await Promise.all([
+        listCustomFieldDefinitions(tokens.accessToken, "contact"),
+        listCustomFieldDefinitions(tokens.accessToken, "deal"),
+      ]);
+      setCustomFieldDefs({ contact: contactFields, deal: dealFields });
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : t("settings.loadError"));
     } finally {
@@ -186,6 +212,71 @@ export function SettingsView() {
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  async function handleCreateCustomField(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tokens?.accessToken || !newCustomField.label.trim()) return;
+    setSavingCustomField(true);
+    setError(null);
+    try {
+      const fieldKey = newCustomField.label
+        .trim()
+        .toLocaleLowerCase("tr-TR")
+        .replace(/ğ/g, "g")
+        .replace(/ü/g, "u")
+        .replace(/ş/g, "s")
+        .replace(/ı/g, "i")
+        .replace(/ö/g, "o")
+        .replace(/ç/g, "c")
+        .replace(/[^a-z0-9]+/g, "_")
+        .replace(/^_+|_+$/g, "");
+      const options =
+        newCustomField.fieldType === "select"
+          ? newCustomField.options
+              .split(",")
+              .map((option) => option.trim())
+              .filter(Boolean)
+          : undefined;
+      const created = await createCustomFieldDefinition(tokens.accessToken, {
+        entity_type: customFieldEntityTab,
+        field_key: fieldKey,
+        label: newCustomField.label.trim(),
+        field_type: newCustomField.fieldType,
+        options,
+        is_required: newCustomField.isRequired,
+      });
+      setCustomFieldDefs((current) => ({
+        ...current,
+        [customFieldEntityTab]: [...current[customFieldEntityTab], created],
+      }));
+      setNewCustomField({ label: "", fieldType: "text", options: "", isRequired: false });
+      setAddingCustomField(false);
+      showToast(t("settings.customFields.createdToast"), "success");
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : t("settings.customFields.createError"));
+    } finally {
+      setSavingCustomField(false);
+    }
+  }
+
+  async function handleDeleteCustomField(definition: CustomFieldDefinition) {
+    if (!tokens?.accessToken) return;
+    setBusyCustomFieldId(definition.id);
+    setError(null);
+    try {
+      await deleteCustomFieldDefinition(tokens.accessToken, definition.id);
+      setCustomFieldDefs((current) => ({
+        ...current,
+        [definition.entity_type]: current[definition.entity_type].filter(
+          (item) => item.id !== definition.id,
+        ),
+      }));
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : t("settings.customFields.deleteError"));
+    } finally {
+      setBusyCustomFieldId(null);
+    }
+  }
 
   useEffect(() => {
     const connected = searchParams.get("connected");
@@ -1241,6 +1332,138 @@ export function SettingsView() {
               </tbody>
             </table>
           ) : null}
+        </section>
+      ) : null}
+
+      {canManageCustomFields ? (
+        <section className="glass-card rounded-xl overflow-hidden mt-lg">
+          <div className="px-lg py-md border-b border-outline-variant/30 flex items-center justify-between flex-wrap gap-2">
+            <h3 className="font-headline-md text-headline-md">{t("settings.customFields.title")}</h3>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setCustomFieldEntityTab("contact")}
+                className={
+                  "px-3 py-1.5 rounded-full text-label-sm font-bold border " +
+                  (customFieldEntityTab === "contact"
+                    ? "bg-primary text-on-primary border-primary"
+                    : "border-outline-variant/40 text-on-surface-variant")
+                }
+              >
+                {t("settings.customFields.contactsTab")}
+              </button>
+              <button
+                type="button"
+                onClick={() => setCustomFieldEntityTab("deal")}
+                className={
+                  "px-3 py-1.5 rounded-full text-label-sm font-bold border " +
+                  (customFieldEntityTab === "deal"
+                    ? "bg-primary text-on-primary border-primary"
+                    : "border-outline-variant/40 text-on-surface-variant")
+                }
+              >
+                {t("settings.customFields.dealsTab")}
+              </button>
+            </div>
+          </div>
+
+          <div className="p-lg space-y-2">
+            {customFieldDefs[customFieldEntityTab].length === 0 ? (
+              <EmptyState icon="tune" title={t("settings.customFields.empty")} />
+            ) : (
+              customFieldDefs[customFieldEntityTab].map((definition) => (
+                <div
+                  key={definition.id}
+                  className="flex items-center justify-between gap-3 px-3 py-2 bg-surface-container-low rounded-lg"
+                >
+                  <div>
+                    <p className="text-body-sm font-bold text-on-surface">
+                      {definition.label}
+                      {definition.is_required ? <span className="text-error"> *</span> : null}
+                    </p>
+                    <p className="text-[11px] text-outline uppercase tracking-wide">
+                      {definition.field_type}
+                      {definition.options?.length ? ` · ${definition.options.join(", ")}` : ""}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={busyCustomFieldId === definition.id}
+                    onClick={() => handleDeleteCustomField(definition)}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-error hover:bg-error-container/20 disabled:opacity-60"
+                    aria-label={t("common.delete")}
+                  >
+                    <span className="material-symbols-outlined text-[18px]">delete</span>
+                  </button>
+                </div>
+              ))
+            )}
+
+            {isAddingCustomField ? (
+              <form onSubmit={handleCreateCustomField} className="grid grid-cols-2 gap-3 mt-md">
+                <input
+                  className="col-span-2 bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                  onChange={(e) => setNewCustomField((f) => ({ ...f, label: e.target.value }))}
+                  placeholder={t("settings.customFields.labelPlaceholder")}
+                  value={newCustomField.label}
+                />
+                <select
+                  className="bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                  onChange={(e) =>
+                    setNewCustomField((f) => ({ ...f, fieldType: e.target.value as CustomFieldType }))
+                  }
+                  value={newCustomField.fieldType}
+                >
+                  <option value="text">{t("settings.customFields.type.text")}</option>
+                  <option value="number">{t("settings.customFields.type.number")}</option>
+                  <option value="date">{t("settings.customFields.type.date")}</option>
+                  <option value="boolean">{t("settings.customFields.type.boolean")}</option>
+                  <option value="select">{t("settings.customFields.type.select")}</option>
+                </select>
+                <label className="flex items-center gap-2 text-body-sm text-on-surface-variant">
+                  <input
+                    type="checkbox"
+                    checked={newCustomField.isRequired}
+                    onChange={(e) => setNewCustomField((f) => ({ ...f, isRequired: e.target.checked }))}
+                  />
+                  {t("settings.customFields.requiredLabel")}
+                </label>
+                {newCustomField.fieldType === "select" ? (
+                  <input
+                    className="col-span-2 bg-surface-container-lowest border border-outline-variant/30 rounded-lg px-3 py-2 text-body-sm"
+                    onChange={(e) => setNewCustomField((f) => ({ ...f, options: e.target.value }))}
+                    placeholder={t("settings.customFields.optionsPlaceholder")}
+                    value={newCustomField.options}
+                  />
+                ) : null}
+                <div className="col-span-2 flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={isSavingCustomField || !newCustomField.label.trim()}
+                    className="flex-1 py-2 bg-primary text-on-primary rounded-lg text-label-sm font-bold disabled:opacity-60"
+                  >
+                    {isSavingCustomField ? t("common.loading") : t("common.save")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAddingCustomField(false)}
+                    className="px-3 py-2 bg-surface text-on-surface-variant rounded-lg text-label-sm font-bold"
+                  >
+                    {t("common.cancel")}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAddingCustomField(true)}
+                className="mt-md flex items-center gap-1.5 px-3 py-2 rounded-lg text-label-sm font-bold border border-outline-variant/40 text-on-surface-variant"
+              >
+                <span className="material-symbols-outlined text-[16px]">add</span>
+                {t("settings.customFields.addButton")}
+              </button>
+            )}
+          </div>
         </section>
       ) : null}
     </div>

@@ -23,6 +23,7 @@ class ContactRepository:
         company: str | None = None,
         title: str | None = None,
         tags: list[str] | None = None,
+        custom_fields: dict | None = None,
     ) -> Contact:
         contact = Contact(
             tenant_id=tenant_id,
@@ -35,6 +36,7 @@ class ContactRepository:
             title=title,
             tags=tags or [],
             status="active",
+            custom_fields=custom_fields or {},
         )
         self._db.add(contact)
         await self._db.flush()
@@ -108,6 +110,7 @@ class ContactRepository:
         title: str | None = None,
         tags: list[str] | None = None,
         status: str | None = None,
+        custom_fields: dict | None = None,
     ) -> Contact:
         if full_name is not None:
             contact.full_name = full_name
@@ -123,6 +126,8 @@ class ContactRepository:
             contact.tags = tags
         if status is not None:
             contact.status = status
+        if custom_fields is not None:
+            contact.custom_fields = custom_fields
         await self._db.flush()
         return contact
 

@@ -12,6 +12,7 @@ from app.api.v1.calls import router as calls_router
 from app.api.v1.client_errors import router as client_errors_router
 from app.api.v1.contacts import router as contacts_router
 from app.api.v1.conversations import router as conversations_router
+from app.api.v1.custom_fields import router as custom_fields_router
 from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.deals import router as deals_router
 from app.api.v1.email import router as email_router
@@ -53,3 +54,4 @@ api_router.include_router(deals_router)
 api_router.include_router(client_errors_router)
 api_router.include_router(feedback_router)
 api_router.include_router(whatsapp_router)
+api_router.include_router(custom_fields_router)

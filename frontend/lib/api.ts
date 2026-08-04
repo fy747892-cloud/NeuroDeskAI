@@ -190,6 +190,7 @@ export type Contact = {
   title: string | null;
   tags: string[];
   status: string;
+  custom_fields: Record<string, unknown>;
   created_at: string;
 };
 
@@ -200,6 +201,7 @@ export type ContactCreatePayload = {
   company?: string | null;
   title?: string | null;
   tags?: string[];
+  custom_fields?: Record<string, unknown>;
 };
 
 export type ContactUpdatePayload = {
@@ -210,6 +212,7 @@ export type ContactUpdatePayload = {
   title?: string | null;
   tags?: string[];
   status?: string;
+  custom_fields?: Record<string, unknown>;
 };
 
 export type ContactNote = {
@@ -277,6 +280,7 @@ export type Deal = {
   source_type: string;
   source_id: string | null;
   ai_action_approval_id: string | null;
+  custom_fields: Record<string, unknown>;
   created_at: string;
 };
 
@@ -299,9 +303,43 @@ export type DealCreatePayload = {
   stage?: string;
   expected_close_date?: string | null;
   contact_id?: string | null;
+  custom_fields?: Record<string, unknown>;
 };
 
 export type DealUpdatePayload = Partial<DealCreatePayload>;
+
+export type CustomFieldEntityType = "contact" | "deal";
+export type CustomFieldType = "text" | "number" | "date" | "boolean" | "select";
+
+export type CustomFieldDefinition = {
+  id: string;
+  tenant_id: string;
+  organization_id: string;
+  entity_type: CustomFieldEntityType;
+  field_key: string;
+  label: string;
+  field_type: CustomFieldType;
+  options: string[] | null;
+  is_required: boolean;
+  display_order: number;
+};
+
+export type CustomFieldDefinitionCreatePayload = {
+  entity_type: CustomFieldEntityType;
+  field_key: string;
+  label: string;
+  field_type: CustomFieldType;
+  options?: string[] | null;
+  is_required?: boolean;
+  display_order?: number;
+};
+
+export type CustomFieldDefinitionUpdatePayload = {
+  label?: string;
+  options?: string[] | null;
+  is_required?: boolean;
+  display_order?: number;
+};
 
 export type ConversationUpdatePayload = {
   title?: string;
@@ -1257,6 +1295,7 @@ export async function createContact(
       company: payload.company ?? null,
       title: payload.title ?? null,
       tags: payload.tags ?? [],
+      custom_fields: payload.custom_fields ?? {},
     }),
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -1343,6 +1382,7 @@ export async function createDeal(accessToken: string, payload: DealCreatePayload
       stage: payload.stage ?? "lead",
       expected_close_date: payload.expected_close_date ?? null,
       contact_id: payload.contact_id ?? null,
+      custom_fields: payload.custom_fields ?? {},
     }),
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -1362,6 +1402,57 @@ export async function updateDeal(
       Authorization: `Bearer ${accessToken}`,
     },
   });
+}
+
+export async function listCustomFieldDefinitions(
+  accessToken: string,
+  entityType: CustomFieldEntityType,
+): Promise<CustomFieldDefinition[]> {
+  return request<CustomFieldDefinition[]>(`/api/v1/custom-fields?entity_type=${entityType}`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function createCustomFieldDefinition(
+  accessToken: string,
+  payload: CustomFieldDefinitionCreatePayload,
+): Promise<CustomFieldDefinition> {
+  return request<CustomFieldDefinition>("/api/v1/custom-fields", {
+    method: "POST",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function updateCustomFieldDefinition(
+  accessToken: string,
+  definitionId: string,
+  payload: CustomFieldDefinitionUpdatePayload,
+): Promise<CustomFieldDefinition> {
+  return request<CustomFieldDefinition>(`/api/v1/custom-fields/${definitionId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function deleteCustomFieldDefinition(accessToken: string, definitionId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/custom-fields/${definitionId}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
 }
 
 export async function deleteDeal(accessToken: string, dealId: string): Promise<void> {

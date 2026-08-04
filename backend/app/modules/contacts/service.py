@@ -15,6 +15,8 @@ from app.modules.contacts.schemas import (
     ContactMemoryOut,
 )
 from app.modules.conversations.repository import ConversationRepository
+from app.modules.custom_fields.repository import CustomFieldRepository
+from app.modules.custom_fields.validation import validate_custom_field_values
 from app.modules.deals.repository import DealRepository
 from app.modules.email.repository import EmailMessageRepository
 from app.modules.tasks.repository import TaskRepository
@@ -30,6 +32,7 @@ class ContactService:
         self._email_messages = EmailMessageRepository(db)
         self._deals = DealRepository(db)
         self._ai = AIRepository(db)
+        self._custom_fields = CustomFieldRepository(db)
 
     async def create_contact(
         self,
@@ -43,7 +46,15 @@ class ContactService:
         company: str | None = None,
         title: str | None = None,
         tags: list[str] | None = None,
+        custom_fields: dict | None = None,
     ) -> Contact:
+        # Always validate on create (not just when values are provided) so
+        # required custom fields are actually enforced for new contacts.
+        definitions = await self._custom_fields.list_for_entity(
+            tenant_id=tenant_id, organization_id=organization_id, entity_type="contact"
+        )
+        validate_custom_field_values(definitions=definitions, values=custom_fields or {})
+
         contact = await self._contacts.create(
             tenant_id=tenant_id,
             organization_id=organization_id,
@@ -54,6 +65,7 @@ class ContactService:
             company=company,
             title=title,
             tags=tags,
+            custom_fields=custom_fields,
         )
         await self._contacts.add_timeline_event(
             tenant_id=tenant_id,
@@ -74,7 +86,14 @@ class ContactService:
         title: str | None = None,
         tags: list[str] | None = None,
         status: str | None = None,
+        custom_fields: dict | None = None,
     ) -> Contact:
+        if custom_fields is not None:
+            definitions = await self._custom_fields.list_for_entity(
+                tenant_id=contact.tenant_id, organization_id=contact.organization_id, entity_type="contact"
+            )
+            validate_custom_field_values(definitions=definitions, values=custom_fields)
+
         return await self._contacts.update(
             contact=contact,
             full_name=full_name,
@@ -84,6 +103,7 @@ class ContactService:
             title=title,
             tags=tags,
             status=status,
+            custom_fields=custom_fields,
         )
 
     async def delete_contact(self, *, contact: Contact) -> None:
