@@ -328,6 +328,29 @@ export type DealLineItemCreatePayload = {
 
 export type DealLineItemUpdatePayload = Partial<DealLineItemCreatePayload>;
 
+export type LeadForm = {
+  id: string;
+  organization_id: string;
+  public_token: string;
+  public_url: string;
+  is_active: boolean;
+  created_at: string;
+};
+
+export type LeadFormPublicInfo = {
+  organization_name: string;
+  is_active: boolean;
+};
+
+export type LeadFormSubmitPayload = {
+  full_name: string;
+  email?: string | null;
+  phone?: string | null;
+  company?: string | null;
+  message?: string | null;
+  website?: string;
+};
+
 export type CustomFieldEntityType = "contact" | "deal";
 export type CustomFieldType = "text" | "number" | "date" | "boolean" | "select";
 
@@ -1519,6 +1542,74 @@ export async function deleteCustomFieldDefinition(accessToken: string, definitio
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
+  });
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+}
+
+export async function getMyLeadForm(accessToken: string): Promise<LeadForm | null> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/lead-forms/me`, {
+    cache: "no-store",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+  return (await response.json()) as LeadForm;
+}
+
+export async function createLeadForm(accessToken: string): Promise<LeadForm> {
+  return request<LeadForm>("/api/v1/lead-forms", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function updateLeadForm(
+  accessToken: string,
+  leadFormId: string,
+  isActive: boolean,
+): Promise<LeadForm> {
+  return request<LeadForm>(`/api/v1/lead-forms/${leadFormId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ is_active: isActive }),
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function rotateLeadFormToken(accessToken: string, leadFormId: string): Promise<LeadForm> {
+  return request<LeadForm>(`/api/v1/lead-forms/${leadFormId}/rotate-token`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
+export async function getPublicLeadForm(token: string): Promise<LeadFormPublicInfo | null> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/lead-forms/public/${token}`, {
+    cache: "no-store",
+  });
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(await readErrorMessage(response));
+  }
+  return (await response.json()) as LeadFormPublicInfo;
+}
+
+export async function submitLeadForm(token: string, payload: LeadFormSubmitPayload): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/v1/lead-forms/public/${token}/submit`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
   });
   if (!response.ok) {
     throw new Error(await readErrorMessage(response));

@@ -10,6 +10,7 @@ import {
   connectGoogleCalendar,
   ConsentSettings,
   createCustomFieldDefinition,
+  createLeadForm,
   CustomFieldDefinition,
   CustomFieldEntityType,
   CustomFieldType,
@@ -21,10 +22,12 @@ import {
   exportMyData,
   getConsentSettings,
   getCurrentOrganization,
+  getMyLeadForm,
   getSubscription,
   getTotpStatus,
   getUsageSummary,
   inviteOrganizationMember,
+  LeadForm,
   listAuditLogs,
   listBillingPlans,
   listCalendarAccounts,
@@ -38,6 +41,7 @@ import {
   revokeCalendarAccount,
   revokeEmailAccount,
   revokeSession,
+  rotateLeadFormToken,
   setupTotp,
   startGmailConnect,
   startOutlookConnect,
@@ -46,6 +50,7 @@ import {
   syncCalendarAccount,
   TotpSetup,
   updateConsentSettings,
+  updateLeadForm,
   updateMemberRole,
   updateProfile,
   uploadAvatar,
@@ -147,6 +152,10 @@ export function SettingsView() {
   });
   const [isSavingCustomField, setSavingCustomField] = useState(false);
   const [busyCustomFieldId, setBusyCustomFieldId] = useState<string | null>(null);
+  const [canManageLeadForm, setCanManageLeadForm] = useState(false);
+  const [leadForm, setLeadForm] = useState<LeadForm | null>(null);
+  const [isLeadFormBusy, setLeadFormBusy] = useState(false);
+  const [leadFormLinkCopied, setLeadFormLinkCopied] = useState(false);
 
   const loadSettings = useCallback(async () => {
     if (!tokens?.accessToken) return;
@@ -202,6 +211,9 @@ export function SettingsView() {
         listCustomFieldDefinitions(tokens.accessToken, "deal"),
       ]);
       setCustomFieldDefs({ contact: contactFields, deal: dealFields });
+
+      setCanManageLeadForm(canSeeAuditLogs);
+      setLeadForm(canSeeAuditLogs ? await getMyLeadForm(tokens.accessToken) : null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : t("settings.loadError"));
     } finally {
@@ -276,6 +288,54 @@ export function SettingsView() {
     } finally {
       setBusyCustomFieldId(null);
     }
+  }
+
+  async function handleCreateLeadForm() {
+    if (!tokens?.accessToken) return;
+    setLeadFormBusy(true);
+    setError(null);
+    try {
+      setLeadForm(await createLeadForm(tokens.accessToken));
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : t("settings.leadForm.createError"));
+    } finally {
+      setLeadFormBusy(false);
+    }
+  }
+
+  async function handleToggleLeadForm() {
+    if (!tokens?.accessToken || !leadForm) return;
+    setLeadFormBusy(true);
+    setError(null);
+    try {
+      setLeadForm(await updateLeadForm(tokens.accessToken, leadForm.id, !leadForm.is_active));
+    } catch (toggleError) {
+      setError(toggleError instanceof Error ? toggleError.message : t("settings.leadForm.updateError"));
+    } finally {
+      setLeadFormBusy(false);
+    }
+  }
+
+  async function handleRotateLeadFormToken() {
+    if (!tokens?.accessToken || !leadForm) return;
+    setLeadFormBusy(true);
+    setError(null);
+    try {
+      setLeadForm(await rotateLeadFormToken(tokens.accessToken, leadForm.id));
+      showToast(t("settings.leadForm.rotated"), "success");
+    } catch (rotateError) {
+      setError(rotateError instanceof Error ? rotateError.message : t("settings.leadForm.updateError"));
+    } finally {
+      setLeadFormBusy(false);
+    }
+  }
+
+  function handleCopyLeadFormLink() {
+    if (!leadForm) return;
+    navigator.clipboard.writeText(leadForm.public_url).then(() => {
+      setLeadFormLinkCopied(true);
+      setTimeout(() => setLeadFormLinkCopied(false), 2000);
+    });
   }
 
   useEffect(() => {
@@ -1462,6 +1522,78 @@ export function SettingsView() {
                 <span className="material-symbols-outlined text-[16px]">add</span>
                 {t("settings.customFields.addButton")}
               </button>
+            )}
+          </div>
+        </section>
+      ) : null}
+
+      {canManageLeadForm ? (
+        <section className="glass-card rounded-xl overflow-hidden mt-lg">
+          <div className="px-lg py-md border-b border-outline-variant/30">
+            <h3 className="font-headline-md text-headline-md">{t("settings.leadForm.title")}</h3>
+            <p className="text-body-sm text-on-surface-variant mt-1">{t("settings.leadForm.description")}</p>
+          </div>
+
+          <div className="p-lg">
+            {leadForm === null ? (
+              <button
+                type="button"
+                onClick={handleCreateLeadForm}
+                disabled={isLeadFormBusy}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-label-sm font-bold border border-outline-variant/40 text-on-surface-variant disabled:opacity-60"
+              >
+                <span className="material-symbols-outlined text-[16px]">add</span>
+                {t("settings.leadForm.createButton")}
+              </button>
+            ) : (
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={
+                      "px-2 py-0.5 rounded-full text-[11px] font-bold " +
+                      (leadForm.is_active
+                        ? "bg-primary/10 text-primary"
+                        : "bg-surface-container-high text-on-surface-variant")
+                    }
+                  >
+                    {leadForm.is_active ? t("settings.leadForm.active") : t("settings.leadForm.inactive")}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    readOnly
+                    value={leadForm.public_url}
+                    className="flex-1 bg-surface-container-low border-none rounded-lg px-3 py-2 text-body-sm text-on-surface-variant"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCopyLeadFormLink}
+                    className="px-3 py-2 bg-surface-container-high text-on-surface rounded-lg text-label-sm font-bold whitespace-nowrap"
+                  >
+                    {leadFormLinkCopied ? t("settings.leadForm.copied") : t("settings.leadForm.copyLink")}
+                  </button>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleToggleLeadForm}
+                    disabled={isLeadFormBusy}
+                    className="px-3 py-2 rounded-lg text-label-sm font-bold border border-outline-variant/40 text-on-surface-variant disabled:opacity-60"
+                  >
+                    {leadForm.is_active ? t("settings.leadForm.deactivate") : t("settings.leadForm.activate")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRotateLeadFormToken}
+                    disabled={isLeadFormBusy}
+                    className="px-3 py-2 rounded-lg text-label-sm font-bold border border-outline-variant/40 text-on-surface-variant disabled:opacity-60"
+                  >
+                    {t("settings.leadForm.rotateButton")}
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </section>

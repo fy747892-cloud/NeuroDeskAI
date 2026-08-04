@@ -99,6 +99,23 @@ class ContactRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_by_email(
+        self,
+        *,
+        tenant_id: uuid.UUID,
+        organization_id: uuid.UUID,
+        email: str,
+    ) -> Contact | None:
+        result = await self._db.execute(
+            select(Contact).where(
+                Contact.tenant_id == tenant_id,
+                Contact.organization_id == organization_id,
+                func.lower(Contact.email) == email.lower(),
+                Contact.is_deleted.is_(False),
+            )
+        )
+        return result.scalars().first()
+
     async def update(
         self,
         *,

@@ -18,6 +18,7 @@ from app.api.v1.deals import router as deals_router
 from app.api.v1.email import router as email_router
 from app.api.v1.feedback import router as feedback_router
 from app.api.v1.files import router as files_router
+from app.api.v1.lead_forms import router as lead_forms_router
 from app.api.v1.notifications import router as notifications_router
 from app.api.v1.organizations import router as organizations_router
 from app.api.v1.priority import router as priority_router
@@ -55,3 +56,4 @@ api_router.include_router(client_errors_router)
 api_router.include_router(feedback_router)
 api_router.include_router(whatsapp_router)
 api_router.include_router(custom_fields_router)
+api_router.include_router(lead_forms_router)
