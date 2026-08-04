@@ -70,9 +70,12 @@ async def test_ai_provider_maps_successful_response():
             )
 
     mocked.assert_called_once()
+    # Item titles are run through _to_turkish_display_text() so English LLM
+    # output still reads naturally in this Turkish-first UI — "proposal" and
+    # "call" are known terms in its EN->TR word-substitution table.
     assert output.summary["summary_text"] == "Discussed pricing"
-    assert output.tasks["items"][0]["title"] == "Send proposal"
-    assert output.appointments["items"][0]["title"] == "Follow-up call"
+    assert output.tasks["items"][0]["title"] == "Send teklif"
+    assert output.appointments["items"][0]["title"] == "Follow-up çağrı"
     assert output.input_tokens == 42
     assert output.output_tokens == 7
 

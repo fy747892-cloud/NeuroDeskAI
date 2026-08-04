@@ -5,7 +5,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.analytics.repository import AICostLogRepository
-from app.modules.billing.service import BillingService
+from app.modules.billing.service import AI_CHAT_REQUESTS_QUOTA_TYPE, BillingService
 from app.modules.voice.provider import VoiceProvider, get_voice_provider
 from app.modules.voice.schemas import VoiceActionOut, VoiceCommandOut, VoiceTranscriptOut
 
@@ -43,7 +43,9 @@ class VoiceAssistantService:
         audio_base64: str | None,
         locale: str,
     ) -> VoiceCommandOut:
-        await self._billing.enforce_ai_usage_guard(tenant_id=tenant_id)
+        await self._billing.enforce_ai_usage_guard(
+            tenant_id=tenant_id, quota_type=AI_CHAT_REQUESTS_QUOTA_TYPE
+        )
 
         transcript = await self._provider.transcribe(
             text=text,
@@ -81,7 +83,9 @@ class VoiceAssistantService:
             output_tokens=0,
             latency_ms=0,
         )
-        await self._billing.record_ai_usage(tenant_id=tenant_id, user_id=user_id)
+        await self._billing.record_ai_usage(
+            tenant_id=tenant_id, user_id=user_id, usage_type=AI_CHAT_REQUESTS_QUOTA_TYPE
+        )
 
         return VoiceCommandOut(
             transcript=VoiceTranscriptOut(

@@ -127,7 +127,9 @@ async def test_metric_accuracy_across_tasks_calls_appointments_ai(client: AsyncC
 
     ai_metrics = await client.get("/api/v1/analytics/ai", headers=headers)
     today_ai_metric = ai_metrics.json()[-1]
-    assert today_ai_metric["request_count"] == 2
+    # 1 conversation analysis + 2 for the chat message (intent-detection pass,
+    # then answer generation — see AiChatService.send_message) = 3 requests.
+    assert today_ai_metric["request_count"] == 3
     assert today_ai_metric["cost_amount"] > 0
     assert today_ai_metric["avg_latency_ms"] >= 0
 
@@ -143,7 +145,9 @@ async def test_ai_cost_logging_reflected_in_overview(client: AsyncClient):
     overview = await client.get("/api/v1/analytics/overview", headers=headers)
     assert overview.status_code == 200
     body = overview.json()
-    assert body["ai_requests"] == 2
+    # 1 conversation analysis + 2 for the chat message (intent-detection pass,
+    # then answer generation — see AiChatService.send_message) = 3 requests.
+    assert body["ai_requests"] == 3
     assert body["ai_cost_amount"] > 0
 
 

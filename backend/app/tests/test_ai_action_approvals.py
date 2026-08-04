@@ -74,12 +74,17 @@ async def test_ai_action_approval_can_be_approved_with_edited_payload(client: As
     assert body["decided_by"] is not None
     assert body["decided_at"] is not None
 
+    # Re-approving an already-approved approval is idempotent (guards against
+    # double-click/retry duplicating the materialized task) — it returns the
+    # existing decision unchanged rather than erroring or re-applying the
+    # (here, empty) payload from the second call.
     second_approve = await client.post(
         f"/api/v1/ai/approvals/{task_approval['id']}/approve",
         headers=headers,
         json={},
     )
-    assert second_approve.status_code == 422
+    assert second_approve.status_code == 200
+    assert second_approve.json()["approved_payload"] == edited_payload
 
 
 async def test_ai_action_approval_can_be_rejected_without_applying_action(client: AsyncClient):

@@ -6,6 +6,15 @@ import os
 os.environ["LLM_PROVIDER"] = "mock"
 os.environ["EMAIL_PROVIDER"] = "mock"
 os.environ["DIARIZATION_PROVIDER"] = "disabled"
+# Same reasoning for Google/Microsoft OAuth: get_calendar_oauth_provider() and the
+# email module's provider factory switch to the REAL provider whenever these look
+# configured, so a developer's local .env (e.g. real Gmail-send testing credentials)
+# would otherwise make OAuth callback tests hit live Google/Microsoft endpoints with
+# fake "mock-code" values and fail with 502s.
+os.environ["GOOGLE_CLIENT_ID"] = "not-configured"
+os.environ["GOOGLE_CLIENT_SECRET"] = "not-configured"
+os.environ["MICROSOFT_CLIENT_ID"] = "not-configured"
+os.environ["MICROSOFT_CLIENT_SECRET"] = "not-configured"
 
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
